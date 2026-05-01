@@ -555,8 +555,8 @@ describe("computeStats", () => {
     expect(r.min).toBe(1);
     expect(r.max).toBe(10);
     expect(r.p95).toBeCloseTo(9.55);
-    expect(r.stddev).toBeCloseTo(2.872, 2);
-    expect(r.cv).toBeCloseTo(2.872 / 5.5, 2);
+    expect(r.stddev).toBeCloseTo(3.028, 2);
+    expect(r.cv).toBeCloseTo(3.028 / 5.5, 2);
   });
 
   it("throws on empty input", () => {
