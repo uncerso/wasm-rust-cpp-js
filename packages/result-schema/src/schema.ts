@@ -26,7 +26,7 @@ export const EnvSchema = z.object({
 export const MachineSchema = z.object({
   os: z.string(),
   cpu: z.string(),
-  memoryGb: z.number().nonnegative(),
+  memoryGb: z.number().positive(),
 });
 
 export const BenchmarkMetaSchema = z.object({
@@ -47,7 +47,7 @@ export const ArtifactsSchema = z.object({
   jsGlueRawBytes: z.number().int().nonnegative(),
   jsGlueGzipBytes: z.number().int().nonnegative(),
   totalTransferGzipBytes: z.number().int().nonnegative(),
-  artifactHash: z.string(),
+  artifactHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
 });
 
 export const TimingsSchema = z.object({
@@ -108,3 +108,12 @@ export type Language = z.infer<typeof LanguageSchema>;
 export type Toolchain = z.infer<typeof ToolchainSchema>;
 export type Profile = z.infer<typeof ProfileSchema>;
 export type InputSize = z.infer<typeof InputSizeSchema>;
+export type Env = z.infer<typeof EnvSchema>;
+export type Machine = z.infer<typeof MachineSchema>;
+export type BenchmarkMeta = z.infer<typeof BenchmarkMetaSchema>;
+export type Artifacts = z.infer<typeof ArtifactsSchema>;
+export type Timings = z.infer<typeof TimingsSchema>;
+export type Memory = z.infer<typeof MemorySchema>;
+export type Stats = z.infer<typeof StatsSchema>;
+export type Quality = z.infer<typeof QualitySchema>;
+export type Notes = z.infer<typeof NotesSchema>;

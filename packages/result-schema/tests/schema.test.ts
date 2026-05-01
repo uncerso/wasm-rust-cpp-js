@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BenchResultSchema, SCHEMA_VERSION } from "../src/index.js";
+import { BenchResultSchema, EnvSchema, SCHEMA_VERSION } from "../src/index.js";
 
 describe("BenchResultSchema", () => {
   it("accepts a fully-populated valid result", () => {
@@ -25,7 +25,7 @@ describe("BenchResultSchema", () => {
         jsGlueRawBytes: 0,
         jsGlueGzipBytes: 0,
         totalTransferGzipBytes: 4567,
-        artifactHash: "sha256:0000",
+        artifactHash: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
       },
       timingsMs: {
         fetch: 1.2, compile: 3.4, instantiate: 0.5, initTotal: 5.1,
@@ -44,6 +44,8 @@ describe("BenchResultSchema", () => {
   });
 
   it("rejects unknown env.kind", () => {
-    expect(() => BenchResultSchema.parse({ env: { kind: "other" } })).toThrow();
+    expect(() => EnvSchema.parse({
+      kind: "other", name: "X", version: "1", engine: "V8",
+    })).toThrow();
   });
 });
