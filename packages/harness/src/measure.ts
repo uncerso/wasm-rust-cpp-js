@@ -1,4 +1,5 @@
 import { computeStats } from "./stats.js";
+import { eqChecksum } from "./validation.js";
 import type { MeasureInput, MeasureOutput } from "./types.js";
 
 export async function runMeasure(input: MeasureInput): Promise<MeasureOutput> {
@@ -10,7 +11,7 @@ export async function runMeasure(input: MeasureInput): Promise<MeasureOutput> {
   const firstResult = module.run(1);
   const firstCallMs = performance.now() - firstCallStart;
 
-  if (firstResult.checksum !== expectedChecksum) {
+  if (!eqChecksum(firstResult.checksum, expectedChecksum)) {
     return {
       firstCallMs,
       warmSamplesMs: [],
@@ -34,7 +35,7 @@ export async function runMeasure(input: MeasureInput): Promise<MeasureOutput> {
     samples.push(t1 - t0);
     lastChecksum = r.checksum;
 
-    if (r.checksum !== expectedChecksum) {
+    if (!eqChecksum(r.checksum, expectedChecksum)) {
       return {
         firstCallMs,
         warmSamplesMs: samples,
