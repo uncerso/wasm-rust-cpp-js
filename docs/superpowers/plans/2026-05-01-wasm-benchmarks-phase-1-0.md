@@ -2299,19 +2299,23 @@ emcc \
   -s MODULARIZE=1 -s EXPORT_ES6=1 \
   -s ENVIRONMENT=web,worker,node \
   -s ALLOW_MEMORY_GROWTH=1 \
-  -s INITIAL_MEMORY=33554432 \
+  -s INITIAL_MEMORY=67108864 \
   -s "EXPORTED_FUNCTIONS=$EXPORTS" \
   -s "EXPORTED_RUNTIME_METHODS=$RT_METHODS" \
   -o "$OUT_DIR/glue.mjs"
 
-# emcc emits glue.mjs and glue.wasm side-by-side; rename for our convention.
-mv "$OUT_DIR/glue.wasm" "$OUT_DIR/module.wasm" 2>/dev/null || true
+# Emscripten glue.mjs hardcodes the wasm filename (`glue.wasm`) at link time
+# and resolves it relative to `import.meta.url`. We keep both files side-by-side
+# under their generated names; downstream loaders/runners point glueUrl at
+# `glue.mjs` and emscripten finds `glue.wasm` itself.
 
 # Apply wasm-opt -Oz on size profile (in addition to closure).
 if [[ "$PROFILE" == "size" ]]; then
-  wasm-opt -Oz "$OUT_DIR/module.wasm" -o "$OUT_DIR/module.wasm"
+  wasm-opt -Oz "$OUT_DIR/glue.wasm" -o "$OUT_DIR/glue.wasm" || true
 fi
 ```
+
+**Note:** The 32 MB static heap in `matmul.cpp` plus emscripten runtime data exceeds the default `INITIAL_MEMORY=32MB`, so we raise it to 64 MB. Static heap could be sized more tightly in a future revision.
 
 - [ ] **Step 4: Make executable and verify build (manual smoke)**
 
