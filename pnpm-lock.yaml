@@ -30,6 +30,18 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
 
+  benches/matmul/js/idiomatic:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
+  benches/matmul/js/typed-array:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   packages/harness:
     dependencies:
       '@bench/result-schema':
