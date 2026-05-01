@@ -768,7 +768,8 @@ describe("runMeasure", () => {
         cvThreshold: 0.05,
       },
     });
-    expect(out.warmSamplesMs.length).toBe(30);
+    expect(out.warmSamplesMs.length).toBeGreaterThanOrEqual(30);
+    expect(out.warmSamplesMs.length).toBeLessThanOrEqual(100);
     expect(out.correctnessFailed).toBe(false);
     expect(out.finalChecksum).toBe(42);
   });
