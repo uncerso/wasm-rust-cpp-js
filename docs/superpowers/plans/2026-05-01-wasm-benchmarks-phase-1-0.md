@@ -1959,6 +1959,7 @@ opt-level = "z"
 #![no_std]
 
 use core::panic::PanicInfo;
+use core::ptr::addr_of;
 
 #[panic_handler]
 fn on_panic(_: &PanicInfo) -> ! { loop {} }
@@ -1978,8 +1979,21 @@ pub extern "C" fn alloc(sz: u32) -> u32 {
         let p = NEXT;
         NEXT = (NEXT + sz as usize + 7) & !7; // align 8
         if NEXT > HEAP_SIZE { return u32::MAX; }
-        (HEAP.as_ptr() as usize + p) as u32
+        // addr_of! avoids the static_mut_refs warning that becomes an error
+        // under Rust 2024 edition.
+        (addr_of!(HEAP) as usize + p) as u32
     }
+}
+
+/// Integer square root via bisection — used because no_std f64 lacks .sqrt().
+fn isqrt_usize(n: usize) -> usize {
+    let mut lo = 0usize;
+    let mut hi = n.saturating_add(1);
+    while lo + 1 < hi {
+        let mid = lo + (hi - lo) / 2;
+        if mid.saturating_mul(mid) <= n { lo = mid; } else { hi = mid; }
+    }
+    lo
 }
 
 #[no_mangle]
@@ -1987,7 +2001,7 @@ pub extern "C" fn load_input(ptr: u32, len: u32) {
     unsafe {
         let total_f64 = (len as usize) / 8;
         let half = total_f64 / 2;
-        let n = (half as f64).sqrt() as usize;
+        let n = isqrt_usize(half);
         debug_assert!(n * n == half);
         N = n;
         A_PTR = ptr as usize;
