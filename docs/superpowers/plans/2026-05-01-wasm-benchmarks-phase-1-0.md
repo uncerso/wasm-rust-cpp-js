@@ -12,7 +12,7 @@
 - Скрипты: tsx 4, execa 9
 - Web-runner: Vite 6, Playwright 1.5+ (Chromium + Firefox)
 - Schemas: zod 3
-- Wasm-сборка: Rust 1.85 (`wasm32-unknown-unknown`, `wasm-pack 0.13`), Emscripten 4.0+, wasi-sdk 25, binaryen `wasm-opt`
+- Wasm-сборка: Rust stable (`wasm32-unknown-unknown`, `wasm-pack 0.13`), Emscripten 4.0+, wasi-sdk 25, binaryen `wasm-opt`
 
 **Источник правды по дизайну:** `docs/superpowers/specs/2026-05-01-wasm-benchmarks-design.md` (commit `270b5f8`).
 
@@ -262,7 +262,7 @@ benches/matmul/fixtures/*.bin           # генерируются скрипт�
 
 ```toml
 [toolchain]
-channel = "1.85.0"
+channel = "stable"
 targets = ["wasm32-unknown-unknown"]
 profile = "minimal"
 components = ["rustfmt", "clippy"]
@@ -273,7 +273,7 @@ components = ["rustfmt", "clippy"]
 ```json
 {
   "comment": "Внешние тулы, не управляемые pnpm. При расхождении версий результаты невоспроизводимы.",
-  "rustc": "1.85.0",
+  "rustc": "stable",
   "wasm-pack": "0.13.1",
   "wasi-sdk": "25",
   "emscripten": "4.0.0",
