@@ -384,7 +384,7 @@ describe("BenchResultSchema", () => {
 ```json
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "./src", "noEmit": true },
+  "compilerOptions": { "noEmit": true },
   "include": ["src/**/*", "tests/**/*"]
 }
 ```
@@ -596,7 +596,7 @@ describe("computeStats", () => {
 ```json
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "./src", "noEmit": true },
+  "compilerOptions": { "noEmit": true },
   "include": ["src/**/*", "tests/**/*"]
 }
 ```
@@ -997,7 +997,7 @@ git commit -m "feat(harness): add checksum validation with float tolerance"
 ```json
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "./src", "noEmit": true },
+  "compilerOptions": { "noEmit": true },
   "include": ["src/**/*", "tests/**/*"]
 }
 ```
