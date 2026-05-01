@@ -1,5 +1,7 @@
 #include "matmul.h"
-#include <math.h>
+
+// We avoid <math.h> so the same source compiles freestanding under wasi-sdk
+// (no libc headers). __builtin_* are recognised by clang in both modes.
 
 static const uint32_t HEAP_SIZE = 32u * 1024u * 1024u;
 static uint8_t heap[HEAP_SIZE];
@@ -20,7 +22,7 @@ extern "C" uint32_t alloc(uint32_t sz) {
 extern "C" void load_input(uint32_t ptr, uint32_t len) {
     uint32_t total_f64 = len / 8u;
     uint32_t half = total_f64 / 2u;
-    uint32_t n = (uint32_t)sqrt((double)half);
+    uint32_t n = (uint32_t)__builtin_sqrt((double)half);
     N = n;
     A_OFF = ptr;
     B_OFF = ptr + n * n * 8u;
@@ -42,7 +44,7 @@ extern "C" double run(uint32_t iters) {
             }
         }
         double s = 0.0;
-        for (uint32_t i = 0; i < n*n; i++) s += fabs(C[i]);
+        for (uint32_t i = 0; i < n*n; i++) s += __builtin_fabs(C[i]);
         last = s;
     }
     return last;
