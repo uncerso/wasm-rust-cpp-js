@@ -1,0 +1,38 @@
+{
+  "id": "matmul",
+  "version": 1,
+  "description": "Naive O(n^3) dense matrix multiplication on f64. Both inputs and output live in pre-allocated wasm linear memory; modules read A, B from offsets and write C. No allocations on the hot path.",
+  "inputSizes": {
+    "S": {
+      "n": 64,
+      "fixtureBytes": 65536,
+      "fixtureSha256": "a2c4b66989d6b157b19a6fb23ab883afba487c45880e4c1b149aab9ee9c2803e",
+      "expectedChecksum": 8505.752465030815
+    },
+    "M": {
+      "n": 256,
+      "fixtureBytes": 1048576,
+      "fixtureSha256": "9808581790a2389ab4263529ac50bbce6c1fc611b26ba11daf61a6a4d1471b94",
+      "expectedChecksum": 275996.81878375803
+    },
+    "L": {
+      "n": 1024,
+      "fixtureBytes": 16777216,
+      "fixtureSha256": "0a4225e5c197d063691e184f9888feaf4b2f88b00b6bab237436ffdacc3e77e5",
+      "expectedChecksum": 8921353.464110956
+    }
+  },
+  "supported": {
+    "languages": ["js", "rust", "cpp"],
+    "toolchains": {
+      "js": ["idiomatic", "typed-array"],
+      "rust": ["raw", "bindgen"],
+      "cpp": ["emscripten", "wasi-sdk"]
+    },
+    "profiles": ["speed", "size"]
+  },
+  "ioContract": {
+    "fixtureLayout": "Two square f64 matrices A and B, row-major, concatenated. Total bytes = 2 * n * n * 8.",
+    "outputLayout": "One square f64 matrix C, row-major. Bytes = n * n * 8."
+  }
+}
