@@ -12,7 +12,7 @@
 - Скрипты: tsx 4, execa 9
 - Web-runner: Vite 6, Playwright 1.5+ (Chromium + Firefox)
 - Schemas: zod 3
-- Wasm-сборка: Rust stable (`wasm32-unknown-unknown`, `wasm-pack 0.13`), Emscripten 4.0+, wasi-sdk 25, binaryen `wasm-opt`
+- Wasm-сборка: Rust 1.95 (`wasm32-unknown-unknown`, `wasm-pack 0.13`), Emscripten 5.0+, wasi-sdk 25, binaryen `wasm-opt`
 
 **Источник правды по дизайну:** `docs/superpowers/specs/2026-05-01-wasm-benchmarks-design.md` (commit `270b5f8`).
 
@@ -262,7 +262,7 @@ benches/matmul/fixtures/*.bin           # генерируются скрипт�
 
 ```toml
 [toolchain]
-channel = "stable"
+channel = "1.95.0"
 targets = ["wasm32-unknown-unknown"]
 profile = "minimal"
 components = ["rustfmt", "clippy"]
