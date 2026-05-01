@@ -13,7 +13,9 @@ interface BindgenGlue {
   load_input: (buf: Uint8Array) => void;
   run: (iters: number) => number;
   output_view: () => Uint8Array;
-  memory: () => WebAssembly.Memory;
+  // wasm-bindgen auto-exports WebAssembly.Memory under the name `memory`; using
+  // a Rust fn `memory()` would collide with it. We expose it as `wasm_memory()`.
+  wasm_memory: () => WebAssembly.Memory;
   reset: () => void;
   __wasm_byte_length?: () => number;
 }
@@ -32,7 +34,7 @@ export const rustBindgenLoader: Loader = {
     tr.recordCompile(0);
     tr.recordInstantiate(initTimed.ms);
 
-    const memory = glue.memory();
+    const memory = glue.wasm_memory();
 
     const module: BenchModule = {
       loadInput: (buf: Uint8Array) => glue.load_input(buf),
