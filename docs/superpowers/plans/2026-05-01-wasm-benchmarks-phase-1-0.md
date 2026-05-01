@@ -1374,7 +1374,9 @@ interface BindgenGlue {
   load_input: (buf: Uint8Array) => void;
   run: (iters: number) => number;
   output_view: () => Uint8Array;
-  memory: () => WebAssembly.Memory;
+  // wasm-bindgen auto-exports WebAssembly.Memory under name `memory`; using
+  // a Rust fn `memory()` collides with it. Rust side exposes `wasm_memory()`.
+  wasm_memory: () => WebAssembly.Memory;
   reset: () => void;
   __wasm_byte_length?: () => number;
 }
@@ -1393,7 +1395,7 @@ export const rustBindgenLoader: Loader = {
     tr.recordCompile(0);
     tr.recordInstantiate(initTimed.ms);
 
-    const memory = glue.memory();
+    const memory = glue.wasm_memory();
 
     const module: BenchModule = {
       loadInput: (buf) => glue.load_input(buf),
@@ -2093,6 +2095,14 @@ strip = true
 [profile.release-size]
 inherits = "release"
 opt-level = "z"
+
+# wasm-pack invokes wasm-opt by default; with rustc 1.95+ it can emit features
+# wasm-opt 129 rejects. Disable here — build script runs wasm-opt explicitly.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.wasm-pack.profile.release-size]
+wasm-opt = false
 ```
 
 - [ ] **Step 2: Create `benches/matmul/rust/bindgen/src/lib.rs`**
@@ -2158,8 +2168,10 @@ pub fn reset() {
     unsafe { for x in C.iter_mut() { *x = 0.0; } }
 }
 
+// wasm-bindgen auto-exports `memory`; expose under a different name to avoid
+// duplicate-export error during wasm-bindgen post-processing.
 #[wasm_bindgen]
-pub fn memory() -> JsValue { wasm_bindgen::memory() }
+pub fn wasm_memory() -> JsValue { wasm_bindgen::memory() }
 ```
 
 - [ ] **Step 3: Verify it builds via wasm-pack**
