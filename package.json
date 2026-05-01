@@ -1,0 +1,29 @@
+{
+  "name": "wasm-rust-cpp-js",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": { "node": ">=22.0.0", "pnpm": ">=9.0.0" },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --parallel test",
+    "build:js": "tsx scripts/build-js.ts",
+    "build:rust": "tsx scripts/build-rust.ts",
+    "build:cpp": "tsx scripts/build-cpp.ts",
+    "build:all": "tsx scripts/build-all.ts",
+    "collect-sizes": "tsx scripts/collect-sizes.ts",
+    "generate-fixtures": "tsx scripts/generate-fixtures.ts",
+    "smoke": "tsx scripts/smoke.ts",
+    "bench": "tsx scripts/run-matrix.ts",
+    "bench:all": "pnpm build:all && pnpm bench --mode=eval && pnpm report"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3",
+    "execa": "^9.5.0",
+    "vitest": "^3.0.0",
+    "zod": "^3.23.8"
+  }
+}

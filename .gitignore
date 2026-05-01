@@ -1,0 +1,8 @@
+node_modules/
+dist/
+results/
+target/
+.cache/
+*.tsbuildinfo
+.DS_Store
+benches/matmul/fixtures/*.bin
