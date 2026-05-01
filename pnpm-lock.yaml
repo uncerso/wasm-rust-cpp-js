@@ -23,6 +23,9 @@ importers:
       vitest:
         specifier: ^3.0.0
         version: 3.2.4(@types/node@22.19.17)(tsx@4.21.0)
+      wabt:
+        specifier: ^1.0.39
+        version: 1.0.39
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -32,6 +35,19 @@ importers:
       '@bench/result-schema':
         specifier: workspace:*
         version: link:../result-schema
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@22.19.17)(tsx@4.21.0)
+
+  packages/loaders:
+    dependencies:
+      '@bench/harness':
+        specifier: workspace:*
+        version: link:../harness
     devDependencies:
       typescript:
         specifier: ^5.6.3
@@ -690,6 +706,10 @@ packages:
       jsdom:
         optional: true
 
+  wabt@1.0.39:
+    resolution: {integrity: sha512-ba+dRL/75VQQY7RkU/CgriGbkoWAfS8TDyUlJfJhJ8KhtXgMl5dhNvoPNUcQ9IWRhW8u41glMSuZeTvsYq2rRg==}
+    hasBin: true
+
   which@2.0.2:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
     engines: {node: '>= 8'}
@@ -1229,6 +1249,8 @@ snapshots:
       - terser
       - tsx
       - yaml
+
+  wabt@1.0.39: {}
 
   which@2.0.2:
     dependencies:
