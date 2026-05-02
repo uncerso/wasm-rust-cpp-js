@@ -1,6 +1,7 @@
 import type { BenchModule, RunResult } from "@bench/harness";
 import type { Loader, LoaderInput, LoadedModule } from "./types.js";
 import { TimingRecorder, timed } from "./timings.js";
+import { fetchBytes } from "./fetch-bytes.js";
 
 /**
  * wasm-bindgen glue exports: an `init(url)` async function plus named exports
@@ -9,7 +10,7 @@ import { TimingRecorder, timed } from "./timings.js";
  * output_view()->Uint8Array, memory()->WebAssembly.Memory, reset().
  */
 interface BindgenGlue {
-  default: (input?: { module_or_path?: string }) => Promise<unknown>;
+  default: (input?: { module_or_path?: string | BufferSource | WebAssembly.Module }) => Promise<unknown>;
   load_input: (buf: Uint8Array) => void;
   run: (iters: number) => number;
   output_view: () => Uint8Array;
@@ -27,10 +28,17 @@ export const rustBindgenLoader: Loader = {
     const tr = new TimingRecorder();
 
     const importTimed = await timed(() => import(glueUrl));
-    tr.recordFetch(importTimed.ms);
-
     const glue = importTimed.value as BindgenGlue;
-    const initTimed = await timed(() => glue.default({ module_or_path: input.artifactUrl }));
+
+    // wasm-bindgen --target=web glue calls fetch(url) when given a URL string.
+    // Node's undici fetch doesn't support file://, so we pre-read bytes
+    // ourselves and hand them to init(). wasm-bindgen accepts BufferSource.
+    const fetched = await timed(() => fetchBytes(input.artifactUrl));
+    tr.recordFetch(importTimed.ms + fetched.ms);
+
+    const initTimed = await timed(() =>
+      glue.default({ module_or_path: fetched.value }),
+    );
     tr.recordCompile(0);
     tr.recordInstantiate(initTimed.ms);
 

@@ -1,7 +1,7 @@
-import { readFile } from "node:fs/promises";
 import type { BenchModule, RunResult } from "@bench/harness";
 import type { Loader, LoaderInput, LoadedModule } from "./types.js";
 import { TimingRecorder, timed } from "./timings.js";
+import { fetchBytes } from "./fetch-bytes.js";
 
 interface RawExports {
   memory: WebAssembly.Memory;
@@ -11,21 +11,6 @@ interface RawExports {
   output_ptr(): number;
   output_len(): number;
   reset?(): void;
-}
-
-async function fetchBytes(url: string): Promise<Uint8Array<ArrayBuffer>> {
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`raw-wasm: fetch ${url} -> ${res.status}`);
-    return new Uint8Array(await res.arrayBuffer());
-  }
-  const path = url.startsWith("file://") ? new URL(url).pathname : url;
-  const buf = await readFile(path);
-  // Copy into a fresh ArrayBuffer so the result is Uint8Array<ArrayBuffer>,
-  // not Uint8Array<ArrayBufferLike> (which can be SharedArrayBuffer).
-  const out = new Uint8Array(new ArrayBuffer(buf.byteLength));
-  out.set(buf);
-  return out;
 }
 
 export const rawWasmLoader: Loader = {
