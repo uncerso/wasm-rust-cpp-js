@@ -22,6 +22,7 @@
     "bench:all": "pnpm build:all && pnpm bench --mode=eval && pnpm report"
   },
   "devDependencies": {
+    "@bench/result-schema": "workspace:*",
     "@types/node": "^22.0.0",
     "execa": "^9.5.0",
     "tsx": "^4.19.0",
