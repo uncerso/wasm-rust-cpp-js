@@ -54,7 +54,7 @@ interface SpecSizeEntry {
 }
 
 interface SpecFile {
-  inputSizes: Record<string, SpecSizeEntry>;
+  inputSizes: Record<InputSize, SpecSizeEntry>;
 }
 
 async function main() {
@@ -87,41 +87,41 @@ async function main() {
   const caseParam = btoa(JSON.stringify(workerInput));
   const url = `${baseUrl}/?case=${encodeURIComponent(caseParam)}`;
 
-  let browser: Browser;
-  if (a.browser === "firefox") {
-    browser = await firefox.launch({ headless: true });
-  } else {
-    browser = await chromium.launch({ headless: true });
-  }
-
-  const page = await browser.newPage();
-
-  // Capture console output from the page for debugging
-  page.on("console", (msg) => console.log(`[browser ${msg.type()}] ${msg.text()}`));
-  page.on("pageerror", (err) => console.error("[browser error]", err));
-
-  console.log(`navigating to ${url}`);
-  await page.goto(url);
-
-  // Wait up to 5 minutes for the result
-  const timeoutMs = 5 * 60 * 1000;
+  let browser: Browser | undefined;
+  let raw: unknown;
   try {
-    // NOTE I: pass function to waitForFunction, not a string
-    await page.waitForFunction(
-      () => (window as unknown as { __BENCH_RESULT?: unknown }).__BENCH_RESULT !== undefined,
-      { timeout: timeoutMs }
+    browser = a.browser === "firefox"
+      ? await firefox.launch({ headless: true })
+      : await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+
+    // Capture console output from the page for debugging
+    page.on("console", (msg) => console.log(`[browser ${msg.type()}] ${msg.text()}`));
+    page.on("pageerror", (err) => console.error("[browser error]", err));
+
+    console.log(`navigating to ${url}`);
+    await page.goto(url);
+
+    // Wait up to 5 minutes for the result
+    const timeoutMs = 5 * 60 * 1000;
+    try {
+      // NOTE I: pass function to waitForFunction, not a string
+      await page.waitForFunction(
+        () => (window as unknown as { __BENCH_RESULT?: unknown }).__BENCH_RESULT !== undefined,
+        { timeout: timeoutMs }
+      );
+    } catch {
+      const status = await page.textContent("#status");
+      throw new Error(`timed out waiting for result. Page status: ${status ?? "(none)"}`);
+    }
+
+    // NOTE I: pass function to evaluate
+    raw = await page.evaluate(
+      () => (window as unknown as { __BENCH_RESULT?: unknown }).__BENCH_RESULT
     );
-  } catch {
-    const status = await page.textContent("#status");
-    throw new Error(`timed out waiting for result. Page status: ${status ?? "(none)"}`);
+  } finally {
+    await browser?.close();
   }
-
-  // NOTE I: pass function to evaluate
-  const raw = await page.evaluate(
-    () => (window as unknown as { __BENCH_RESULT?: unknown }).__BENCH_RESULT
-  );
-
-  await browser.close();
 
   if (
     raw !== null &&
@@ -134,14 +134,15 @@ async function main() {
 
   const result = BenchResultSchema.parse(raw);
 
-  // NOTE K: process.env["MACHINE_CPU"] with ?? for undefined
+  // Patch machine info from host. The browser-reported machine.os
+  // (navigator.platform) is deprecated and unreliable (empty on FF 110+);
+  // use Node's process.platform/arch like runner-node does.
   const machineCpu = process.env["MACHINE_CPU"] ?? "unknown";
-  // Patch machine info from host
   const patched = {
     ...result,
     machine: {
-      os: result.machine.os,
-      cpu: machineCpu !== "unknown" ? machineCpu : result.machine.cpu,
+      os: `${process.platform} ${process.arch}`,
+      cpu: machineCpu,
       memoryGb: Math.max(1, Math.round(totalmem() / (1024 ** 3))),
     },
   };

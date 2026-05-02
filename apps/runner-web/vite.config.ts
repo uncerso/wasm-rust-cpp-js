@@ -21,7 +21,7 @@ export default defineConfig({
   // in the browser context — all artifact URLs are served over http(s).
   resolve: {
     alias: {
-      "node:fs/promises": resolve(__dirname, "src/node-fs-stub.js"),
+      "node:fs/promises": resolve(__dirname, "src/node-fs-stub.ts"),
     },
   },
 });

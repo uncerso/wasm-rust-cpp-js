@@ -66,7 +66,7 @@ function asSha256Prefixed(hash: string | undefined): string {
 self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
   const i = evt.data;
   try {
-    const distBase = `${i.baseUrl}/matmul/${i.language}-${i.toolchain}-${i.profile}`;
+    const distBase = `${i.baseUrl}/${i.benchmarkId}/${i.language}-${i.toolchain}-${i.profile}`;
 
     // Fetch meta.json
     const metaRes = await fetch(`${distBase}/meta.json`);
@@ -97,7 +97,7 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
     const loaded = await loader.load(loaderInput);
 
     // Fetch fixture
-    const fixtureUrl = `${i.baseUrl}/matmul/fixtures/${i.inputSize.toLowerCase()}.bin`;
+    const fixtureUrl = `${i.baseUrl}/${i.benchmarkId}/fixtures/${i.inputSize.toLowerCase()}.bin`;
     const fixtureRes = await fetch(fixtureUrl);
     if (!fixtureRes.ok) throw new Error(`fixture fetch failed: ${fixtureRes.status}`);
     const fixture = new Uint8Array(await fixtureRes.arrayBuffer());
