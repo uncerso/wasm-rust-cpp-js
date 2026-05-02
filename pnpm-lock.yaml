@@ -36,6 +36,25 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
 
+  apps/runner-node:
+    dependencies:
+      '@bench/harness':
+        specifier: workspace:*
+        version: link:../../packages/harness
+      '@bench/loaders':
+        specifier: workspace:*
+        version: link:../../packages/loaders
+      '@bench/result-schema':
+        specifier: workspace:*
+        version: link:../../packages/result-schema
+    devDependencies:
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   benches/matmul/js/idiomatic:
     devDependencies:
       typescript:

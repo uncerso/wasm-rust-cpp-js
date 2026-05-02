@@ -1,0 +1,16 @@
+{
+  "name": "@bench-app/runner-node",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@bench/harness": "workspace:*",
+    "@bench/loaders": "workspace:*",
+    "@bench/result-schema": "workspace:*"
+  },
+  "devDependencies": { "tsx": "^4.19.0", "typescript": "^5.6.3" }
+}
