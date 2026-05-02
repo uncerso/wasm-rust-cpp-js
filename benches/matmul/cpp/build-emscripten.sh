@@ -36,6 +36,11 @@ emcc \
 # `glue.mjs` and emscripten finds `glue.wasm` itself.
 
 # Apply wasm-opt -Oz on size profile (in addition to closure).
+# Emscripten emits i32.trunc_sat_f64_u + memory.fill in current toolchains, so
+# we have to opt those features into wasm-opt explicitly.
 if [[ "$PROFILE" == "size" ]]; then
-  wasm-opt -Oz "$OUT_DIR/glue.wasm" -o "$OUT_DIR/glue.wasm" || true
+  wasm-opt -Oz \
+    --enable-bulk-memory \
+    --enable-nontrapping-float-to-int \
+    "$OUT_DIR/glue.wasm" -o "$OUT_DIR/glue.wasm"
 fi

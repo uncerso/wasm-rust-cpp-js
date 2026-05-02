@@ -35,5 +35,5 @@ fi
   -o "$OUT_DIR/module.wasm"
 
 if [[ "$PROFILE" == "size" ]]; then
-  wasm-opt -Oz "$OUT_DIR/module.wasm" -o "$OUT_DIR/module.wasm" || true
+  wasm-opt -Oz "$OUT_DIR/module.wasm" -o "$OUT_DIR/module.wasm"
 fi
