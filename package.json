@@ -19,9 +19,11 @@
     "generate-fixtures": "tsx scripts/generate-fixtures.ts",
     "smoke": "tsx scripts/smoke.ts",
     "bench": "tsx scripts/run-matrix.ts",
+    "report": "tsx scripts/report.ts",
     "bench:all": "pnpm build:all && pnpm bench --mode=eval && pnpm report"
   },
   "devDependencies": {
+    "@bench/reporter": "workspace:^",
     "@bench/result-schema": "workspace:*",
     "@types/node": "^22.0.0",
     "esbuild": "^0.24.0",

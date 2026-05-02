@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@bench/reporter':
+        specifier: workspace:^
+        version: link:packages/reporter
       '@bench/result-schema':
         specifier: workspace:*
         version: link:packages/result-schema
