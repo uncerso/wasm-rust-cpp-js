@@ -17,3 +17,13 @@ strip = true
 [profile.release-size]
 inherits = "release"
 opt-level = "z"
+
+[lints.rust]
+warnings = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+unsafe_code = "warn"
+
+[lints.clippy]
+all = "deny"
+pedantic = "warn"
+nursery = "warn"
