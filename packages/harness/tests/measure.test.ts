@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { BenchModule } from "../src/types.js";
 import { runMeasure } from "../src/measure.js";
 
-function mockModule(opts: {
-    checksum: number;
-    perRunMs: number;
-    driftCv?: number;
-}): BenchModule {
+function mockModule(opts: { checksum: number }): BenchModule {
     return {
         loadInput: vi.fn(),
         // eslint-disable-next-line @typescript-eslint/no-unused-vars -- iters is part of BenchModule.run signature but unused in this stub
@@ -20,7 +16,7 @@ function mockModule(opts: {
 
 describe("runMeasure", () => {
     it("collects minSamples warm samples when noise is low", async () => {
-        const mod = mockModule({ checksum: 42, perRunMs: 1.0 });
+        const mod = mockModule({ checksum: 42 });
         const out = await runMeasure({
             module: mod,
             fixture: new Uint8Array([1]),
