@@ -16,13 +16,13 @@ extern "C" uint32_t alloc(uint32_t sz) {
     uint32_t p = next_off;
     next_off = (next_off + sz + 7u) & ~7u;
     if (next_off > HEAP_SIZE) return 0xFFFFFFFFu;
-    return (uint32_t)((uintptr_t)&heap[p]);
+    return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(&heap[p]));
 }
 
 extern "C" void load_input(uint32_t ptr, uint32_t len) {
     uint32_t total_f64 = len / 8u;
     uint32_t half = total_f64 / 2u;
-    uint32_t n = (uint32_t)__builtin_sqrt((double)half);
+    uint32_t n = static_cast<uint32_t>(__builtin_sqrt(static_cast<double>(half)));
     N = n;
     A_OFF = ptr;
     B_OFF = ptr + n * n * 8u;
@@ -31,9 +31,15 @@ extern "C" void load_input(uint32_t ptr, uint32_t len) {
 
 extern "C" double run(uint32_t iters) {
     const uint32_t n = N;
-    const double* A = (const double*)(uintptr_t)A_OFF;
-    const double* B = (const double*)(uintptr_t)B_OFF;
-    double* C = (double*)(uintptr_t)C_OFF;
+// alloc() aligns to 8 bytes ((next_off + sz + 7u) & ~7u), so these
+// wasm32 linear-memory offsets are always 8-byte aligned. The
+// reinterpret_cast from uintptr_t to double* is safe here.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-align"
+    const double* A = reinterpret_cast<const double*>(static_cast<uintptr_t>(A_OFF));
+    const double* B = reinterpret_cast<const double*>(static_cast<uintptr_t>(B_OFF));
+    double* C = reinterpret_cast<double*>(static_cast<uintptr_t>(C_OFF));
+#pragma clang diagnostic pop
     double last = 0.0;
     for (uint32_t it = 0; it < iters; it++) {
         for (uint32_t i = 0; i < n*n; i++) C[i] = 0.0;
