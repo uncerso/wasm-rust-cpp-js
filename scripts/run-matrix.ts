@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
 import { execa, type ResultPromise } from "execa";
 import { ALL_COMBINATIONS } from "./lib/matrix.js";
 import { run } from "./lib/exec.js";
@@ -61,7 +62,9 @@ async function main() {
   const needWebServer = args.envs.some((e) => e !== "node");
   let serverProc: ResultPromise | null = null;
   if (needWebServer) {
-    serverProc = execa("pnpm", ["--filter", "@bench-app/runner-web", "dev"], {
+    const viteBin = resolve("apps/runner-web/node_modules/.bin/vite");
+    serverProc = execa(viteBin, [], {
+      cwd: "apps/runner-web",
       stdio: "inherit",
       detached: true,
     });
