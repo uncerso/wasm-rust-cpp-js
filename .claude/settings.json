@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter @bench/harness test)",
+      "Bash(pnpm --filter @bench/harness typecheck)",
+      "Bash(pnpm --filter @bench/loaders typecheck)",
+      "Bash(pnpm --filter @bench/loaders test)",
+      "Bash(pnpm --filter @bench/reporter test)",
+      "Bash(pnpm -r typecheck)",
+      "Bash(pnpm build:js)",
+      "Bash(pnpm build:rust)",
+      "Bash(pnpm build:cpp)",
+      "Bash(pnpm build:all)",
+      "Bash(pnpm report *)",
+      "Bash(pnpm clear:all)",
+      "Bash(pnpm clear)",
+      "Bash(pnpm build *)",
+      "Bash(pnpm bench *)",
+      "Bash(pnpm smoke *)"
+    ]
+  }
+}
