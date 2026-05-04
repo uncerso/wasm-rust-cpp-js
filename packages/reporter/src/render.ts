@@ -40,8 +40,8 @@ function renderBenchmark(b: AggregatedBenchmark): string {
     <table>
       <thead><tr>
         <th>env</th><th>impl</th><th>size</th>
-        <th>wasm raw</th><th>wasm gz</th><th>total gz</th>
-        <th>init</th><th>first</th>
+        <th>wasm raw (B)</th><th>wasm gz (B)</th><th>total gz (B)</th>
+        <th>init (ms)</th><th>first (ms)</th>
         <th>warm med (ms)</th><th>warm p95 (ms)</th><th>cv</th><th>ok</th>
       </tr></thead>
       <tbody>${rows}</tbody>

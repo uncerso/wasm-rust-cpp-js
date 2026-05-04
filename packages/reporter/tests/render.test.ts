@@ -46,4 +46,17 @@ describe("renderHtml", () => {
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;script&gt;");
   });
+
+  it("includes units in size and timing column headers", () => {
+    const html = renderHtml(aggregate([fakeResult()]));
+    expect(html).toContain("<th>wasm raw (B)</th>");
+    expect(html).toContain("<th>wasm gz (B)</th>");
+    expect(html).toContain("<th>total gz (B)</th>");
+    expect(html).toContain("<th>init (ms)</th>");
+    expect(html).toContain("<th>first (ms)</th>");
+    expect(html).toContain("<th>warm med (ms)</th>");
+    expect(html).toContain("<th>warm p95 (ms)</th>");
+    expect(html).toContain("<th>cv</th>");
+    expect(html).toContain("<th>ok</th>");
+  });
 });
