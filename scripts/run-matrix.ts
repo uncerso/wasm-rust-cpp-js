@@ -63,7 +63,7 @@ async function main() {
   if (needWebServer) {
     serverProc = execa("pnpm", ["--filter", "@bench-app/runner-web", "dev"], {
       stdio: "inherit",
-      detached: false,
+      detached: true,
     });
     // Detach the unhandled rejection: when we SIGTERM the process the promise
     // rejects, but we want to swallow that and only surface real failures.
@@ -97,7 +97,19 @@ async function main() {
     ranOK = false;
     throw e;
   } finally {
-    if (serverProc) serverProc.kill("SIGTERM");
+    if (serverProc?.pid) {
+      try {
+        // negative PID = signal to entire process group
+        process.kill(-serverProc.pid, "SIGTERM");
+      } catch (e: unknown) {
+        // ESRCH означает группа уже завершилась — игнорируем
+        if ((e as NodeJS.ErrnoException).code !== "ESRCH") throw e;
+      }
+      // ждём пока процесс реально умрёт
+      try {
+        await serverProc;
+      } catch { /* expected on SIGTERM */ }
+    }
   }
 
   console.log(`results in ${args.out}${ranOK ? "" : " (partial — some cases failed)"}`);
