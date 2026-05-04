@@ -18,6 +18,8 @@
     "collect-sizes": "tsx scripts/collect-sizes.ts",
     "generate-fixtures": "tsx scripts/generate-fixtures.ts",
     "smoke": "tsx scripts/smoke.ts",
+    "clear": "tsx scripts/clear.ts",
+    "clear:all": "tsx scripts/clear.ts --all",
     "bench": "tsx scripts/run-matrix.ts",
     "report": "tsx scripts/report.ts",
     "bench:all": "pnpm build:all && pnpm bench --mode=eval && pnpm report"
