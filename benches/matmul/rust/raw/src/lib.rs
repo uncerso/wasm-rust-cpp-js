@@ -5,11 +5,13 @@
     static_mut_refs,
     reason = "static mut HEAP/NEXT/N/A_PTR/B_PTR/C_PTR removed in Wave 3 refactor"
 )]
-// This crate is a raw WASM cdylib that intentionally exports C-ABI symbols via
-// #[no_mangle] and uses unsafe blocks to manipulate statics.  The whole
-// infrastructure (static mut, manual allocator, raw ptr arithmetic) will be
-// replaced in Wave 3; until then we allow unsafe_code at the module level.
-#![allow(unsafe_code, reason = "raw WASM ABI cdylib — unsafe removed in Wave 3 refactor")]
+// This crate is a raw WASM cdylib: ABI-level unsafe (#[no_mangle], raw ptr
+// arithmetic, from_raw_parts) is inherent and remains after Wave 3.  The
+// static-mut shape and the bisection isqrt go away; the byte-level FFI does not.
+#![allow(
+    unsafe_code,
+    reason = "raw WASM cdylib: static-mut shape removed in Wave 3; ABI-level unsafe (no_mangle, raw ptrs) inherent and remains"
+)]
 
 use core::panic::PanicInfo;
 use core::ptr::addr_of;
@@ -39,23 +41,12 @@ pub extern "C" fn alloc(sz: u32) -> u32 {
     }
 }
 
-/// Integer square root via bisection — used because `no_std` f64 lacks `.sqrt()`.
-const fn isqrt_usize(n: usize) -> usize {
-    let mut lo = 0usize;
-    let mut hi = n.saturating_add(1);
-    while lo + 1 < hi {
-        let mid = lo + (hi - lo) / 2;
-        if mid.saturating_mul(mid) <= n { lo = mid; } else { hi = mid; }
-    }
-    lo
-}
-
 #[no_mangle]
 pub extern "C" fn load_input(ptr: u32, len: u32) {
     unsafe {
         let total_f64 = (len as usize) / 8;
         let half = total_f64 / 2;
-        let n = isqrt_usize(half);
+        let n = half.isqrt();
         debug_assert!(n * n == half);
         N = n;
         A_PTR = ptr as usize;

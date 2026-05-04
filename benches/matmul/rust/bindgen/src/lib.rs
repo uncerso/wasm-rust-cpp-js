@@ -4,9 +4,13 @@
     static_mut_refs,
     reason = "static mut N/A/B/C removed in Wave 3 refactor"
 )]
-// All unsafe blocks in this file access the module-level static muts that
-// Wave 3 will replace with safe alternatives.
-#![allow(unsafe_code, reason = "static mut access — removed in Wave 3 refactor")]
+// Wave 3 replaces the static-mut state shape with thread_local!+RefCell, but
+// the byte-to-f64 reinterpret in load_input/output_view stays — that unsafe
+// is inherent to the JS↔wasm marshalling, not to the state representation.
+#![allow(
+    unsafe_code,
+    reason = "static mut state replaced in Wave 3; byte-to-f64 reinterpret unsafe is inherent and remains"
+)]
 
 use wasm_bindgen::prelude::*;
 
@@ -19,22 +23,18 @@ static mut C: Vec<f64> = Vec::new();
 pub fn load_input(buf: &[u8]) {
     let total_f64 = buf.len() / 8;
     let half = total_f64 / 2;
-    // sqrt then truncate to usize is intentional: n is always an exact integer
-    // (the caller guarantees n*n == half).  The f64 precision loss and sign are
-    // both acceptable here.
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        clippy::cast_precision_loss,
-        reason = "isqrt via f64 sqrt: result is always a small exact integer; safe on wasm32"
-    )]
-    let n = (half as f64).sqrt() as usize;
+    let n = half.isqrt();
     debug_assert!(n * n == half);
-    // Reinterpret the caller-supplied byte buffer as f64 values.  The caller
-    // (JS harness) ensures 8-byte alignment; this is intentional.
+    // Reinterpret the caller-supplied byte buffer as f64 values.  Both V8 and
+    // SpiderMonkey allocate ArrayBuffer storage on at least 8-byte boundaries,
+    // and wasm-bindgen copies the Uint8Array into the wasm heap which is
+    // 8-byte-aligned for non-trivial allocations — so this is sound today, but
+    // misalignment would be UB.  debug_assert below catches any platform that
+    // breaks the assumption.
+    debug_assert_eq!(buf.as_ptr() as usize % 8, 0);
     #[allow(
         clippy::cast_ptr_alignment,
-        reason = "caller guarantees 8-byte-aligned buffer; intentional byte-to-f64 reinterpret"
+        reason = "wasm-bindgen-copied buffers are 8-aligned in practice (V8/SpiderMonkey/wasm allocator); debug_assert above catches platforms that break this"
     )]
     let f64s: &[f64] = unsafe {
         core::slice::from_raw_parts(buf.as_ptr().cast::<f64>(), total_f64)
