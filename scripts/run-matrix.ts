@@ -105,10 +105,10 @@ async function main() {
         // negative PID = signal to entire process group
         process.kill(-serverProc.pid, "SIGTERM");
       } catch (e: unknown) {
-        // ESRCH означает группа уже завершилась — игнорируем
+        // ESRCH means the group already exited — ignore.
         if ((e as NodeJS.ErrnoException).code !== "ESRCH") throw e;
       }
-      // ждём пока процесс реально умрёт
+      // Wait for the process to actually terminate.
       try {
         await serverProc;
       } catch { /* expected on SIGTERM */ }
