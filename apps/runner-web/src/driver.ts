@@ -99,6 +99,12 @@ async function main() {
             : await chromium.launch({ headless: true });
         const page = await browser.newPage();
 
+        if (process.env["BENCH_DEBUG_TIMINGS"] === "1") {
+            await page.context().addInitScript(() => {
+                (globalThis as { __BENCH_DEBUG_TIMINGS__?: boolean }).__BENCH_DEBUG_TIMINGS__ = true;
+            });
+        }
+
         // Capture console output from the page for debugging
         page.on("console", (msg) => console.log(`[browser ${msg.type()}] ${msg.text()}`));
         page.on("pageerror", (err) => console.error("[browser error]", err));

@@ -32,6 +32,11 @@ async function main() {
         return;
     }
 
+    // Wave 4: forward debug flag from main page (set by addInitScript) into the worker
+    if ((globalThis as { __BENCH_DEBUG_TIMINGS__?: boolean }).__BENCH_DEBUG_TIMINGS__) {
+        input.debugTimings = true;
+    }
+
     setStatus(`running ${input.language}/${input.toolchain}/${input.profile}/${input.inputSize}…`);
 
     const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });

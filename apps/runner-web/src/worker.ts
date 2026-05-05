@@ -46,6 +46,7 @@ export interface WorkerInput {
     expectedChecksum: number | string;
     measureConfig: MeasureConfig;
     baseUrl: string; // e.g. "http://localhost:5174"
+    debugTimings?: boolean; // Wave 4: propagate BENCH_DEBUG_TIMINGS into worker scope
 }
 
 function pickLoader(lang: Language, tc: Toolchain): Loader {
@@ -77,6 +78,10 @@ function asSha256Prefixed(hash: string | undefined): string {
 
 self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
     const i = evt.data;
+    // Wave 4: propagate debug flag into worker's globalThis so runMeasure can read it
+    if (i.debugTimings) {
+        (globalThis as { __BENCH_DEBUG_TIMINGS__?: boolean }).__BENCH_DEBUG_TIMINGS__ = true;
+    }
     try {
         const distBase = `${i.baseUrl}/${i.benchmarkId}/${i.language}-${i.toolchain}-${i.profile}`;
 
