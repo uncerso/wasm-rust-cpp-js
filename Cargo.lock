@@ -18,12 +18,16 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 name = "matmul-rust-bindgen"
 version = "0.0.0"
 dependencies = [
+ "matmul-shared",
  "wasm-bindgen",
 ]
 
 [[package]]
 name = "matmul-rust-raw"
 version = "0.0.0"
+dependencies = [
+ "matmul-shared",
+]
 
 [[package]]
 name = "matmul-shared"
