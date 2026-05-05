@@ -16,6 +16,7 @@
       "Bash(pnpm clear:all)",
       "Bash(pnpm clear)",
       "Bash(pnpm bench *)",
+      "Bash(pnpm bench:all)",
       "Bash(pnpm smoke)",
       "Bash(pnpm test)",
       "Bash(pnpm lint:ts)",
