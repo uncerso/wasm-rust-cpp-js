@@ -927,10 +927,12 @@ const ALWAYS_PATHS = [
 В `package.json`:
 
 ```json
-"lint:rust": "cargo clippy --workspace --all-targets -- -D warnings",
+"lint:rust": "cargo clippy --workspace --target wasm32-unknown-unknown -- -D warnings",
 ```
 
 (одна команда вместо `cd && cargo clippy && cd && cargo clippy`).
+
+**Поправка относительно Wave 2:** `--all-targets` тут не работает — раз `raw` это `no_std` cdylib с собственным `#[panic_handler]`, host test target конфликтует со `std`'ной panic-инфраструктурой. `--target wasm32-unknown-unknown` (как в Wave 2 после Task 8 side-fix) — единственный корректный вариант.
 
 - [ ] **Step 10.7: Clean leftover per-crate targets**
 

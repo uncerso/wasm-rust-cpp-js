@@ -2,6 +2,7 @@ node_modules/
 dist/
 results/
 target/
+benches/matmul/rust/*/Cargo.lock
 .cache/
 *.tsbuildinfo
 .DS_Store
