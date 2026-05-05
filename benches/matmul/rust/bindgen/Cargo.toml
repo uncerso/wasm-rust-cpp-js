@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 wasm-bindgen = "0.2"
+matmul-shared = { path = "../shared" }
 
 # wasm-pack invokes wasm-opt by default. Disable here — the build script
 # (scripts/build-rust.ts) runs wasm-opt explicitly with the right feature flags
