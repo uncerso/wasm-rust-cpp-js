@@ -7,7 +7,24 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
     root: __dirname,
     publicDir: resolve(__dirname, "../../dist"),
-    server: { port: 5174, fs: { allow: [resolve(__dirname, "../..")] } },
+    server: {
+        port: 5174,
+        fs: { allow: [resolve(__dirname, "../..")] },
+        // Wave 4: enable cross-origin isolation so high-resolution performance.now()
+        // is available in the browser (Chromium 100µs → ~5µs; Firefox 1ms → ~5µs).
+        // All artifacts are served same-origin via publicDir, so require-corp is fine.
+        headers: {
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp",
+        },
+    },
+    preview: {
+        port: 5174,
+        headers: {
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp",
+        },
+    },
     build: { target: "es2022" },
     worker: { format: "es" },
     optimizeDeps: {
