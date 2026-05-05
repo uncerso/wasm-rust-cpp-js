@@ -22,7 +22,9 @@ const HEAP_SIZE: usize = 32 * 1024 * 1024;
 // Wasm32 single-threaded — UnsafeCell wrapper is sufficient for global mutable
 // state. Each Sync impl below acknowledges that there are no real threads.
 struct GlobalHeap(UnsafeCell<[u8; HEAP_SIZE]>);
-// SAFETY: wasm32 has no real threads; this Sync impl reflects that.
+// SAFETY: Sync requires `&T` to be safely shareable across threads. wasm32 is
+// single-threaded, so no `&T` ever crosses a thread boundary; the obligation is
+// vacuous.
 unsafe impl Sync for GlobalHeap {}
 static HEAP: GlobalHeap = GlobalHeap(UnsafeCell::new([0u8; HEAP_SIZE]));
 
@@ -33,7 +35,7 @@ struct GlobalState {
     b_off: UnsafeCell<usize>,
     c_off: UnsafeCell<usize>,
 }
-// SAFETY: same — wasm32 single-threaded.
+// SAFETY: same vacuous Sync obligation as GlobalHeap — wasm32 is single-threaded.
 unsafe impl Sync for GlobalState {}
 static STATE: GlobalState = GlobalState {
     next: UnsafeCell::new(0),
@@ -82,9 +84,12 @@ pub extern "C" fn load_input(ptr: u32, len: u32) {
     }
 }
 
-// SAFETY: caller guarantees that load_input was set the offsets and that
-// A_OFF/B_OFF/C_OFF point at valid heap regions of n*n*8 bytes each.
-// Wasm32 single-threaded → exclusive borrow of C is enforced by control flow.
+// SAFETY: caller guarantees that load_input was called and set STATE.{n, a_off,
+// b_off, c_off} so that each offset points at a non-overlapping region of
+// n*n*8 valid f64-aligned bytes inside HEAP. Returned slices share their
+// caller-chosen lifetime 'a; caller must not retain them across any subsequent
+// load_input/alloc that may reshape STATE. Wasm32 single-threaded → exclusive
+// &mut [f64] for C is upheld by control flow (only run() calls this).
 unsafe fn get_slices<'a>() -> (&'a [f64], &'a [f64], &'a mut [f64], usize) {
     unsafe {
         let n = *STATE.n.get();
