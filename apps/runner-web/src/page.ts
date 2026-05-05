@@ -32,8 +32,9 @@ async function main() {
         return;
     }
 
-    // Wave 4: forward debug flag from main page (set by addInitScript) into the worker
-    if ((globalThis as { __BENCH_DEBUG_TIMINGS__?: boolean }).__BENCH_DEBUG_TIMINGS__) {
+    // Wave 4: forward debug flag from main page (set by addInitScript or ?debug=1) into the worker
+    if ((globalThis as { __BENCH_DEBUG_TIMINGS__?: boolean }).__BENCH_DEBUG_TIMINGS__
+        || params.get("debug") === "1") {
         input.debugTimings = true;
     }
 
