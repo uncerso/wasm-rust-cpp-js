@@ -3,14 +3,11 @@ import { rm } from "node:fs/promises";
 const ALWAYS_PATHS = [
     "dist",
     "results",
-    "benches/matmul/rust/raw/target",
-    "benches/matmul/rust/bindgen/target",
+    "target",
     "benches/matmul/rust/bindgen/pkg-tmp",
     "apps/runner-web/.vite",
     "apps/runner-web/test-results",
     "apps/runner-web/playwright-report",
-    // After Wave 3.1 (workspace root) добавить "target" в этот список
-    // и убрать per-crate target'ы выше.
 ];
 
 const ALL_EXTRA_PATHS = [

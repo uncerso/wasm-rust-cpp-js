@@ -5,7 +5,7 @@
     static_mut_refs,
     reason = "static mut HEAP/NEXT/N/A_PTR/B_PTR/C_PTR removed in Wave 3 refactor"
 )]
-// This crate is a raw WASM cdylib: ABI-level unsafe (#[no_mangle], raw ptr
+// This crate is a raw WASM cdylib: ABI-level unsafe (#[unsafe(no_mangle)], raw ptr
 // arithmetic, from_raw_parts) is inherent and remains after Wave 3.  The
 // static-mut shape and the bisection isqrt go away; the byte-level FFI does not.
 #![allow(
@@ -14,7 +14,6 @@
 )]
 
 use core::panic::PanicInfo;
-use core::ptr::addr_of;
 
 #[panic_handler]
 #[allow(clippy::missing_const_for_fn, reason = "panic_handler cannot be const")]
@@ -29,7 +28,7 @@ static mut A_PTR: usize = 0;
 static mut B_PTR: usize = 0;
 static mut C_PTR: usize = 0;
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn alloc(sz: u32) -> u32 {
     unsafe {
         let p = NEXT;
@@ -37,11 +36,11 @@ pub extern "C" fn alloc(sz: u32) -> u32 {
         if NEXT > HEAP_SIZE { return u32::MAX; }
         // wasm32 address space is 32-bit — truncation is intentional.
         #[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
-        { (addr_of!(HEAP) as usize + p) as u32 }
+        { (&raw const HEAP as usize + p) as u32 }
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn load_input(ptr: u32, len: u32) {
     unsafe {
         let total_f64 = (len as usize) / 8;
@@ -58,7 +57,7 @@ pub extern "C" fn load_input(ptr: u32, len: u32) {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 // Matrix math idioms: single-char names (n, a, b, c, s, i, j, k) are
 // standard and perfectly readable in this context.
 #[allow(clippy::many_single_char_names, reason = "standard matrix algebra variable names")]
@@ -87,15 +86,15 @@ pub extern "C" fn run(iters: u32) -> f64 {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 // wasm32 address space is 32-bit — truncation is intentional.
 #[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
 pub extern "C" fn output_ptr() -> u32 { unsafe { C_PTR as u32 } }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 // wasm32 address space is 32-bit — truncation is intentional.
 #[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
 pub extern "C" fn output_len() -> u32 { unsafe { (N * N * 8) as u32 } }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub const extern "C" fn reset() {}

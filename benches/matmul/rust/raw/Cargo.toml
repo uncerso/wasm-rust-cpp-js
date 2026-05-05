@@ -1,29 +1,11 @@
 [package]
 name = "matmul-rust-raw"
-version = "0.0.0"
-edition = "2021"
-publish = false
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
 
-[profile.release]
-opt-level = 3
-lto = "fat"
-codegen-units = 1
-panic = "abort"
-strip = true
-
-[profile.release-size]
-inherits = "release"
-opt-level = "z"
-
-[lints.rust]
-warnings = "deny"
-unsafe_op_in_unsafe_fn = "deny"
-unsafe_code = "warn"
-
-[lints.clippy]
-all = "deny"
-pedantic = "warn"
-nursery = "warn"
+[lints]
+workspace = true
