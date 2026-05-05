@@ -5,7 +5,7 @@
 // without copying via temporary Vec<u8>/Vec<f64>.
 #![allow(
     unsafe_code,
-    reason = "byte-to-f64 reinterpret is inherent to JS↔wasm marshalling at the wasm-bindgen boundary"
+    reason = "byte↔f64 reinterpret is inherent to JS↔wasm marshalling at the wasm-bindgen boundary"
 )]
 
 use std::cell::RefCell;
@@ -92,9 +92,7 @@ pub fn output_view() -> Vec<u8> {
 #[wasm_bindgen]
 pub fn reset() {
     STATE.with(|s| {
-        for x in &mut s.borrow_mut().c {
-            *x = 0.0;
-        }
+        s.borrow_mut().c.fill(0.0);
     });
 }
 

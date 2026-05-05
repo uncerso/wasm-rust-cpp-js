@@ -1,9 +1,7 @@
 #![cfg_attr(not(test), no_std)]
 
 pub fn matmul_naive(a: &[f64], b: &[f64], c: &mut [f64], n: usize) {
-    for x in c.iter_mut() {
-        *x = 0.0;
-    }
+    c.fill(0.0);
     for i in 0..n {
         for k in 0..n {
             let aik = a[i * n + k];
