@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-    # "benches/matmul/rust/shared",  # uncomment after Task 11 creates it
+    "benches/matmul/rust/shared",
     "benches/matmul/rust/raw",
     "benches/matmul/rust/bindgen",
 ]
