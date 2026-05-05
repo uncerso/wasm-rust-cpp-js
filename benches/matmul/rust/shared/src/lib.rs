@@ -18,17 +18,16 @@ pub fn matmul_naive(a: &[f64], b: &[f64], c: &mut [f64], n: usize) {
 pub fn abs_sum(c: &[f64]) -> f64 {
     let mut s = 0.0_f64;
     for &x in c {
-        s += abs(x);
+        s += x.abs();
     }
     s
 }
 
-#[inline]
-fn abs(x: f64) -> f64 {
-    if x < 0.0 { -x } else { x }
-}
-
 #[cfg(test)]
+#[allow(
+    clippy::float_cmp,
+    reason = "test inputs are exactly representable f64s (powers of 2 / small integers); strict equality is intentional"
+)]
 mod tests {
     use super::*;
 
