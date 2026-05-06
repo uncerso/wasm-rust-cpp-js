@@ -105,7 +105,11 @@ export async function ensureEmsdk(version: string): Promise<void> {
             await rm(emsdkDir, { recursive: true, force: true });
         }
         console.log("[setup] cloning emsdk");
-        await run("git", ["clone", "https://github.com/emscripten-core/emsdk.git", emsdkDir]);
+        // Bypass user's global git config (e.g. url.ssh://git@github.com/.insteadOf=https://github.com/)
+        // so we always clone over HTTPS. /dev/null silences the global/system gitconfig for this command only.
+        await run("git", ["clone", "https://github.com/emscripten-core/emsdk.git", emsdkDir], {
+            env: { GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_SYSTEM: "/dev/null" },
+        });
     }
 
     const state = await readState();
@@ -154,7 +158,8 @@ export async function ensureRustTarget(target: string): Promise<void> {
 
 export async function ensurePlaywrightBrowsers(): Promise<void> {
     console.log("[setup] installing playwright browsers");
-    await run("pnpm", ["exec", "playwright", "install", "chromium", "firefox"]);
+    // playwright is a devDep of apps/runner-web, not the root — filter into that workspace.
+    await run("pnpm", ["--filter", "@bench-app/runner-web", "exec", "playwright", "install", "chromium", "firefox"]);
 }
 
 interface ToolVersionsTools {
