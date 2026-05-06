@@ -2,7 +2,7 @@
 
 Бенчмарки для wasm: сравниваем C++, Rust и JS по двум осям — **размер артефакта** (raw / gzip / brotli) и **runtime-перформанс** (init, first call, warm median / p95). Прогоняются в Node и в браузере (Chromium, Firefox) одним и тем же кодом нагрузки.
 
-> **Статус:** Phase 1.0 завершён. Доступен один workload — `matmul` (наивное dense f64 O(n³) умножение матриц), 10 имплементаций × профилей: JS×2, Rust×2 (raw / wasm-bindgen) × 2 профиля (speed / size, кроме JS), C++×2 (Emscripten / wasi-sdk freestanding) × 2 профиля. Phase 1.1 (`interop_calls`, `hashmap_workload`, `shape_dispatch`) — отдельная фаза, ещё не реализована.
+> **Статус:** Phase 1.0.5 (Housekeeping) завершён — добавлены auto-deps installer (`pnpm setup-tools`), ESLint flat config, cargo workspace + edition 2024, и инструментирование Firefox-исследования. Phase 1.0 baseline воспроизводится byte-identical. Доступен один workload — `matmul` (наивное dense f64 O(n³) умножение матриц), 10 имплементаций × профилей: JS×2, Rust×2 (raw / wasm-bindgen) × 2 профиля (speed / size, кроме JS), C++×2 (Emscripten / wasi-sdk freestanding) × 2 профиля. Phase 1.1 (`interop_calls`, `hashmap_workload`, `shape_dispatch`) — следующий шаг.
 
 ---
 

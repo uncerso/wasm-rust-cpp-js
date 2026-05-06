@@ -36,7 +36,7 @@ describe("runMeasure", () => {
     });
 
     it("flags correctness failure on checksum mismatch", async () => {
-        const mod = mockModule({ checksum: 99, perRunMs: 1.0 });
+        const mod = mockModule({ checksum: 99 });
         const out = await runMeasure({
             module: mod,
             fixture: new Uint8Array([1]),
