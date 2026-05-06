@@ -25,7 +25,10 @@ export async function readState(): Promise<Record<string, string>> {
 }
 
 export async function writeState(state: Record<string, string>): Promise<void> {
-    await writeFile(STATE_FILE, JSON.stringify(state, null, 2) + "\n");
+    await mkdir(TOOLS_DIR, { recursive: true });
+    const tmp = STATE_FILE + ".tmp";
+    await writeFile(tmp, JSON.stringify(state, null, 2) + "\n");
+    await rename(tmp, STATE_FILE);
 }
 
 async function pathExists(p: string): Promise<boolean> {
@@ -72,12 +75,15 @@ export async function ensureTarball(spec: TarballSpec): Promise<void> {
     }
 
     console.log(`[setup] extracting ${spec.name}`);
+    const extractedPath = join(TOOLS_DIR, spec.extractedDir);
+    if (extractedPath !== targetPath) {
+        await rm(extractedPath, { recursive: true, force: true });
+    }
+    await rm(targetPath, { recursive: true, force: true });
     await run("tar", ["-xzf", tmpFile, "-C", TOOLS_DIR]);
     await rm(tmpFile, { force: true });
 
     if (spec.extractedDir !== spec.renameTo) {
-        const extractedPath = join(TOOLS_DIR, spec.extractedDir);
-        await rm(targetPath, { recursive: true, force: true });
         await rename(extractedPath, targetPath);
     }
 
@@ -91,7 +97,12 @@ export async function ensureEmsdk(version: string): Promise<void> {
     await mkdir(TOOLS_DIR, { recursive: true });
 
     const emsdkDir = join(TOOLS_DIR, "emsdk");
-    if (!await pathExists(emsdkDir)) {
+    const emsdkScript = join(emsdkDir, "emsdk");
+    if (!await pathExists(emsdkScript)) {
+        if (await pathExists(emsdkDir)) {
+            console.log("[setup] emsdk directory exists but is incomplete — wiping and re-cloning");
+            await rm(emsdkDir, { recursive: true, force: true });
+        }
         console.log("[setup] cloning emsdk");
         await run("git", ["clone", "https://github.com/emscripten-core/emsdk.git", emsdkDir]);
     }
