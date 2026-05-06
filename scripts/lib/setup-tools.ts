@@ -54,9 +54,10 @@ export async function ensureTarball(spec: TarballSpec): Promise<void> {
 
     const tmpFile = join(TOOLS_DIR, `${spec.name}.download.tar.gz`);
     console.log(`[setup] downloading ${spec.url}`);
+    // --fail-with-body and -f are mutually exclusive in curl. We use -f (fail on HTTP errors)
+    // and rely on inherited stdio to surface any error body.
     await run("curl", [
         "-fsSL",
-        "--fail-with-body",
         "--retry", "5",
         "--retry-all-errors",
         "--retry-delay", "2",
