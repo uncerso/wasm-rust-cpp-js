@@ -1,11 +1,33 @@
 {
-  "comment": "Внешние тулы, не управляемые pnpm. При расхождении версий результаты невоспроизводимы.",
+  "comment": "Внешние тулы, не управляемые pnpm. При расхождении версий результаты невоспроизводимы. Phase 1.0.5 Wave 5: добавлены url+sha256 для auto-deps installer (macOS arm64 only).",
   "rustup": "1.29.0",
   "rustc": "1.95.0",
-  "wasm-pack": "0.13.1",
-  "wasi-sdk": "25",
-  "emscripten": "5.0.7",
-  "wasm-opt": "129",
+  "node": "22",
   "esbuild": "0.24.0",
-  "node": "22"
+  "tools": {
+    "wasi-sdk": {
+      "version": "25",
+      "url": "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/wasi-sdk-25.0-arm64-macos.tar.gz",
+      "sha256": "e1e529ea226b1db0b430327809deae9246b580fa3cae32d31c82dfe770233587",
+      "extractedDir": "wasi-sdk-25.0-arm64-macos",
+      "renameTo": "wasi-sdk-25"
+    },
+    "binaryen": {
+      "version": "129",
+      "url": "https://github.com/WebAssembly/binaryen/releases/download/version_129/binaryen-version_129-arm64-macos.tar.gz",
+      "sha256": "d1bb014775ca3002506712b81b4406d126ff6845e8b2f343bc2696a1a88b7117",
+      "extractedDir": "binaryen-version_129",
+      "renameTo": "binaryen-129"
+    },
+    "emsdk": {
+      "version": "5.0.7",
+      "repo": "https://github.com/emscripten-core/emsdk.git",
+      "_note": "emsdk не distributed как single tarball — git repo + installer. State.json хранит активированную версию."
+    },
+    "wasm-pack": {
+      "version": "0.13.1",
+      "installVia": "cargo",
+      "_note": "wasm-pack v0.13.1 не публикует aarch64-apple-darwin asset (только x86_64). v0.14.0 публикует, но bumps version vs Phase 1.0 baseline. Используем cargo install --locked --version 0.13.1 wasm-pack --root .tools/wasm-pack-0.13.1 (rustup pre-installed по spec §5.1)."
+    }
+  }
 }
