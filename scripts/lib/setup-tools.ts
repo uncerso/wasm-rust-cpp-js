@@ -179,10 +179,15 @@ export async function createSymlinks(): Promise<void> {
     const wasmPackVersion = tv.tools["wasm-pack"].version;
 
     const binDir = join(TOOLS_DIR, "bin");
+    // Wipe and recreate so stale links (e.g. emcc from older versions of this script) are removed.
+    await rm(binDir, { recursive: true, force: true });
     await mkdir(binDir, { recursive: true });
 
+    // No emcc symlink: emcc is a bash wrapper that locates emcc.py via BASH_SOURCE[0]
+    // without resolving symlinks, so a `.tools/bin/emcc` symlink makes it look for
+    // `.tools/bin/emcc.py` which doesn't exist. We rely on emsdk PATH (via emsdkEnv())
+    // adding `.tools/emsdk/upstream/emscripten/` so plain `emcc` resolves correctly.
     const links: Array<[string, string]> = [
-        ["emcc",      "../emsdk/upstream/emscripten/emcc"],
         ["wasm-opt",  `../binaryen-${binaryenVersion}/bin/wasm-opt`],
         ["wasm-pack", `../wasm-pack-${wasmPackVersion}/bin/wasm-pack`],
     ];
