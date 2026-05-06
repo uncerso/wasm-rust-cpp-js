@@ -4,6 +4,7 @@ import { run } from "./lib/exec.js";
 import { ALL_COMBINATIONS, distDir, type Combination } from "./lib/matrix.js";
 import { statArtifact, writeMeta, type ArtifactMeta } from "./lib/meta.js";
 import { detectActual } from "./lib/tool-versions.js";
+import { wasmOptPath, wasmPackPath } from "./lib/tool-paths.js";
 
 async function buildRaw(c: Combination): Promise<void> {
     const crateDir = `benches/${c.benchmarkId}/rust/raw`;
@@ -18,7 +19,7 @@ async function buildRaw(c: Combination): Promise<void> {
     await copyFile(src, dst);
 
     if (c.profile === "size") {
-        await run("wasm-opt", ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", dst, "-o", dst]);
+        await run(wasmOptPath(), ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", dst, "-o", dst]);
     }
 
     const wasmStat = await statArtifact(dst);
@@ -45,7 +46,7 @@ async function buildBindgen(c: Combination): Promise<void> {
     // post-processing with wasm-opt.
     const pkgDir = join(crateDir, "pkg-tmp");
     await rm(pkgDir, { recursive: true, force: true });
-    await run("wasm-pack", ["build", "--target=web", "--release", "--out-dir=pkg-tmp"], { cwd: crateDir });
+    await run(wasmPackPath(), ["build", "--target=web", "--release", "--out-dir=pkg-tmp"], { cwd: crateDir });
 
     const files = await readdir(pkgDir);
     const wasmFile = files.find((f) => f.endsWith("_bg.wasm"));
@@ -63,7 +64,7 @@ async function buildBindgen(c: Combination): Promise<void> {
     await copyFile(join(pkgDir, jsFile), glueDst);
 
     if (c.profile === "size") {
-        await run("wasm-opt", ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", wasmDst, "-o", wasmDst]);
+        await run(wasmOptPath(), ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", wasmDst, "-o", wasmDst]);
     }
 
     const wasmStat = await statArtifact(wasmDst);
