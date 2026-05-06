@@ -5,15 +5,20 @@ export async function emsdkEnv(): Promise<Record<string, string>> {
     const emsdkDir = resolve(".tools/emsdk");
     let stdout: string;
     try {
-        const result = await execa("bash", ["-c", "source ./emsdk_env.sh > /dev/null 2>&1 && env"], { cwd: emsdkDir });
+        const result = await execa("bash", ["-c", "source ./emsdk_env.sh > /dev/null && env"], { cwd: emsdkDir });
         if (typeof result.stdout !== "string") {
             throw new Error("emsdk env capture: stdout missing");
         }
 
         stdout = result.stdout;
     } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        const stderr = (err as { stderr?: unknown })?.stderr;
+        const stderrText = typeof stderr === "string" && stderr.length > 0
+            ? `\nstderr: ${stderr}`
+            : "";
         throw new Error(
-            `Failed to capture emsdk env from .tools/emsdk/emsdk_env.sh — did you run \`pnpm setup\`? Underlying error: ${err instanceof Error ? err.message : String(err)}`,
+            `Failed to capture emsdk env from .tools/emsdk/emsdk_env.sh — did you run \`pnpm setup\`? Underlying error: ${detail}${stderrText}`,
         );
     }
 
