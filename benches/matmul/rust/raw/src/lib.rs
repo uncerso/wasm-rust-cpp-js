@@ -1,87 +1,133 @@
 #![no_std]
+// Raw WASM cdylib: ABI-level unsafe (#[unsafe(no_mangle)], raw ptr arithmetic,
+// from_raw_parts) is inherent to the FFI surface. UnsafeCell replaces static
+// mut so each unsafe block is now narrow and locally documented with SAFETY.
+#![allow(
+    unsafe_code,
+    reason = "raw WASM cdylib: ABI-level unsafe (no_mangle, raw ptrs, slice::from_raw_parts) is inherent and cannot be avoided"
+)]
 
+use core::cell::UnsafeCell;
 use core::panic::PanicInfo;
-use core::ptr::addr_of;
+use matmul_shared::{abs_sum, matmul_naive};
 
 #[panic_handler]
-fn on_panic(_: &PanicInfo) -> ! { loop {} }
+#[allow(clippy::missing_const_for_fn, reason = "panic_handler cannot be const")]
+fn on_panic(_: &PanicInfo) -> ! {
+    loop {}
+}
 
 const HEAP_SIZE: usize = 32 * 1024 * 1024;
-static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
-static mut NEXT: usize = 0;
 
-static mut N: usize = 0;
-static mut A_PTR: usize = 0;
-static mut B_PTR: usize = 0;
-static mut C_PTR: usize = 0;
+// Wasm32 single-threaded — UnsafeCell wrapper is sufficient for global mutable
+// state. Each Sync impl below acknowledges that there are no real threads.
+struct GlobalHeap(UnsafeCell<[u8; HEAP_SIZE]>);
+// SAFETY: Sync requires `&T` to be safely shareable across threads. wasm32 is
+// single-threaded, so no `&T` ever crosses a thread boundary; the obligation is
+// vacuous.
+unsafe impl Sync for GlobalHeap {}
+static HEAP: GlobalHeap = GlobalHeap(UnsafeCell::new([0u8; HEAP_SIZE]));
 
-#[no_mangle]
+struct GlobalState {
+    next: UnsafeCell<usize>,
+    n: UnsafeCell<usize>,
+    a_off: UnsafeCell<usize>,
+    b_off: UnsafeCell<usize>,
+    c_off: UnsafeCell<usize>,
+}
+// SAFETY: same vacuous Sync obligation as GlobalHeap — wasm32 is single-threaded.
+unsafe impl Sync for GlobalState {}
+static STATE: GlobalState = GlobalState {
+    next: UnsafeCell::new(0),
+    n: UnsafeCell::new(0),
+    a_off: UnsafeCell::new(0),
+    b_off: UnsafeCell::new(0),
+    c_off: UnsafeCell::new(0),
+};
+
+#[inline]
+fn heap_base() -> usize {
+    // SAFETY: HEAP is a 'static GlobalHeap; we only read its base address.
+    unsafe { (*HEAP.0.get()).as_ptr() as usize }
+}
+
+#[unsafe(no_mangle)]
+#[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
 pub extern "C" fn alloc(sz: u32) -> u32 {
+    // SAFETY: wasm32 single-threaded — STATE.next is the only mutable global
+    // and alloc() is its only writer; concurrent calls are impossible.
     unsafe {
-        let p = NEXT;
-        NEXT = (NEXT + sz as usize + 7) & !7; // align 8
-        if NEXT > HEAP_SIZE { return u32::MAX; }
-        (addr_of!(HEAP) as usize + p) as u32
-    }
-}
-
-/// Integer square root via bisection — used because no_std f64 lacks .sqrt().
-fn isqrt_usize(n: usize) -> usize {
-    let mut lo = 0usize;
-    let mut hi = n.saturating_add(1);
-    while lo + 1 < hi {
-        let mid = lo + (hi - lo) / 2;
-        if mid.saturating_mul(mid) <= n { lo = mid; } else { hi = mid; }
-    }
-    lo
-}
-
-#[no_mangle]
-pub extern "C" fn load_input(ptr: u32, len: u32) {
-    unsafe {
-        let total_f64 = (len as usize) / 8;
-        let half = total_f64 / 2;
-        let n = isqrt_usize(half);
-        debug_assert!(n * n == half);
-        N = n;
-        A_PTR = ptr as usize;
-        B_PTR = ptr as usize + n * n * 8;
-        let c_sz = (n * n * 8) as u32;
-        C_PTR = alloc(c_sz) as usize;
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn run(iters: u32) -> f64 {
-    unsafe {
-        let n = N;
-        let a = core::slice::from_raw_parts(A_PTR as *const f64, n * n);
-        let b = core::slice::from_raw_parts(B_PTR as *const f64, n * n);
-        let c = core::slice::from_raw_parts_mut(C_PTR as *mut f64, n * n);
-        let mut last_sum = 0.0_f64;
-        for _ in 0..iters {
-            for x in c.iter_mut() { *x = 0.0; }
-            for i in 0..n {
-                for k in 0..n {
-                    let aik = a[i * n + k];
-                    for j in 0..n {
-                        c[i * n + j] += aik * b[k * n + j];
-                    }
-                }
-            }
-            let mut s = 0.0_f64;
-            for &x in c.iter() { s += x.abs(); }
-            last_sum = s;
+        let next = &mut *STATE.next.get();
+        let p = *next;
+        *next = (*next + sz as usize + 7) & !7;
+        if *next > HEAP_SIZE {
+            return u32::MAX;
         }
-        last_sum
+        (heap_base() + p) as u32
     }
 }
 
-#[no_mangle]
-pub extern "C" fn output_ptr() -> u32 { unsafe { C_PTR as u32 } }
+#[unsafe(no_mangle)]
+#[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
+pub extern "C" fn load_input(ptr: u32, len: u32) {
+    let total_f64 = (len as usize) / 8;
+    let half = total_f64 / 2;
+    let n = half.isqrt();
+    debug_assert!(n * n == half);
+    // SAFETY: wasm32 single-threaded; load_input/run/output_* never overlap.
+    unsafe {
+        *STATE.n.get() = n;
+        *STATE.a_off.get() = ptr as usize;
+        *STATE.b_off.get() = ptr as usize + n * n * 8;
+        let c_sz: u32 = (n * n * 8) as u32;
+        *STATE.c_off.get() = alloc(c_sz) as usize;
+    }
+}
 
-#[no_mangle]
-pub extern "C" fn output_len() -> u32 { unsafe { (N * N * 8) as u32 } }
+// SAFETY: caller guarantees that load_input was called and set STATE.{n, a_off,
+// b_off, c_off} so that each offset points at a non-overlapping region of
+// n*n*8 valid f64-aligned bytes inside HEAP. Returned slices share their
+// caller-chosen lifetime 'a; caller must not retain them across any subsequent
+// load_input/alloc that may reshape STATE. Wasm32 single-threaded → exclusive
+// &mut [f64] for C is upheld by control flow (only run() calls this).
+unsafe fn get_slices<'a>() -> (&'a [f64], &'a [f64], &'a mut [f64], usize) {
+    unsafe {
+        let n = *STATE.n.get();
+        let a_off = *STATE.a_off.get();
+        let b_off = *STATE.b_off.get();
+        let c_off = *STATE.c_off.get();
+        let a = core::slice::from_raw_parts(a_off as *const f64, n * n);
+        let b = core::slice::from_raw_parts(b_off as *const f64, n * n);
+        let c = core::slice::from_raw_parts_mut(c_off as *mut f64, n * n);
+        (a, b, c, n)
+    }
+}
 
-#[no_mangle]
-pub extern "C" fn reset() {}
+#[unsafe(no_mangle)]
+pub extern "C" fn run(iters: u32) -> f64 {
+    // SAFETY: load_input was called by JS host before run; A/B/C are valid.
+    let (a, b, c, n) = unsafe { get_slices() };
+    let mut last = 0.0_f64;
+    for _ in 0..iters {
+        matmul_naive(a, b, c, n);
+        last = abs_sum(c);
+    }
+    last
+}
+
+#[unsafe(no_mangle)]
+#[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
+pub extern "C" fn output_ptr() -> u32 {
+    // SAFETY: read-only access to STATE.c_off. wasm32 single-threaded.
+    unsafe { *STATE.c_off.get() as u32 }
+}
+
+#[unsafe(no_mangle)]
+#[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
+pub extern "C" fn output_len() -> u32 {
+    // SAFETY: read-only access to STATE.n. wasm32 single-threaded.
+    unsafe { (*STATE.n.get() * *STATE.n.get() * 8) as u32 }
+}
+
+#[unsafe(no_mangle)]
+pub const extern "C" fn reset() {}

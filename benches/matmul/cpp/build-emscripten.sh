@@ -18,8 +18,17 @@ else
   echo "unknown profile: $PROFILE" >&2; exit 1
 fi
 
+WARN_FLAGS="-Wall -Wextra -Wpedantic -Werror \
+-Wshadow -Wconversion -Wsign-conversion \
+-Wcast-align -Wold-style-cast -Wnon-virtual-dtor \
+-Wnull-dereference -Wdouble-promotion"
+
+STD_FLAG="-std=c++23"
+
 emcc \
   "$HERE/src/matmul.cpp" \
+  $STD_FLAG \
+  $WARN_FLAGS \
   $OPT \
   -fno-exceptions -fno-rtti \
   -s MODULARIZE=1 -s EXPORT_ES6=1 \

@@ -1,19 +1,14 @@
 [package]
 name = "matmul-rust-raw"
-version = "0.0.0"
-edition = "2021"
-publish = false
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
 
-[profile.release]
-opt-level = 3
-lto = "fat"
-codegen-units = 1
-panic = "abort"
-strip = true
+[dependencies]
+matmul-shared = { path = "../shared" }
 
-[profile.release-size]
-inherits = "release"
-opt-level = "z"
+[lints]
+workspace = true

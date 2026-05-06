@@ -2,58 +2,89 @@ import { computeStats } from "./stats.js";
 import { eqChecksum } from "./validation.js";
 import type { MeasureInput, MeasureOutput } from "./types.js";
 
+/**
+ * Probes performance.now() resolution by busy-looping until a tick is observed.
+ * Returns the smallest non-zero delta in ms. Used in Wave 4 investigation.
+ */
+export function probePerformanceNowResolution(): number {
+    const before = performance.now();
+    let after = before;
+    while (after === before) {
+        after = performance.now();
+    }
+    return after - before;
+}
+
+// eslint-disable-next-line @typescript-eslint/require-await -- async keeps the Promise<MeasureOutput> contract; implementation is sync today but callers always await
 export async function runMeasure(input: MeasureInput): Promise<MeasureOutput> {
-  const { module, fixture, expectedChecksum, config } = input;
+    const { module, fixture, expectedChecksum, config } = input;
 
-  module.loadInput(fixture);
+    const debugTimings = (typeof process !== "undefined"
+        && process.env?.["BENCH_DEBUG_TIMINGS"] === "1")
+        || (typeof globalThis !== "undefined"
+            && (globalThis as { __BENCH_DEBUG_TIMINGS__?: boolean }).__BENCH_DEBUG_TIMINGS__ === true);
 
-  const firstCallStart = performance.now();
-  const firstResult = module.run(1);
-  const firstCallMs = performance.now() - firstCallStart;
+    if (debugTimings) {
+        const res = probePerformanceNowResolution();
+        // eslint-disable-next-line no-console
+        console.log(`[bench-debug] performance.now() resolution: ${res} ms`);
+    }
 
-  if (!eqChecksum(firstResult.checksum, expectedChecksum)) {
+    module.loadInput(fixture);
+
+    const firstCallStart = performance.now();
+    const firstResult = module.run(1);
+    const firstCallMs = performance.now() - firstCallStart;
+
+    if (!eqChecksum(firstResult.checksum, expectedChecksum)) {
+        return {
+            firstCallMs,
+            warmSamplesMs: [],
+            finalChecksum: firstResult.checksum,
+            correctnessFailed: true,
+        };
+    }
+
+    for (let i = 0; i < config.warmupIterations; i++) {
+        module.run(config.innerIterations);
+    }
+
+    const samples: number[] = [];
+    let lastChecksum: number | string = firstResult.checksum;
+
+    while (samples.length < config.maxSamples) {
+        module.reset?.();
+        const t0 = performance.now();
+        const r = module.run(config.innerIterations);
+        const t1 = performance.now();
+        samples.push(t1 - t0);
+        if (debugTimings) {
+            // eslint-disable-next-line no-console
+            console.log(`[bench-debug] sample ${samples.length}: ${(t1 - t0).toFixed(6)} ms`);
+        }
+        lastChecksum = r.checksum;
+
+        if (!eqChecksum(r.checksum, expectedChecksum)) {
+            return {
+                firstCallMs,
+                warmSamplesMs: samples,
+                finalChecksum: r.checksum,
+                correctnessFailed: true,
+            };
+        }
+
+        if (samples.length >= config.minSamples) {
+            const stats = computeStats(samples);
+            if (stats.cv <= config.cvThreshold) {
+                break;
+            }
+        }
+    }
+
     return {
-      firstCallMs,
-      warmSamplesMs: [],
-      finalChecksum: firstResult.checksum,
-      correctnessFailed: true,
-    };
-  }
-
-  for (let i = 0; i < config.warmupIterations; i++) {
-    module.run(config.innerIterations);
-  }
-
-  const samples: number[] = [];
-  let lastChecksum: number | string = firstResult.checksum;
-
-  while (samples.length < config.maxSamples) {
-    module.reset?.();
-    const t0 = performance.now();
-    const r = module.run(config.innerIterations);
-    const t1 = performance.now();
-    samples.push(t1 - t0);
-    lastChecksum = r.checksum;
-
-    if (!eqChecksum(r.checksum, expectedChecksum)) {
-      return {
         firstCallMs,
         warmSamplesMs: samples,
-        finalChecksum: r.checksum,
-        correctnessFailed: true,
-      };
-    }
-
-    if (samples.length >= config.minSamples) {
-      const stats = computeStats(samples);
-      if (stats.cv <= config.cvThreshold) break;
-    }
-  }
-
-  return {
-    firstCallMs,
-    warmSamplesMs: samples,
-    finalChecksum: lastChecksum,
-    correctnessFailed: false,
-  };
+        finalChecksum: lastChecksum,
+        correctnessFailed: false,
+    };
 }
