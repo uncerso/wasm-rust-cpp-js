@@ -12,6 +12,8 @@ async function buildEmscripten(c: Combination): Promise<void> {
     const out = distDir(c);
     await mkdir(out, { recursive: true });
     const script = resolve(`benches/${c.benchmarkId}/cpp/build-emscripten.sh`);
+    // Fall back to system emsdk on PATH when .tools/emsdk is absent (dev convenience;
+    // pnpm setup populates the dir, after which emsdkEnv() is the source of truth).
     const emsdk = existsSync(resolve(".tools/emsdk")) ? await emsdkEnv() : {};
     const toolsBin = resolve(".tools/bin");
     const mergedPath = `${toolsBin}:${emsdk["PATH"] ?? process.env["PATH"] ?? ""}`;
