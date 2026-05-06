@@ -45,15 +45,23 @@
 
 ## Системные требования
 
-- **macOS** (тестировалось на darwin arm64) или **Linux**. Windows не тестировался; Bash + GNU tools предполагаются.
-- **Node ≥ 22.0.0**, **pnpm ≥ 9** — управляются через `packageManager` поле и `engines`.
-- **Rust 1.95.0** — выбирается автоматически через `rust-toolchain.toml` после установки rustup.
-- **wasm-pack 0.13.1** (cargo install).
-- **Binaryen / wasm-opt 129** — отдельный бинарь, ставится через системный пакет-менеджер.
-- **Emscripten 5.0.7** (через emsdk).
-- **wasi-sdk 25** — скачивается ZIP-ом, переменная окружения `WASI_SDK_PATH` указывает на корень.
+**Pre-installed (системно):**
 
-Точные версии зафиксированы в [`tool-versions.json`](./tool-versions.json). При расхождении любой версии артефакты и тайминги будут отличаться — формально такой прогон **не воспроизводим** относительно референсного.
+- **macOS arm64** — auto-install из коробки работает только здесь. Linux/Windows — см. §4 ниже.
+- **Node ≥ 22**, **pnpm ≥ 9**.
+- **Rust 1.95.0** — через rustup; `rust-toolchain.toml` зафиксирует версию автоматически.
+- **Xcode command-line tools** (clang, git, curl).
+- ~500 MB свободного места под `.tools/`, интернет для первого `setup-tools`.
+
+**Auto-managed через `pnpm setup-tools`** (ставятся в `.tools/`, не на системный PATH):
+
+- emcc 5.0.7 (через emsdk).
+- wasi-sdk 25.
+- wasm-opt 129 (binaryen).
+- wasm-pack 0.13.1 (через `cargo install --root .tools/wasm-pack-0.13.1`).
+- Playwright browsers (Chromium, Firefox).
+
+Точные версии и pinned URL+sha256 — в [`tool-versions.json`](./tool-versions.json). При расхождении артефакты и тайминги будут отличаться — формально такой прогон **не воспроизводим** относительно референсного.
 
 ---
 
@@ -79,71 +87,34 @@ corepack prepare pnpm@9.15.0 --activate
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # принять параметры по умолчанию
 
-# rust-toolchain.toml в репозитории зафиксирует rustc 1.95.0 +
-# таргет wasm32-unknown-unknown автоматически при первом cargo build.
+# rust-toolchain.toml в репозитории зафиксирует rustc 1.95.0
+# при первом cargo build. Таргет wasm32-unknown-unknown добавляет
+# `pnpm setup-tools` (см. §3).
 ```
 
-```bash
-cargo install wasm-pack --version 0.13.1
-```
+Проверка: `rustc --version` → `1.95.0`.
 
-Проверка: `rustc --version` → `1.95.0`, `wasm-pack --version` → `0.13.1`.
-
-### 3. wasm-opt (Binaryen)
-
-```bash
-# macOS
-brew install binaryen   # установит свежую версию; убедитесь, что 129+
-
-# Ubuntu / Debian
-sudo apt install binaryen   # может быть старее; см. ниже
-
-# Если системного пакета мало — скачать релиз вручную:
-# https://github.com/WebAssembly/binaryen/releases/tag/version_129
-```
-
-Проверка: `wasm-opt --version` → `wasm-opt version 129` (или новее).
-
-### 4. Emscripten (emsdk)
-
-```bash
-git clone https://github.com/emscripten-core/emsdk ~/emsdk
-cd ~/emsdk
-./emsdk install 5.0.7
-./emsdk activate 5.0.7
-source ./emsdk_env.sh   # добавляет emcc в PATH
-```
-
-`emsdk_env.sh` нужно сорсить **в каждом новом терминале**, где собирается C++/Emscripten вариант.
-
-Проверка: `emcc --version` → начинается с `5.0.7`.
-
-### 5. wasi-sdk
-
-```bash
-# Скачать релиз 25 для своей платформы:
-#   https://github.com/WebAssembly/wasi-sdk/releases/tag/wasi-sdk-25
-# Распаковать куда угодно, затем:
-export WASI_SDK_PATH=/path/to/wasi-sdk-25
-# (положить в ~/.zshrc / ~/.bashrc для постоянства)
-```
-
-Проверка: `$WASI_SDK_PATH/bin/clang --version` должен отвечать.
-
-### 6. Воркспейсные зависимости
+### 3. Auto-install остальных тулов (macOS arm64)
 
 ```bash
 cd /path/to/wasm-rust-cpp-js
 pnpm install
+pnpm setup-tools
 ```
 
-### 7. Браузеры для Playwright (только для прогона в браузере)
+`setup-tools` (~5–10 мин first-run, ~500 MB):
 
-```bash
-pnpm --filter @bench-app/runner-web exec playwright install chromium firefox
-```
+- скачивает и проверяет sha256 wasi-sdk 25 и binaryen 129 в `.tools/`;
+- клонирует и активирует emsdk 5.0.7 в `.tools/emsdk/`;
+- ставит wasm-pack 0.13.1 через `cargo install --locked --root .tools/wasm-pack-0.13.1`;
+- добавляет rustup target `wasm32-unknown-unknown`;
+- ставит Playwright browsers (Chromium, Firefox).
 
-Скачивает ~300 MB в `~/Library/Caches/ms-playwright/` (на macOS).
+Идемпотентен — повторный запуск пропускает то, что уже стоит. `pnpm bench:all` автоматически запускает `setup-tools` первым шагом, так что отдельный вызов нужен только для отладки установки.
+
+### 4. Linux / Windows (вручную)
+
+Auto-install сделан под macOS arm64. На других платформах поставьте версии из `tool-versions.json` любым способом и сделайте чтобы `emcc`, `wasm-opt`, `wasm-pack` резолвились на PATH; для wasi-sdk выставьте `WASI_SDK_PATH` на корень установленного SDK. Build-скрипты упадут на bare-name резолюцию через PATH когда `.tools/` пуст.
 
 ---
 
@@ -265,7 +236,7 @@ pnpm report --in=results/raw/<run-name>
 - `pnpm` использует `packageManager` для self-pin'а.
 - Внешние пакеты pin'ятся в `pnpm-lock.yaml` (коммитится).
 - `wasm-opt` явно вызывается с `--enable-bulk-memory --enable-nontrapping-float-to-int` для размер-профилей Rust/C++ — иначе свежий `rustc` / `emcc` пишут операции, которые wasm-opt без этих флагов отвергает.
-- В `meta.json` каждой combo-папки лежит обнаруженная версия каждого тула. Расхождение с `tool-versions.json` не блокирует прогон, но означает, что результат не воспроизведёт референс.
+- В `meta.json` каждой combo-папки лежит обнаруженная версия тула. Расхождение с `tool-versions.json` не блокирует прогон, но означает, что результат не воспроизведёт референс. Замечание: при auto-install (тулы только в `.tools/`, не на PATH родителя) `meta.json` сейчас фиксирует версии лишь rustc/node — `wasm-opt`/`wasm-pack`/`emcc` остаются пустыми. Воспроизводимость гарантируется sha256-пинами в `tool-versions.json`.
 
 Reference checksums S/M зашиты в `benches/matmul/spec.json`; runner валидирует первый вызов `run()` — несовпадение с reference сразу останавливает кейс с `correctnessFailed: true`.
 
