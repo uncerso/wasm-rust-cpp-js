@@ -6,7 +6,7 @@
       "Bash(pnpm --filter @bench/loaders typecheck)",
       "Bash(pnpm --filter @bench/loaders test)",
       "Bash(pnpm --filter @bench/reporter test)",
-      "Bash(pnpm -r typecheck)",
+      "Bash(pnpm typecheck)",
       "Bash(pnpm build *)",
       "Bash(pnpm build:js)",
       "Bash(pnpm build:rust)",
@@ -22,8 +22,7 @@
       "Bash(pnpm lint:ts)",
       "Bash(pnpm lint:ts:fix)",
       "Bash(pnpm lint:rust)",
-      "Bash(pnpm lint:all)",
-      "Bash(cargo clippy *)"
+      "Bash(pnpm lint:all)"
     ]
   }
 }
