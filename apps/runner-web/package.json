@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit",
     "dev": "vite",
     "build": "vite build",
+    "preview": "vite preview",
     "drive": "tsx src/driver.ts"
   },
   "dependencies": {
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.50.0",
+    "sirv": "^3.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.3",
     "vite": "^6.0.0"
