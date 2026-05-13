@@ -6,8 +6,6 @@ const ALWAYS_PATHS = [
     "target",
     "benches/matmul/rust/bindgen/pkg-tmp",
     "apps/runner-web/.vite",
-    "apps/runner-web/test-results",
-    "apps/runner-web/playwright-report",
 ];
 
 const ALL_EXTRA_PATHS = [

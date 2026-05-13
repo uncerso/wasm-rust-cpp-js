@@ -1,12 +1,45 @@
 import type { WorkerInput } from "./worker.js";
 import type { BenchResult } from "@bench/result-schema";
 
-// Extend window with our result slot (for Playwright polling)
+interface BenchLogEntry {
+    type: "error" | "unhandledrejection";
+    msg: string;
+    stack?: string;
+}
+
+// Extend window with our result + log slots (read by selenium driver via executeScript)
 declare global {
     interface Window {
         __BENCH_RESULT?: BenchResult | { error: string };
+        __BENCH_LOGS?: BenchLogEntry[];
     }
 }
+
+// Phase 1.0.6: capture page-level errors for selenium driver diagnostic forwarding.
+// Selenium classic WebDriver has no cross-browser console event API (geckodriver
+// doesn't support logs()), so we accumulate into window.__BENCH_LOGS and the
+// driver reads via executeScript at the end.
+window.__BENCH_LOGS = [];
+window.addEventListener("error", (e) => {
+    const entry: BenchLogEntry = {
+        type: "error",
+        msg: e.message,
+    };
+    if (e.error instanceof Error && e.error.stack) {
+        entry.stack = e.error.stack;
+    }
+    window.__BENCH_LOGS!.push(entry);
+});
+window.addEventListener("unhandledrejection", (e) => {
+    const entry: BenchLogEntry = {
+        type: "unhandledrejection",
+        msg: String(e.reason),
+    };
+    if (e.reason instanceof Error && e.reason.stack) {
+        entry.stack = e.reason.stack;
+    }
+    window.__BENCH_LOGS!.push(entry);
+});
 
 function setStatus(msg: string) {
     const el = document.getElementById("status");
