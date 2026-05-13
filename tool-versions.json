@@ -29,5 +29,30 @@
       "installVia": "cargo",
       "_note": "wasm-pack v0.13.1 не публикует aarch64-apple-darwin asset (только x86_64). v0.14.0 публикует, но bumps version vs Phase 1.0 baseline. Используем cargo install --locked --version 0.13.1 wasm-pack --root .tools/wasm-pack-0.13.1 (rustup pre-installed по spec §5.1)."
     }
+  },
+  "browsers": {
+    "_comment": "Phase 1.0.6: explicit browser binaries для selenium-webdriver. macOS arm64 only.",
+    "firefox": {
+      "version": "150.0.3",
+      "url": "https://ftp.mozilla.org/pub/firefox/releases/150.0.3/mac/en-US/Firefox%20150.0.3.dmg",
+      "sha256": "5f8571d35b883c9c210ad4249f25c6a46e7861291a440f65d5249587dd1b9051",
+      "appPath": "Firefox.app",
+      "binaryInApp": "Contents/MacOS/firefox"
+    },
+    "geckodriver": {
+      "version": "0.36.0",
+      "url": "https://github.com/mozilla/geckodriver/releases/download/v0.36.0/geckodriver-v0.36.0-macos-aarch64.tar.gz",
+      "sha256": "c045c8c0d859e6045defbb1c31b37ebeb3c942fc61daaf11e21fc634f2d71c52"
+    },
+    "chrome-for-testing": {
+      "version": "148.0.7778.167",
+      "chromeUrl": "https://storage.googleapis.com/chrome-for-testing-public/148.0.7778.167/mac-arm64/chrome-mac-arm64.zip",
+      "chromeSha256": "bbfd1f2e5094f45c2c76eb19da79fa068afcfa787bfc0a8e5a02ce45e71901cf",
+      "chromedriverUrl": "https://storage.googleapis.com/chrome-for-testing-public/148.0.7778.167/mac-arm64/chromedriver-mac-arm64.zip",
+      "chromedriverSha256": "a41984c9442ab07ca6d0af4eb10c0e36834265021388f58069b6c331ca03a924",
+      "appPath": "chrome-mac-arm64/Google Chrome for Testing.app",
+      "binaryInApp": "Contents/MacOS/Google Chrome for Testing",
+      "chromedriverBinaryPath": "chromedriver-mac-arm64/chromedriver"
+    }
   }
 }

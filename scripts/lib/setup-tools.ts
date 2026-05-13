@@ -15,6 +15,31 @@ export interface TarballSpec {
     renameTo: string;
 }
 
+export interface FirefoxSpec {
+    version: string;
+    url: string;
+    sha256: string;
+    appPath: string;       // e.g. "Firefox.app"
+    binaryInApp: string;   // e.g. "Contents/MacOS/firefox"
+}
+
+export interface GeckodriverSpec {
+    version: string;
+    url: string;
+    sha256: string;
+}
+
+export interface ChromeForTestingSpec {
+    version: string;
+    chromeUrl: string;
+    chromeSha256: string;
+    chromedriverUrl: string;
+    chromedriverSha256: string;
+    appPath: string;                 // e.g. "chrome-mac-arm64/Google Chrome for Testing.app"
+    binaryInApp: string;             // e.g. "Contents/MacOS/Google Chrome for Testing"
+    chromedriverBinaryPath: string;  // e.g. "chromedriver-mac-arm64/chromedriver"
+}
+
 export async function readState(): Promise<Record<string, string>> {
     try {
         const buf = await readFile(STATE_FILE, "utf8");
@@ -37,6 +62,24 @@ async function pathExists(p: string): Promise<boolean> {
         return true;
     } catch {
         return false;
+    }
+}
+
+async function downloadAndVerify(url: string, expectedSha256: string, destPath: string): Promise<void> {
+    console.log(`[setup] downloading ${url}`);
+    await run("curl", [
+        "-fsSL",
+        "--retry", "5",
+        "--retry-all-errors",
+        "--retry-delay", "2",
+        url,
+        "-o", destPath,
+    ]);
+    const buf = await readFile(destPath);
+    const actual = createHash("sha256").update(buf).digest("hex");
+    if (actual !== expectedSha256) {
+        await rm(destPath, { force: true });
+        throw new Error(`sha256 mismatch for ${url}: expected ${expectedSha256}, got ${actual}`);
     }
 }
 
@@ -156,10 +199,128 @@ export async function ensureRustTarget(target: string): Promise<void> {
     await run("rustup", ["target", "add", target]);
 }
 
-export async function ensurePlaywrightBrowsers(): Promise<void> {
-    console.log("[setup] installing playwright browsers");
-    // playwright is a devDep of apps/runner-web, not the root — filter into that workspace.
-    await run("pnpm", ["--filter", "@bench-app/runner-web", "exec", "playwright", "install", "chromium", "firefox"]);
+export async function ensureFirefox(spec: FirefoxSpec): Promise<void> {
+    const state = await readState();
+    const targetDir = join(TOOLS_DIR, `firefox-${spec.version}`);
+    const appPath = join(targetDir, spec.appPath);
+    const binaryPath = join(appPath, spec.binaryInApp);
+
+    if (state["firefox"] === spec.version && await pathExists(binaryPath)) {
+        console.log(`[setup] firefox ${spec.version} already installed, skipping`);
+        return;
+    }
+
+    console.log(`[setup] installing firefox ${spec.version}`);
+    await mkdir(TOOLS_DIR, { recursive: true });
+
+    const tmpDmg = join(TOOLS_DIR, "firefox.download.dmg");
+    await downloadAndVerify(spec.url, spec.sha256, tmpDmg);
+
+    const mountPoint = join(TOOLS_DIR, "firefox.mount");
+    await mkdir(mountPoint, { recursive: true });
+    console.log(`[setup] mounting firefox dmg`);
+    await run("hdiutil", ["attach", "-nobrowse", "-mountpoint", mountPoint, tmpDmg]);
+
+    try {
+        await rm(targetDir, { recursive: true, force: true });
+        await mkdir(targetDir, { recursive: true });
+        console.log(`[setup] copying ${spec.appPath} from dmg`);
+        await run("cp", ["-R", join(mountPoint, spec.appPath), targetDir]);
+    } finally {
+        await run("hdiutil", ["detach", mountPoint]).catch(() => { /* best effort */ });
+        await rm(mountPoint, { recursive: true, force: true });
+    }
+
+    await rm(tmpDmg, { force: true });
+
+    console.log(`[setup] clearing quarantine attr`);
+    await run("xattr", ["-d", "-r", "com.apple.quarantine", appPath]).catch(() => { /* not all builds have it */ });
+
+    if (!await pathExists(binaryPath)) {
+        throw new Error(`firefox binary not found at expected path: ${binaryPath}`);
+    }
+
+    state["firefox"] = spec.version;
+    await writeState(state);
+    console.log(`[setup] firefox ${spec.version} installed`);
+}
+
+export async function ensureGeckodriver(spec: GeckodriverSpec): Promise<void> {
+    const state = await readState();
+    const targetDir = join(TOOLS_DIR, `geckodriver-${spec.version}`);
+    const binaryPath = join(targetDir, "geckodriver");
+
+    if (state["geckodriver"] === spec.version && await pathExists(binaryPath)) {
+        console.log(`[setup] geckodriver ${spec.version} already installed, skipping`);
+        return;
+    }
+
+    console.log(`[setup] installing geckodriver ${spec.version}`);
+    await mkdir(TOOLS_DIR, { recursive: true });
+
+    const tmpFile = join(TOOLS_DIR, "geckodriver.download.tar.gz");
+    await downloadAndVerify(spec.url, spec.sha256, tmpFile);
+
+    await rm(targetDir, { recursive: true, force: true });
+    await mkdir(targetDir, { recursive: true });
+    await run("tar", ["-xzf", tmpFile, "-C", targetDir]);
+    await rm(tmpFile, { force: true });
+
+    if (!await pathExists(binaryPath)) {
+        throw new Error(`geckodriver binary not found at expected path: ${binaryPath}`);
+    }
+
+    state["geckodriver"] = spec.version;
+    await writeState(state);
+    console.log(`[setup] geckodriver ${spec.version} installed`);
+}
+
+export async function ensureChromeForTesting(spec: ChromeForTestingSpec): Promise<void> {
+    const state = await readState();
+    const targetDir = join(TOOLS_DIR, `chrome-${spec.version}`);
+    const chromeBinaryPath = join(targetDir, spec.appPath, spec.binaryInApp);
+    const chromedriverBinaryPath = join(targetDir, spec.chromedriverBinaryPath);
+
+    if (
+        state["chrome-for-testing"] === spec.version
+        && await pathExists(chromeBinaryPath)
+        && await pathExists(chromedriverBinaryPath)
+    ) {
+        console.log(`[setup] chrome-for-testing ${spec.version} already installed, skipping`);
+        return;
+    }
+
+    console.log(`[setup] installing chrome-for-testing ${spec.version}`);
+    await mkdir(TOOLS_DIR, { recursive: true });
+
+    const chromeZip = join(TOOLS_DIR, "chrome.download.zip");
+    const cdZip = join(TOOLS_DIR, "chromedriver.download.zip");
+    await downloadAndVerify(spec.chromeUrl, spec.chromeSha256, chromeZip);
+    await downloadAndVerify(spec.chromedriverUrl, spec.chromedriverSha256, cdZip);
+
+    await rm(targetDir, { recursive: true, force: true });
+    await mkdir(targetDir, { recursive: true });
+    console.log(`[setup] extracting chrome.zip`);
+    await run("unzip", ["-q", chromeZip, "-d", targetDir]);
+    console.log(`[setup] extracting chromedriver.zip`);
+    await run("unzip", ["-q", cdZip, "-d", targetDir]);
+    await rm(chromeZip, { force: true });
+    await rm(cdZip, { force: true });
+
+    const appPath = join(targetDir, spec.appPath);
+    await run("xattr", ["-d", "-r", "com.apple.quarantine", appPath]).catch(() => { /* not all builds have it */ });
+    await run("xattr", ["-d", "-r", "com.apple.quarantine", chromedriverBinaryPath]).catch(() => { /* not all builds have it */ });
+
+    if (!await pathExists(chromeBinaryPath)) {
+        throw new Error(`chrome binary not found: ${chromeBinaryPath}`);
+    }
+    if (!await pathExists(chromedriverBinaryPath)) {
+        throw new Error(`chromedriver binary not found: ${chromedriverBinaryPath}`);
+    }
+
+    state["chrome-for-testing"] = spec.version;
+    await writeState(state);
+    console.log(`[setup] chrome-for-testing ${spec.version} installed`);
 }
 
 interface ToolVersionsTools {
