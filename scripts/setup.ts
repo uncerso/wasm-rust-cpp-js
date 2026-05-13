@@ -1,11 +1,16 @@
 import { readFile } from "node:fs/promises";
 import {
     type TarballSpec,
+    type FirefoxSpec,
+    type GeckodriverSpec,
+    type ChromeForTestingSpec,
     ensureTarball,
     ensureEmsdk,
     ensureWasmPackViaCargo,
     ensureRustTarget,
-    ensurePlaywrightBrowsers,
+    ensureFirefox,
+    ensureGeckodriver,
+    ensureChromeForTesting,
     createSymlinks,
 } from "./lib/setup-tools.js";
 
@@ -25,6 +30,12 @@ interface WasmPackEntry {
     version: string;
 }
 
+interface BrowsersManifest {
+    firefox: FirefoxSpec;
+    geckodriver: GeckodriverSpec;
+    "chrome-for-testing": ChromeForTestingSpec;
+}
+
 interface VersionsManifest {
     tools: {
         "wasi-sdk": TarballEntry;
@@ -32,6 +43,7 @@ interface VersionsManifest {
         emsdk: EmsdkEntry;
         "wasm-pack": WasmPackEntry;
     };
+    browsers: BrowsersManifest;
 }
 
 async function main(): Promise<void> {
@@ -54,7 +66,9 @@ async function main(): Promise<void> {
     await ensureWasmPackViaCargo(manifest.tools["wasm-pack"].version);
     await createSymlinks();
     await ensureRustTarget("wasm32-unknown-unknown");
-    await ensurePlaywrightBrowsers();
+    await ensureFirefox(manifest.browsers.firefox);
+    await ensureGeckodriver(manifest.browsers.geckodriver);
+    await ensureChromeForTesting(manifest.browsers["chrome-for-testing"]);
     console.log("[setup] all tools ready");
 }
 

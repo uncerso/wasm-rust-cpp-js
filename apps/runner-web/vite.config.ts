@@ -1,12 +1,23 @@
-import { defineConfig } from "vite";
+import { defineConfig, type PluginOption } from "vite";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import sirv from "sirv";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
+
+function servePublicDirInPreview(publicDirPath: string): PluginOption {
+    return {
+        name: "serve-public-dir-in-preview",
+        configurePreviewServer(server) {
+            server.middlewares.use(sirv(publicDirPath, { dev: true, etag: true }));
+        },
+    };
+}
 
 export default defineConfig({
     root: __dirname,
     publicDir: resolve(__dirname, "../../dist"),
+    plugins: [servePublicDirInPreview(resolve(__dirname, "../../dist"))],
     server: {
         port: 5174,
         fs: { allow: [resolve(__dirname, "../..")] },
@@ -25,7 +36,12 @@ export default defineConfig({
             "Cross-Origin-Embedder-Policy": "require-corp",
         },
     },
-    build: { target: "es2022" },
+    build: {
+        target: "es2022",
+        outDir: resolve(__dirname, "dist"),
+        copyPublicDir: false,
+        emptyOutDir: true,
+    },
     worker: { format: "es" },
     optimizeDeps: {
     // Exclude workspace packages so they are served as raw ESM through Vite's

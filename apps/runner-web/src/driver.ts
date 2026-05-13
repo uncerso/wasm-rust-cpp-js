@@ -2,13 +2,15 @@ import { argv, exit } from "node:process";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { totalmem } from "node:os"; // NOTE H: ESM import, not require()
-import { chromium, firefox, type Browser } from "@playwright/test"; // NOTE G: @playwright/test not playwright
+import { totalmem } from "node:os";
+import { Builder, type WebDriver } from "selenium-webdriver";
+import * as firefox from "selenium-webdriver/firefox";
+import * as chrome from "selenium-webdriver/chrome";
 import { BenchResultSchema } from "@bench/result-schema";
 import type { Language, Toolchain, Profile, InputSize } from "@bench/result-schema";
 import type { WorkerInput } from "./worker.js";
+import { getBrowserPaths } from "./browser-paths.js";
 
-// Repo root = two directories up from apps/runner-web/src/driver.ts
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../../..");
 
@@ -24,7 +26,6 @@ interface CliArgs {
     port: number;
 }
 
-// NOTE J: rename parameter to avoid shadowing imported argv
 function parseCli(args: string[]): CliArgs {
     const get = (name: string): string => {
         const v = args.find((a) => a.startsWith(`--${name}=`));
@@ -59,6 +60,41 @@ interface SpecFile {
     inputSizes: Record<InputSize, SpecSizeEntry>;
 }
 
+async function launchBrowser(env: "chromium" | "firefox"): Promise<WebDriver> {
+    const paths = await getBrowserPaths();
+    if (env === "firefox") {
+        const opts = new firefox.Options();
+        opts.setBinary(paths.firefoxBinary);
+        opts.addArguments("--headless");
+        // Suppress auto-update, telemetry, first-run UI
+        opts.setPreference("app.update.auto", false);
+        opts.setPreference("app.update.enabled", false);
+        opts.setPreference("app.update.staging.enabled", false);
+        opts.setPreference("toolkit.telemetry.reportingpolicy.firstRun", false);
+        opts.setPreference("datareporting.policy.firstRunURL", "");
+        opts.setPreference("browser.shell.checkDefaultBrowser", false);
+        return new Builder()
+            .forBrowser("firefox")
+            .setFirefoxOptions(opts)
+            .setFirefoxService(new firefox.ServiceBuilder(paths.geckodriver))
+            .build();
+    }
+    const opts = new chrome.Options();
+    opts.setChromeBinaryPath(paths.chromeBinary);
+    opts.addArguments(
+        "--headless=new",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-default-apps",
+        "--disable-features=Translate",
+    );
+    return new Builder()
+        .forBrowser("chrome")
+        .setChromeOptions(opts)
+        .setChromeService(new chrome.ServiceBuilder(paths.chromedriver))
+        .build();
+}
+
 async function main() {
     const a = parseCli(argv.slice(2));
 
@@ -66,7 +102,6 @@ async function main() {
         ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 10, cvThreshold: 0.05 }
         : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 100, cvThreshold: 0.05 };
 
-    // Pre-read spec.json so driver passes everything to the page (NOTE L)
     const specPath = join(REPO_ROOT, `dist/${a.benchmark}/spec.json`);
     const spec = JSON.parse(await readFile(specPath, "utf8")) as SpecFile;
     const sizeSpec = spec.inputSizes[a.size];
@@ -89,64 +124,58 @@ async function main() {
     };
 
     const caseParam = btoa(JSON.stringify(workerInput));
-    const url = `${baseUrl}/?case=${encodeURIComponent(caseParam)}`;
+    const debug = process.env["BENCH_DEBUG_TIMINGS"] === "1" ? "&debug=1" : "";
+    const url = `${baseUrl}/?case=${encodeURIComponent(caseParam)}${debug}`;
 
-    let browser: Browser | undefined;
+    let driver: WebDriver | undefined;
     let raw: unknown;
     try {
-        browser = a.browser === "firefox"
-            ? await firefox.launch({ headless: true })
-            : await chromium.launch({ headless: true });
-        const page = await browser.newPage();
-
-        if (process.env["BENCH_DEBUG_TIMINGS"] === "1") {
-            await page.context().addInitScript(() => {
-                (globalThis as { __BENCH_DEBUG_TIMINGS__?: boolean }).__BENCH_DEBUG_TIMINGS__ = true;
-            });
-        }
-
-        // Capture console output from the page for debugging
-        page.on("console", (msg) => console.log(`[browser ${msg.type()}] ${msg.text()}`));
-        page.on("pageerror", (err) => console.error("[browser error]", err));
-
+        driver = await launchBrowser(a.browser);
         console.log(`navigating to ${url}`);
-        await page.goto(url);
+        await driver.get(url);
 
-        // Wait up to 5 minutes for the result
         const timeoutMs = 5 * 60 * 1000;
         try {
-            // NOTE I: pass function to waitForFunction, not a string
-            await page.waitForFunction(
-                () => (window as unknown as { __BENCH_RESULT?: unknown }).__BENCH_RESULT !== undefined,
-                { timeout: timeoutMs },
-            );
+            await driver.wait(async () => {
+                return await driver!.executeScript<boolean>(
+                    "return (window).__BENCH_RESULT !== undefined;",
+                );
+            }, timeoutMs);
         } catch {
-            const status = await page.textContent("#status");
-            throw new Error(`timed out waiting for result. Page status: ${status ?? "(none)"}`);
+            const status = await driver.executeScript<string>(
+                "return document.getElementById('status')?.textContent || '(no status)';",
+            ).catch(() => "(eval failed)");
+            const logs = await driver.executeScript<unknown[]>(
+                "return (window).__BENCH_LOGS || [];",
+            ).catch(() => []);
+            for (const log of logs) console.error("[browser]", log);
+            throw new Error(`timed out waiting for result. Page status: ${status}`);
         }
 
-        // NOTE I: pass function to evaluate
-        raw = await page.evaluate(
-            () => (window as unknown as { __BENCH_RESULT?: unknown }).__BENCH_RESULT,
+        raw = await driver.executeScript<unknown>(
+            "return (window).__BENCH_RESULT;",
         );
+
+        // Forward any captured logs even on success
+        const logs = await driver.executeScript<unknown[]>(
+            "return (window).__BENCH_LOGS || [];",
+        ).catch(() => []);
+        for (const log of logs) console.log("[browser]", log);
     } finally {
-        await browser?.close();
+        await driver?.quit().catch(() => { /* best effort */ });
     }
 
     if (
-        raw !== null &&
-    typeof raw === "object" &&
-    "error" in raw &&
-    typeof (raw).error === "string"
+        raw !== null
+        && typeof raw === "object"
+        && "error" in raw
+        && typeof (raw).error === "string"
     ) {
         throw new Error(`benchmark failed: ${(raw as { error: string }).error}`);
     }
 
     const result = BenchResultSchema.parse(raw);
 
-    // Patch machine info from host. The browser-reported machine.os
-    // (navigator.platform) is deprecated and unreliable (empty on FF 110+);
-    // use Node's process.platform/arch like runner-node does.
     const machineCpu = process.env["MACHINE_CPU"] ?? "unknown";
     const patched = {
         ...result,

@@ -65,7 +65,14 @@ async function main() {
     let serverProc: ResultPromise | null = null;
     if (needWebServer) {
         const viteBin = resolve("apps/runner-web/node_modules/.bin/vite");
-        serverProc = execa(viteBin, [], {
+        // Wave 1 Phase 1.0.6: prod-bundle. Build synchronously, then launch preview.
+        console.log("[run-matrix] building runner-web for preview...");
+        await execa(viteBin, ["build"], {
+            cwd: "apps/runner-web",
+            stdio: "inherit",
+        });
+        console.log("[run-matrix] launching vite preview...");
+        serverProc = execa(viteBin, ["preview", "--port=5174", "--strictPort"], {
             cwd: "apps/runner-web",
             stdio: "inherit",
             detached: true,
