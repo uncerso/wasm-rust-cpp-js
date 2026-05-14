@@ -6,6 +6,7 @@ source: docs/superpowers/notes/2026-05-05-perf-now-precision.md
 category: open-review-ticket
 status: open
 priority: medium
+roadmap: phase-1.1-candidate
 ---
 
 ## What
@@ -35,3 +36,9 @@ Investigate:
 
 - `docs/superpowers/notes/2026-05-05-perf-now-precision.md` (TODO mention)
 - `apps/runner-web/src/` (grep target)
+
+## Roadmap
+
+Triage 2026-05-15: marked **phase-1.1-candidate**. Естественный кандидат для Phase 1.1
+runner-web cleanup pass. При создании plan-файла переместить этот item в `resolved/`
+со ссылкой на plan.

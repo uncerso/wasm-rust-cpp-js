@@ -6,6 +6,7 @@ source: docs/superpowers/session-state-2026-05-05-wave-3.md
 category: investigation
 status: open
 priority: low
+roadmap: phase-1.1-candidate
 ---
 
 ## What
@@ -34,3 +35,9 @@ Investigation steps:
 - `docs/superpowers/session-state-2026-05-05-wave-3.md` (hypotheses + drift numbers)
 - `benches/matmul/rust/bindgen/` (crate)
 - Related debt: `bindgen-thread-local-init-shim-overhead.md`
+
+## Roadmap
+
+Triage 2026-05-15: marked **phase-1.1-candidate**. Pair с
+[[bindgen-thread-local-init-shim-overhead]] — две связанные investigation. Имеют смысл
+вместе как «bindgen size deep-dive» mini-sprint в Phase 1.1.

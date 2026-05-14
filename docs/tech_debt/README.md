@@ -20,8 +20,9 @@ title: <one-line description>
 created: YYYY-MM-DD
 source: <commit-sha | docs/superpowers/...md | "session YYYY-MM-DD ...">
 category: process-gap | latent-bug | investigation | open-review-ticket | nice-to-have | known-limitation
-status: open | in-progress
+status: open | in-progress | wontfix | resolved
 priority: high | medium | low
+roadmap: <phase-tag>-candidate    # optional — see § Roadmap marker
 ---
 
 ## What
@@ -43,6 +44,16 @@ priority: high | medium | low
 - `open|in-progress` → **resolved**: переместить файл в `docs/tech_debt/resolved/`. Сохранить запись для git-grep'аемости.
 - `open|in-progress` → **wontfix**: изменить status на `wontfix`, добавить секцию `## Decision` с rationale. Файл остаётся в backlog.
 - `open|in-progress` → **moved-to-roadmap**: item включён в plan/spec следующей phase. Удалить файл, ссылку на это решение добавить в commit-message при удалении.
+  - **Если plan-файл ещё не создан** (e.g. triage до старта phase planning): добавить
+    `roadmap: <phase>-candidate` в frontmatter и секцию `## Roadmap` в конце файла со
+    sketch'ом куда item должен попасть. Файл остаётся в backlog (status: open) до момента
+    создания plan-файла, тогда перемещается в `resolved/`.
+
+## Roadmap marker
+
+Field `roadmap: <phase>-candidate` (e.g. `phase-1.1-candidate`) ставится во время triage,
+когда item направлен в следующую phase, но plan-файл ещё не создан. Когда planning старт'ует,
+эти items берутся в первую очередь рассмотрения. Поиск: `grep -l "^roadmap:" docs/tech_debt/*.md`.
 
 ## Categories
 

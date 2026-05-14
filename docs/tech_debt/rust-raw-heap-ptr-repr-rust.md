@@ -6,6 +6,7 @@ source: docs/superpowers/session-state-2026-05-05-wave-3.md
 category: known-limitation
 status: open
 priority: low
+roadmap: phase-1.1-candidate
 ---
 
 ## What
@@ -34,3 +35,8 @@ address derivation независимо от layout.
 
 - `docs/superpowers/session-state-2026-05-05-wave-3.md` (M5 review note)
 - `benches/matmul/rust/raw/src/lib.rs` (HEAP definition + usage)
+
+## Roadmap
+
+Triage 2026-05-15: marked **phase-1.1-candidate**. Включить в Phase 1.1+ Rust hardening
+(возможно одним bundle'ом с другими rust-raw items: get_slices ergonomics, output_view zero-copy).

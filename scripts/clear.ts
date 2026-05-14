@@ -1,4 +1,15 @@
-import { rm } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
+
+async function assertRepoRoot(): Promise<void> {
+    try {
+        const s = await stat("pnpm-workspace.yaml");
+        if (!s.isFile()) throw new Error("not a file");
+    } catch {
+        throw new Error(
+            `clear.ts must run from repo root (cwd=${process.cwd()}); pnpm-workspace.yaml not found`,
+        );
+    }
+}
 
 const ALWAYS_PATHS = [
     "dist",
@@ -27,6 +38,7 @@ async function removeAll(paths: readonly string[]): Promise<void> {
 }
 
 async function main(): Promise<void> {
+    await assertRepoRoot();
     const all = process.argv.includes("--all");
     await removeAll(ALWAYS_PATHS);
     if (all) {

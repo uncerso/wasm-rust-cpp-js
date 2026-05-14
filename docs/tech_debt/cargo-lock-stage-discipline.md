@@ -6,6 +6,7 @@ source: docs/superpowers/session-state-2026-05-05-wave-3.md
 category: process-gap
 status: open
 priority: low
+roadmap: phase-1.1-candidate
 ---
 
 ## What
@@ -29,3 +30,8 @@ discipline.
 
 - `docs/superpowers/session-state-2026-05-05-wave-3.md` (carry-over note)
 - `benches/matmul/rust/*/Cargo.lock` paths
+
+## Roadmap
+
+Triage 2026-05-15: marked **phase-1.1-candidate**. Natural fit для CI-integration epic
+(lockfile check) в Phase 1.1. При создании plan-файла переместить в `resolved/` со ссылкой.

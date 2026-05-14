@@ -6,6 +6,7 @@ source: docs/superpowers/session-state-2026-05-05-wave-3.md
 category: nice-to-have
 status: open
 priority: low
+roadmap: phase-1.1-candidate
 ---
 
 ## What
@@ -32,3 +33,9 @@ inlined в wasm).
 
 - `docs/superpowers/session-state-2026-05-05-wave-3.md` (M3 review note)
 - `benches/matmul/rust/raw/src/lib.rs` (current API)
+
+## Roadmap
+
+Triage 2026-05-15: marked **phase-1.1-candidate**. Group с
+[[rust-raw-heap-ptr-repr-rust]] для bundle'а «rust-raw API hardening» при добавлении
+новых workloads в Phase 1.1.

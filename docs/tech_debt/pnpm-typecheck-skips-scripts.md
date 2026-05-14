@@ -6,6 +6,7 @@ source: session 2026-05-13/14 (Phase 1.0.6 Task 7-8 implementation)
 category: process-gap
 status: open
 priority: medium
+roadmap: phase-1.1-candidate
 ---
 
 ## What
@@ -39,3 +40,9 @@ Silent gap. В Phase 1.0.6 Task 7 это выявилось: после удал
 - `package.json` scripts.typecheck — текущая команда
 - `tsconfig.json` — root config с include scripts/**/*
 - Discovered: Phase 1.0.6 Wave 2 Task 7 implementation (subagent report 2026-05-13)
+
+## Roadmap
+
+Triage 2026-05-15: marked **phase-1.1-candidate**. Включить в Phase 1.1 plan (особенно
+актуально если Phase 1.1 затронет CI integration). При создании plan-файла переместить
+этот item в `resolved/` со ссылкой на plan.

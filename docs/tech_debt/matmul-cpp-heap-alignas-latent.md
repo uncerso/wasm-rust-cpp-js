@@ -6,6 +6,7 @@ source: docs/superpowers/session-state-2026-05-05-wave-2.md + session-state-2026
 category: latent-bug
 status: open
 priority: low
+roadmap: phase-1.1-candidate
 ---
 
 ## What
@@ -33,3 +34,9 @@ reinterpret_cast<double*> станет UB.
 - `benches/matmul/cpp/src/matmul.cpp` (поиск `alignas`)
 - `docs/superpowers/session-state-2026-05-05-wave-2.md` (initial discovery)
 - `docs/superpowers/session-state-2026-05-05-wave-3.md` (re-noted as low priority)
+
+## Roadmap
+
+Triage 2026-05-15: marked **phase-1.1-candidate**. Включить в Phase 1.1+ C++ hardening pass
+(возможно объединить с clang-tidy-cpp если последний будет двинут в roadmap). При создании
+plan-файла переместить в `resolved/` со ссылкой.

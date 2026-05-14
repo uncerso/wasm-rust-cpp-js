@@ -6,6 +6,7 @@ source: docs/superpowers/notes/2026-05-05-perf-now-precision.md
 category: open-review-ticket
 status: open
 priority: low
+roadmap: phase-1.1-candidate
 ---
 
 ## What
@@ -29,3 +30,9 @@ runtime regressions) кто-то будет «изобретать заново�
 
 - `docs/superpowers/notes/2026-05-05-perf-now-precision.md` (TODO mention)
 - `apps/runner-web/src/worker.ts`, `apps/runner-web/src/page.ts`, `apps/runner-web/src/driver.ts` (где env var/URL param консюмятся)
+
+## Roadmap
+
+Triage 2026-05-15: marked **phase-1.1-candidate**. Documentation update — кандидат для
+README или standalone `docs/debugging.md`. При создании Phase 1.1 plan включить или
+сделать standalone PR.

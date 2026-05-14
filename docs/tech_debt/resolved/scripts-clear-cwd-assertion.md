@@ -4,8 +4,9 @@ title: scripts/clear.ts работает только из repo root, но не 
 created: 2026-05-14
 source: docs/superpowers/session-state-2026-05-05.md
 category: nice-to-have
-status: open
+status: resolved
 priority: low
+resolved: 2026-05-15
 ---
 
 ## What
@@ -28,3 +29,15 @@ existence `pnpm-workspace.yaml` или известного marker-файла). 
 
 - `scripts/clear.ts`
 - `package.json` scripts.clear
+
+## Resolution
+
+**Date:** 2026-05-15 (during /tech-debt-review session).
+
+Добавлен `assertRepoRoot()` helper в `scripts/clear.ts`, проверяющий existence
+`pnpm-workspace.yaml` через `fs/promises.stat`. Вызывается первой строкой в `main()`,
+до любого `rm`. При неудаче throws с понятным сообщением о cwd. Typecheck passes
+(`npx tsc --noEmit -p tsconfig.json`).
+
+Импакт минимальный: только blocking-effect для accidental запуска из subdir; обычный
+`pnpm clear` path не затронут.

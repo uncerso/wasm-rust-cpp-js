@@ -6,6 +6,7 @@ source: docs/superpowers/session-state-2026-05-05-wave-3.md
 category: investigation
 status: open
 priority: low
+roadmap: phase-1.1-candidate
 ---
 
 ## What
@@ -32,3 +33,9 @@ Investigation:
 - `docs/superpowers/session-state-2026-05-05-wave-3.md` (hypothesis)
 - `benches/matmul/rust/bindgen/src/` (поиск thread_local!)
 - Related: `bindgen-size-regression-investigation.md`
+
+## Roadmap
+
+Triage 2026-05-15: marked **phase-1.1-candidate**. Pair с
+[[bindgen-size-regression-investigation]] — две связанные investigation. Имеют смысл
+вместе как «bindgen size deep-dive» mini-sprint в Phase 1.1.
