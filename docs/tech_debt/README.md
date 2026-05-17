@@ -4,8 +4,13 @@
 tickets, investigations без owner'а, ergonomics nice-to-haves. **Один item — один файл.**
 
 Это НЕ то же самое, что:
+- `docs/roadmap.md` — top-level live index отложенной work'и (feature-level items).
 - `docs/superpowers/plans/` + `specs/` — phase roadmap (запланированные features).
 - README «Известные ограничения» — user-facing accepted trade-offs.
+
+Tech-debt items с phase target (`roadmap: phase-X.Y-candidate` frontmatter) одновременно
+залинкованы из `docs/roadmap.md` под соответствующим Phase bucket'ом. Roadmap.md — index;
+файл здесь — source of truth.
 
 Periodic triage: запусти skill `/tech-debt-review`.
 
@@ -41,13 +46,21 @@ roadmap: <phase-tag>-candidate    # optional — see § Roadmap marker
 ## Status machine
 
 - `open` → `in-progress` (когда работа реально начата)
-- `open|in-progress` → **resolved**: переместить файл в `docs/tech_debt/resolved/`. Сохранить запись для git-grep'аемости.
-- `open|in-progress` → **wontfix**: изменить status на `wontfix`, добавить секцию `## Decision` с rationale. Файл остаётся в backlog.
-- `open|in-progress` → **moved-to-roadmap**: item включён в plan/spec следующей phase. Удалить файл, ссылку на это решение добавить в commit-message при удалении.
+- `open|in-progress` → **resolved**: **удалить файл**. История через
+  `git log --all --full-history -- docs/tech_debt/<slug>.md`. Если item был залинкован
+  из `docs/roadmap.md` — удалить также эту строку (per roadmap.md «removal» convention).
+- `open|in-progress` → **wontfix**: изменить status на `wontfix`, добавить секцию
+  `## Decision` с rationale. Файл остаётся в backlog. **НЕ дублировать** в
+  `docs/roadmap.md` § Won't do (та секция для feature-level rejections).
+- `open|in-progress` → **moved-to-roadmap**: item включён в plan/spec следующей phase.
+  Удалить файл (history через git), ссылку на это решение добавить в commit-message.
+  Если был залинкован из `docs/roadmap.md` — также удалить строку.
   - **Если plan-файл ещё не создан** (e.g. triage до старта phase planning): добавить
     `roadmap: <phase>-candidate` в frontmatter и секцию `## Roadmap` в конце файла со
-    sketch'ом куда item должен попасть. Файл остаётся в backlog (status: open) до момента
-    создания plan-файла, тогда перемещается в `resolved/`.
+    sketch'ом куда item должен попасть, добавить ссылку в `docs/roadmap.md` под
+    соответствующим Phase bucket'ом. Файл остаётся в backlog (status: open). Когда
+    plan-файл создан и item включён в него — файл удаляется + ссылка из roadmap.md
+    также удаляется.
 
 ## Roadmap marker
 
