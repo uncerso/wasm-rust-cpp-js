@@ -148,7 +148,9 @@ async function main() {
             const logs = await driver.executeScript<unknown[]>(
                 "return (window).__BENCH_LOGS || [];",
             ).catch(() => []);
-            for (const log of logs) console.error("[browser]", log);
+            for (const log of logs) {
+                console.error("[browser]", log);
+            }
             throw new Error(`timed out waiting for result. Page status: ${status}`);
         }
 
@@ -160,7 +162,9 @@ async function main() {
         const logs = await driver.executeScript<unknown[]>(
             "return (window).__BENCH_LOGS || [];",
         ).catch(() => []);
-        for (const log of logs) console.log("[browser]", log);
+        for (const log of logs) {
+            console.log("[browser]", log);
+        }
     } finally {
         await driver?.quit().catch(() => { /* best effort */ });
     }

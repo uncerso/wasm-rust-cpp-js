@@ -218,7 +218,7 @@ export async function ensureFirefox(spec: FirefoxSpec): Promise<void> {
 
     const mountPoint = join(TOOLS_DIR, "firefox.mount");
     await mkdir(mountPoint, { recursive: true });
-    console.log(`[setup] mounting firefox dmg`);
+    console.log("[setup] mounting firefox dmg");
     await run("hdiutil", ["attach", "-nobrowse", "-mountpoint", mountPoint, tmpDmg]);
 
     try {
@@ -233,7 +233,7 @@ export async function ensureFirefox(spec: FirefoxSpec): Promise<void> {
 
     await rm(tmpDmg, { force: true });
 
-    console.log(`[setup] clearing quarantine attr`);
+    console.log("[setup] clearing quarantine attr");
     await run("xattr", ["-d", "-r", "com.apple.quarantine", appPath]).catch(() => { /* not all builds have it */ });
 
     if (!await pathExists(binaryPath)) {
@@ -300,9 +300,9 @@ export async function ensureChromeForTesting(spec: ChromeForTestingSpec): Promis
 
     await rm(targetDir, { recursive: true, force: true });
     await mkdir(targetDir, { recursive: true });
-    console.log(`[setup] extracting chrome.zip`);
+    console.log("[setup] extracting chrome.zip");
     await run("unzip", ["-q", chromeZip, "-d", targetDir]);
-    console.log(`[setup] extracting chromedriver.zip`);
+    console.log("[setup] extracting chromedriver.zip");
     await run("unzip", ["-q", cdZip, "-d", targetDir]);
     await rm(chromeZip, { force: true });
     await rm(cdZip, { force: true });

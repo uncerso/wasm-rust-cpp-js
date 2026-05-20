@@ -3,7 +3,9 @@ import { rm, stat } from "node:fs/promises";
 async function assertRepoRoot(): Promise<void> {
     try {
         const s = await stat("pnpm-workspace.yaml");
-        if (!s.isFile()) throw new Error("not a file");
+        if (!s.isFile()) {
+            throw new Error("not a file");
+        }
     } catch {
         throw new Error(
             `clear.ts must run from repo root (cwd=${process.cwd()}); pnpm-workspace.yaml not found`,
