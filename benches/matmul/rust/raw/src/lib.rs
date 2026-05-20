@@ -47,8 +47,10 @@ static STATE: GlobalState = GlobalState {
 
 #[inline]
 fn heap_base() -> usize {
-    // SAFETY: HEAP is a 'static GlobalHeap; we only read its base address.
-    unsafe { (*HEAP.0.get()).as_ptr() as usize }
+    // addr_of!(HEAP.0) gives a stable address derivation without unsafe and
+    // without dereferencing. UnsafeCell is repr(transparent) over its inner
+    // value, so addr of HEAP.0 == addr of the inner [u8; HEAP_SIZE] storage.
+    core::ptr::addr_of!(HEAP.0) as usize
 }
 
 #[unsafe(no_mangle)]
@@ -84,13 +86,17 @@ pub extern "C" fn load_input(ptr: u32, len: u32) {
     }
 }
 
-// SAFETY: caller guarantees that load_input was called and set STATE.{n, a_off,
-// b_off, c_off} so that each offset points at a non-overlapping region of
-// n*n*8 valid f64-aligned bytes inside HEAP. Returned slices share their
-// caller-chosen lifetime 'a; caller must not retain them across any subsequent
-// load_input/alloc that may reshape STATE. Wasm32 single-threaded → exclusive
-// &mut [f64] for C is upheld by control flow (only run() calls this).
-unsafe fn get_slices<'a>() -> (&'a [f64], &'a [f64], &'a mut [f64], usize) {
+// CPS-style API: lifetime of slices is closed inside the closure scope, so
+// compiler enforces no escape across STATE reshapes (load_input/alloc).
+// Equivalent to the previous get_slices() but type-safe at the borrow level.
+//
+// SAFETY: caller guarantees load_input was called and set STATE.{n, a_off,
+// b_off, c_off} to non-overlapping regions of n*n*8 valid f64-aligned bytes
+// inside HEAP. Wasm32 single-threaded → exclusive &mut [f64] is upheld by
+// control flow (only run() calls this).
+unsafe fn with_slices<R>(
+    f: impl FnOnce(&[f64], &[f64], &mut [f64], usize) -> R,
+) -> R {
     unsafe {
         let n = *STATE.n.get();
         let a_off = *STATE.a_off.get();
@@ -99,20 +105,23 @@ unsafe fn get_slices<'a>() -> (&'a [f64], &'a [f64], &'a mut [f64], usize) {
         let a = core::slice::from_raw_parts(a_off as *const f64, n * n);
         let b = core::slice::from_raw_parts(b_off as *const f64, n * n);
         let c = core::slice::from_raw_parts_mut(c_off as *mut f64, n * n);
-        (a, b, c, n)
+        f(a, b, c, n)
     }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn run(iters: u32) -> f64 {
     // SAFETY: load_input was called by JS host before run; A/B/C are valid.
-    let (a, b, c, n) = unsafe { get_slices() };
-    let mut last = 0.0_f64;
-    for _ in 0..iters {
-        matmul_naive(a, b, c, n);
-        last = abs_sum(c);
+    unsafe {
+        with_slices(|a, b, c, n| {
+            let mut last = 0.0_f64;
+            for _ in 0..iters {
+                matmul_naive(a, b, c, n);
+                last = abs_sum(c);
+            }
+            last
+        })
     }
-    last
 }
 
 #[unsafe(no_mangle)]
