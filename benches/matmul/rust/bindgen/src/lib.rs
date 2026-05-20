@@ -1,5 +1,7 @@
-// Bindgen crate: state lives in a thread_local RefCell instead of static mut.
-// Wasm32 is single-threaded so the thread_local is effectively a singleton.
+// Bindgen crate: state lives in a static SyncCell<State> singleton (RefCell
+// wrapped with vacuous Sync impl). Wasm32 single-threaded → no thread crossing.
+// Eliminates the lazy thread_local init shim (см. closed tech-debt
+// bindgen-thread-local-init-shim-overhead).
 // One unsafe block remains: byte→f64 reinterpret in load_input. It is inherent
 // to the JS↔wasm marshalling boundary and cannot be removed without copying
 // via a temporary Vec<u8>/Vec<f64>.
@@ -13,7 +15,6 @@ use std::cell::RefCell;
 use matmul_shared::{abs_sum, matmul_naive};
 use wasm_bindgen::prelude::*;
 
-#[derive(Default)]
 struct State {
     n: usize,
     a: Vec<f64>,
@@ -21,9 +22,21 @@ struct State {
     c: Vec<f64>,
 }
 
-thread_local! {
-    static STATE: RefCell<State> = RefCell::new(State::default());
+impl State {
+    const fn new() -> Self {
+        Self { n: 0, a: Vec::new(), b: Vec::new(), c: Vec::new() }
+    }
 }
+
+// Wasm32 single-threaded — RefCell wrapped in SyncCell with vacuous Sync impl.
+// Same pattern as the raw crate's UnsafeCell singleton.
+struct SyncCell<T>(RefCell<T>);
+// SAFETY: Sync requires &T to be safely shareable across threads. wasm32 is
+// single-threaded, so no &T ever crosses a thread boundary; the obligation
+// is vacuous.
+unsafe impl<T> Sync for SyncCell<T> {}
+
+static STATE: SyncCell<State> = SyncCell(RefCell::new(State::new()));
 
 #[wasm_bindgen]
 pub fn load_input(buf: &[u8]) {
@@ -45,39 +58,33 @@ pub fn load_input(buf: &[u8]) {
     let f64s: &[f64] = unsafe {
         core::slice::from_raw_parts(buf.as_ptr().cast::<f64>(), total_f64)
     };
-    STATE.with(|s| {
-        let mut s = s.borrow_mut();
-        s.n = n;
-        s.a = f64s[0..n * n].to_vec();
-        s.b = f64s[n * n..2 * n * n].to_vec();
-        s.c = vec![0.0; n * n];
-    });
+    let mut s = STATE.0.borrow_mut();
+    s.n = n;
+    s.a = f64s[0..n * n].to_vec();
+    s.b = f64s[n * n..2 * n * n].to_vec();
+    s.c = vec![0.0; n * n];
 }
 
 #[must_use]
 #[wasm_bindgen]
 pub fn run(iters: u32) -> f64 {
-    STATE.with(|s| {
-        let mut s = s.borrow_mut();
-        let n = s.n;
-        let mut last = 0.0_f64;
-        // Borrow checker rejects simultaneous &s.a / &s.b / &mut s.c because s
-        // is &mut State; destructure to take three independent &/&mut to
-        // distinct fields.
-        let State { a, b, c, .. } = &mut *s;
-        for _ in 0..iters {
-            matmul_naive(a, b, c, n);
-            last = abs_sum(c);
-        }
-        last
-    })
+    let mut s = STATE.0.borrow_mut();
+    let n = s.n;
+    let mut last = 0.0_f64;
+    // Borrow checker rejects simultaneous &s.a / &s.b / &mut s.c because s
+    // is &mut State; destructure to take three independent &/&mut to
+    // distinct fields.
+    let State { a, b, c, .. } = &mut *s;
+    for _ in 0..iters {
+        matmul_naive(a, b, c, n);
+        last = abs_sum(c);
+    }
+    last
 }
 
 #[wasm_bindgen]
 pub fn reset() {
-    STATE.with(|s| {
-        s.borrow_mut().c.fill(0.0);
-    });
+    STATE.0.borrow_mut().c.fill(0.0);
 }
 
 #[must_use]
