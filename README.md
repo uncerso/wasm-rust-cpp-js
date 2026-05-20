@@ -226,6 +226,27 @@ pnpm bench:all
 
 Долго (десятки минут в `eval`). Используется для финальных замеров.
 
+### Debug timings (отладка измерений)
+
+Если измерения дают неожиданные значения (high CV, аномальные firstCall, и т.п.) — включаются подробные per-sample логи и проба разрешения `performance.now()`:
+
+```bash
+# Node-side
+BENCH_DEBUG_TIMINGS=1 pnpm exec tsx apps/runner-node/src/main.ts ...
+
+# Browser-side (через runner-web driver)
+BENCH_DEBUG_TIMINGS=1 pnpm --filter @bench-app/runner-web drive ...
+```
+
+Что появляется в выводе:
+
+- `[bench-debug] performance.now() resolution: <ms>` — измеренное разрешение high-resolution clock (Node ~ 1µs, Chromium ~ 5µs с COOP+COEP, Firefox ~ 20µs).
+- `[bench-debug] sample N: <duration>` — длительность каждого warm sample'а.
+
+Browser-side флаг прокидывается из Node через query param `?debug=1` на page → worker scope. Source: `apps/runner-web/src/driver.ts:127` (Node→URL), `apps/runner-web/src/page.ts:68-69` (page→worker forward), `apps/runner-web/src/worker.ts:49,83` (worker scope setup), `packages/harness/src/measure.ts:22-31` (consumer).
+
+Полезно для investigations типа «почему в Firefox все samples 0 ms» — pivot Wave 4 (см. `docs/superpowers/notes/2026-05-05-perf-now-precision.md`).
+
 ---
 
 ## Отчёт
