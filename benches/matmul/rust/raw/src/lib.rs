@@ -95,7 +95,7 @@ pub extern "C" fn load_input(ptr: u32, len: u32) {
 // inside HEAP. Wasm32 single-threaded → exclusive &mut [f64] is upheld by
 // control flow (only run() calls this).
 unsafe fn with_slices<R>(
-    f: impl FnOnce(&[f64], &[f64], &mut [f64], usize) -> R,
+    body: impl FnOnce(&[f64], &[f64], &mut [f64], usize) -> R,
 ) -> R {
     unsafe {
         let n = *STATE.n.get();
@@ -105,7 +105,7 @@ unsafe fn with_slices<R>(
         let a = core::slice::from_raw_parts(a_off as *const f64, n * n);
         let b = core::slice::from_raw_parts(b_off as *const f64, n * n);
         let c = core::slice::from_raw_parts_mut(c_off as *mut f64, n * n);
-        f(a, b, c, n)
+        body(a, b, c, n)
     }
 }
 
