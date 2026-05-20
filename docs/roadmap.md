@@ -30,20 +30,6 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 - **hashmap-workload** — std::unordered_map vs Rust HashMap vs JS Map (insert/lookup/delete) ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 - **shape-dispatch** — static (templates/generics) vs dynamic (virtual/dyn Trait/class hierarchy) dispatch ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 
-### Bindgen size deep-dive
-- **bindgen-size-regression-investigation** — root cause +0.9-1.0 KB drift в Wave 3 ([→ tech_debt/bindgen-size-regression-investigation](tech_debt/bindgen-size-regression-investigation.md))
-- **bindgen-thread-local-init-shim-overhead** — likely contributor; try OnceLock ([→ tech_debt/bindgen-thread-local-init-shim-overhead](tech_debt/bindgen-thread-local-init-shim-overhead.md))
-- **bindgen-output-view-force-copy** — wasm-side alloc для output_view; может частично разрешиться удалением dead readOutput API ([→ tech_debt/bindgen-output-view-force-copy](tech_debt/bindgen-output-view-force-copy.md))
-
-### rust-raw hardening
-- **rust-raw-heap-ptr-repr-rust** — heap ptr derivation от repr(Rust) layout (implementation-defined) ([→ tech_debt/rust-raw-heap-ptr-repr-rust](tech_debt/rust-raw-heap-ptr-repr-rust.md))
-- **rust-raw-get-slices-ergonomics** — caller-chosen lifetime, latent UAF при 2+ callers ([→ tech_debt/rust-raw-get-slices-ergonomics](tech_debt/rust-raw-get-slices-ergonomics.md))
-
-### Solo
-- **worker-importscripts-detection** — unreliable `typeof importScripts` check для Module Workers в runner-web ([→ tech_debt/worker-importscripts-detection](tech_debt/worker-importscripts-detection.md))
-- **matmul-cpp-heap-alignas-latent** — `alignas(8) static` heap, relative vs absolute alignment gap ([→ tech_debt/matmul-cpp-heap-alignas-latent](tech_debt/matmul-cpp-heap-alignas-latent.md))
-- **bench-debug-timings-docs** — документировать `BENCH_DEBUG_TIMINGS=1` + `?debug=1` в README ([→ tech_debt/bench-debug-timings-docs](tech_debt/bench-debug-timings-docs.md))
-
 ## Phase 1.2
 
 > Plausible targets после Phase 1.1. Не committed; перетасуется при `/backlog-review` перед
