@@ -381,6 +381,19 @@ reused для новых benchmark IDs.
 - `--no-gpg-sign` обязателен на коммитах (existing project convention).
 - При длительной sessии — `/finish-session` skill решает, нужен ли session-state
   snapshot. Phase exit ≠ session exit; session-state не входит в exit criteria.
+- **Proactive session-close suggestions.** AI должен **предлагать** закончить сессию
+  в логичных и удобных для этого местах, не дожидаясь явного запроса user'а:
+  - После закрытия wave (W1 done, переход к W2 — natural pause point).
+  - После merge'а sub-phase (естественный handoff boundary).
+  - После завершения investigation/refactor с накопленным контекстом, который
+    стоит зафиксировать.
+  - Перед началом длинного нового блока работ, если предыдущая часть оформлена.
+  - Если контекст в сессии становится тяжёлым, и логичный stopping point виден
+    в пределах нескольких шагов.
+
+  Предложение — это одна строка в конце ответа: «Логичный момент закрыть сессию
+  (`/finish-session`) — продолжать или wrap up?». Не настойчиво, не повторно
+  в одной сессии после «нет/потом», и не блокирует current work до ответа.
 
 ## Открытые вопросы для writing-plans
 
