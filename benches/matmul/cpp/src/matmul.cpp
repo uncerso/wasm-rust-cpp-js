@@ -4,7 +4,13 @@
 // (no libc headers). __builtin_* are recognised by clang in both modes.
 
 static const uint32_t HEAP_SIZE = 32u * 1024u * 1024u;
-static uint8_t heap[HEAP_SIZE];
+// alignas(8) guarantees the storage address is 8-aligned at link time. The
+// bumping allocator (alloc) preserves 8-byte alignment via `(next_off + sz + 7u) & ~7u`,
+// so &heap[p] is always 8-aligned for any p returned by alloc(). This makes
+// the reinterpret_cast<double*>(uintptr) in run() defined behaviour rather
+// than relying on toolchain-incidental layout (emcc / wasi-sdk both happened
+// to align static storage to 8 bytes, but that is not guaranteed by either).
+alignas(8) static uint8_t heap[HEAP_SIZE];
 static uint32_t next_off = 0;
 
 static uint32_t N = 0;
