@@ -9,7 +9,6 @@ function mockModule(opts: { checksum: number }): BenchModule {
         run: vi.fn((_iters: number) => {
             return { checksum: opts.checksum };
         }),
-        readOutput: () => new Uint8Array(),
         reset: vi.fn(),
     };
 }

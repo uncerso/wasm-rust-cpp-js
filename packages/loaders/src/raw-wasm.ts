@@ -42,11 +42,6 @@ export const rawWasmLoader: Loader = {
             run(iters: number): RunResult {
                 return { checksum: exports.run(iters) };
             },
-            readOutput(): Uint8Array {
-                const ptr = exports.output_ptr();
-                const len = exports.output_len();
-                return new Uint8Array(memBuffer, ptr, len).slice();
-            },
             reset() {
                 exports.reset?.();
             },

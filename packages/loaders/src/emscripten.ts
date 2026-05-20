@@ -49,11 +49,6 @@ export const emscriptenLoader: Loader = {
             run(iters: number): RunResult {
                 return { checksum: inst._run(iters) };
             },
-            readOutput(): Uint8Array {
-                const ptr = inst._output_ptr();
-                const len = inst._output_len();
-                return inst.HEAPU8.slice(ptr, ptr + len);
-            },
             reset() {
                 inst._reset();
             },

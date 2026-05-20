@@ -1,8 +1,8 @@
 // Bindgen crate: state lives in a thread_local RefCell instead of static mut.
 // Wasm32 is single-threaded so the thread_local is effectively a singleton.
-// Two unsafe blocks remain: byte↔f64 reinterpret in load_input and output_view.
-// Both are inherent to the JS↔wasm marshalling boundary and cannot be removed
-// without copying via temporary Vec<u8>/Vec<f64>.
+// One unsafe block remains: byte→f64 reinterpret in load_input. It is inherent
+// to the JS↔wasm marshalling boundary and cannot be removed without copying
+// via a temporary Vec<u8>/Vec<f64>.
 #![allow(
     unsafe_code,
     reason = "byte↔f64 reinterpret is inherent to JS↔wasm marshalling at the wasm-bindgen boundary"
@@ -70,22 +70,6 @@ pub fn run(iters: u32) -> f64 {
             last = abs_sum(c);
         }
         last
-    })
-}
-
-#[must_use]
-#[wasm_bindgen]
-pub fn output_view() -> Vec<u8> {
-    STATE.with(|s| {
-        let c = &s.borrow().c;
-        // SAFETY: align(u8) = 1 ≤ align(f64) so the cast cannot misalign;
-        // length is c.len() * 8 because each f64 is 8 bytes; the source slice
-        // is borrowed (not moved), so its lifetime outlives the slice we
-        // construct here, and we only read through it.
-        let bytes = unsafe {
-            core::slice::from_raw_parts(c.as_ptr().cast::<u8>(), c.len() * 8)
-        };
-        bytes.to_vec()
     })
 }
 

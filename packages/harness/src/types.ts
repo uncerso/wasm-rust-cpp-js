@@ -3,7 +3,6 @@ import type { Language, Profile, Toolchain, InputSize } from "@bench/result-sche
 export interface BenchModule {
     loadInput(input: Uint8Array): void;
     run(iterations: number): RunResult;
-    readOutput(): Float64Array | Int32Array | Uint8Array;
     reset?(): void;
     dispose?(): void;
 }

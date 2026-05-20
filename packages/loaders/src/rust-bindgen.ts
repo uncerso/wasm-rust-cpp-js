@@ -7,13 +7,12 @@ import { fetchBytes } from "./fetch-bytes.js";
  * wasm-bindgen glue exports: an `init(url)` async function plus named exports
  * matching #[wasm_bindgen] attributes on the Rust side. The bench's bindgen
  * implementation MUST expose: init(), load_input(Uint8Array), run(iters)->number,
- * output_view()->Uint8Array, memory()->WebAssembly.Memory, reset().
+ * wasm_memory()->WebAssembly.Memory, reset().
  */
 interface BindgenGlue {
     default: (input?: { module_or_path?: string | BufferSource | WebAssembly.Module }) => Promise<unknown>;
     load_input: (buf: Uint8Array) => void;
     run: (iters: number) => number;
-    output_view: () => Uint8Array;
     // wasm-bindgen auto-exports WebAssembly.Memory under the name `memory`; using
     // a Rust fn `memory()` would collide with it. We expose it as `wasm_memory()`.
     wasm_memory: () => WebAssembly.Memory;
@@ -49,7 +48,6 @@ export const rustBindgenLoader: Loader = {
         const module: BenchModule = {
             loadInput: (buf: Uint8Array) => glue.load_input(buf),
             run: (iters: number): RunResult => ({ checksum: glue.run(iters) }),
-            readOutput: () => glue.output_view().slice(),
             reset: () => glue.reset(),
         };
 

@@ -4,7 +4,6 @@
 interface BenchModule {
     loadInput(input: Uint8Array): void;
     run(iterations: number): { checksum: number };
-    readOutput(): Float64Array;
     reset(): void;
 }
 
@@ -73,17 +72,6 @@ export default function create(): BenchModule {
                 }
             }
             return { checksum: last };
-        },
-
-        readOutput(): Float64Array {
-            const out = new Float64Array(n * n);
-            for (let i = 0; i < n; i++) {
-                const Ci = C[i];
-                for (let j = 0; j < n; j++) {
-                    out[i * n + j] = Ci[j];
-                }
-            }
-            return out;
         },
 
         reset() {
