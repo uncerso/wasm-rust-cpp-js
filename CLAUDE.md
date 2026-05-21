@@ -129,6 +129,18 @@ pnpm exec tsx apps/runner-node/src/main.ts \
 - **Tool versions** — все pin'ы (sha256+URL) в `tool-versions.json`. Изменение версии должно обновлять и `meta.json` writer и downstream documentation. `wasm-opt` зовётся с `--enable-bulk-memory --enable-nontrapping-float-to-int` — без этих флагов современный rustc/emcc output не парсится.
 - **Изменение `BenchResult` schema** — только через `packages/result-schema`. Старые JSON'ы в `results/raw/` могут перестать парситься; это ОК для phase boundary, но требует bump'а в `meta.schemaVersion` если phase живая.
 
+## Spec & plan conventions
+
+**Pre-flight gate.** Перед тем как написать exit criteria в spec или plan — проверить
+что master зелёный по всем gates: `pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke`.
+Если не зелёный — это первая задача sub-phase или отдельный preamble commit. Без этой
+проверки exit criteria могут оказаться недостижимы из-за регрессий вне scope'а phase'ы.
+Пока CI нет — проверка manual; будет автоматизирована в Phase 1.2 (`ci-github-actions`).
+
+**Plan executor protocol.** Wave 0 ≡ baseline check на момент начала execution
+(тот же набор gates). Если падает — STOP, surface к user, не маскировать через
+out-of-scope lint:fix commit.
+
 ## Tech-debt capture
 
 Когда во время работы замечаешь: process gap, latent bug, open review ticket,
