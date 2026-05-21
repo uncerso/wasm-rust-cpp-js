@@ -4,8 +4,6 @@
 
 Цель проекта не ограничивается самими числами: на их основе накапливаются actionable **guidelines** для продуктовых команд — какие build-флаги, toolchain-комбинации и code-паттерны дают меньший wasm и быстрее runtime, а где trade-off проигрышный. Текущий каталог наблюдений — [`docs/guidelines.md`](./docs/guidelines.md).
 
-> **Статус:** Phase 1.1.0 (Hardening preamble — 8 tech-debt resolved, bindgen size drift полностью устранён) завершён 2026-05-21 (tag `phase-1-1-0`). Phase 1.0.6 (Web pipeline finalization — миграция с Playwright на selenium-webdriver + pinned production browsers (Firefox stable, Chrome for Testing) через `pnpm setup-tools`, web runner на `vite build` + preview) закрыт ранее. Phase 1.0 (baseline) и 1.0.5 (Housekeeping: auto-deps installer, ESLint flat config, cargo workspace + edition 2024) — раньше. Phase 1.0 baseline воспроизводится byte-identical. Доступен один workload — `matmul` (наивное dense f64 O(n³) умножение матриц), 10 имплементаций × профилей: JS×2, Rust×2 (raw / wasm-bindgen) × 2 профиля (speed / size, кроме JS), C++×2 (Emscripten / wasi-sdk freestanding) × 2 профиля. Phase 1.1.1 (`interop_calls`) — следующий sub-phase; полный Phase 1.1 = `interop_calls` + `hashmap_workload` + `shape_dispatch`.
-
 ---
 
 ## Содержание
