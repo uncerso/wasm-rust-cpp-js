@@ -11,6 +11,9 @@ executor читает перед большим объёмом работы чт
 
 - `docs/tech_debt/*.md` — actionable backlog items (один fix на item). Pitfall может
   породить tech-debt entry («починить X»), но сам pitfall — это lesson, не задача.
+  Bulk-deferred pitfall'ы автоматически roll в
+  `docs/tech_debt/incorporate-pitfalls-YYYY-MM-DD.md` — handle через который
+  `/tech-debt-review` подхватывает items.
 - `docs/guidelines.md` — confirmed product-engineer advice. Pitfall становится guideline'ом
   когда наблюдение reproducible across ≥2 контекстов.
 - `docs/superpowers/notes/` — investigation results, measurements (например,
@@ -19,7 +22,9 @@ executor читает перед большим объёмом работы чт
 
 ## Naming
 
-`YYYY-MM-DD-<short-scope>.md` — дата сессии, краткий scope. Пример:
+`YYYY-MM-DD-<slug>.md` — дата `/finish-session` call. Slug derived
+из session-state slug если есть, иначе из dominant theme сессии.
+Один файл per `/finish-session` invocation. Пример:
 `2026-05-21-phase-1-1-0-execution.md`.
 
 ## Format
@@ -35,8 +40,13 @@ H1 + категоризованные секции (Planning, Tooling, Process).
 
 ## Lifecycle
 
-Pitfall-файл — append-only по природе. После того как все lessons из него
-incorporated (в CLAUDE.md, spec template, guidelines, tech-debt), файл остаётся как
-historical record. Не удаляется при «resolving» — служит свидетельством pattern'а.
+Pitfall-файл — immutable historical record после создания. Никаких status-frontmatter'ов или edit'ов.
 
-Триаж — ad-hoc на старте новой phase: «есть свежие pitfalls? Какие применимы?».
+**Dispatch happens immediately при создании файла:** `/finish-session` спрашивает
+per-pitfall {inline-apply сейчас / bulk в tech-debt}. Inline → AI делает Edit
+в target file (обычно CLAUDE.md, spec template, guidelines.md). Bulk → items
+накапливаются в `docs/tech_debt/incorporate-pitfalls-YYYY-MM-DD.md`, который
+попадает в стандартный `/tech-debt-review` cadence.
+
+Pitfall-файл остаётся как evidence trail даже после full incorporation —
+служит свидетельством pattern'а.
