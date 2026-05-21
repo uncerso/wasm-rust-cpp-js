@@ -6,9 +6,8 @@
 
 ## Сделано в этой сессии
 
-**Спека и план (эфемерные, не закоммичены):**
-- `/tmp/claude-501/research/specs/2026-05-22-pitfalls-workflow-and-session-close-docs.md`
-- `/tmp/claude-501/research/plans/2026-05-22-pitfalls-workflow-and-session-close-docs.md`
+Дизайн и план обсуждались в `/research` dialogue (эфемерные scratchpad'ы, не сохранены
+в репо per `/research` skill convention). Все долгоживущие outcome'ы перечислены ниже.
 
 **Коммиты на master (`fff7b84..05a80b2`):**
 - `fff7b84` — `docs(pitfalls): describe immediate dispatch lifecycle` — переписан
