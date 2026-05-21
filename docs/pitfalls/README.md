@@ -1,8 +1,8 @@
 # Pitfalls
 
-Lessons from executing phases — что пошло не так и как избежать повторения. Один файл
-на сессию или фазу, где накопились pitfall'ы. Источник — рефлексия в момент закрытия
-сессии.
+Lessons from executing sessions — что пошло не так и как избежать повторения. Один файл
+per `/finish-session` invocation (см. раздел Naming ниже). Источник — рефлексия в момент
+закрытия сессии.
 
 Назначение — следующая spec/plan author читает relevant pitfalls перед написанием,
 executor читает перед большим объёмом работы чтобы избежать known gotchas.
