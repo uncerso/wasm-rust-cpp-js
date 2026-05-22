@@ -171,7 +171,7 @@ pnpm smoke
 
 ```bash
 pnpm exec tsx apps/runner-node/src/main.ts \
-  --benchmark=matmul \
+  --benchmark=matmul --entry=matmul \
   --language=rust --toolchain=raw --profile=speed \
   --size=S \
   --out=results/raw/single \
@@ -190,7 +190,7 @@ pnpm --filter @bench-app/runner-web dev   # Vite на порту 5174
 
 ```bash
 pnpm --filter @bench-app/runner-web drive \
-  --benchmark=matmul \
+  --benchmark=matmul --entry=matmul \
   --language=cpp --toolchain=emscripten --profile=size \
   --size=S \
   --browser=chromium \
@@ -213,7 +213,7 @@ pnpm bench --envs=node,chromium,firefox --sizes=S,M --mode=quick --out=results/r
 - `--mode=quick` (5–10 сэмплов) или `--mode=eval` (30–100 сэмплов с CV-стопом).
 - `--out=<dir>` (по умолчанию `results/raw/<ISO timestamp>`).
 
-Каждый кейс пишет `<benchmark>__<lang>-<toolchain>-<profile>__<size>__<env>.json`. 10 combos × N sizes × M envs = `10·N·M` файлов.
+Каждый кейс пишет `<entry>__<lang>-<toolchain>-<profile>__<size>__<env>.json`, где `<entry>` — benchmark ID (для single-entry binary типа matmul совпадает с `<benchmark>`; multi-entry binaries будут давать N файлов с разными `<entry>` на один (lang, toolchain, profile)).
 
 ### Полный пайплайн end-to-end
 
