@@ -8,3 +8,13 @@ export function mulberry32(seed: number): () => number {
         return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
     };
 }
+
+export function genF64Array(n: number, seed: number): Uint8Array {
+    const rng = mulberry32(seed);
+    const total = 2 * n * n;
+    const f = new Float64Array(total);
+    for (let i = 0; i < total; i++) {
+        f[i] = rng() * 2 - 1;
+    }
+    return new Uint8Array(f.buffer);
+}
