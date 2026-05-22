@@ -8,7 +8,7 @@ const fixtureUrl = fileURLToPath(
 
 describe("plainJsLoader", () => {
     it("loads a JS module and returns a BenchModule + timings", async () => {
-        const loaded = await plainJsLoader.load({ artifactUrl: fixtureUrl });
+        const loaded = await plainJsLoader.load({ artifactUrl: fixtureUrl, entry: "hello" });
         expect(typeof loaded.module.run).toBe("function");
         expect(loaded.module.run(1).checksum).toBe(42);
         expect(loaded.timings.initTotalMs).toBeGreaterThanOrEqual(0);

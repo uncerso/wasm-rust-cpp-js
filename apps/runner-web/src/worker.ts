@@ -94,23 +94,27 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
 
         const loader = pickLoader(i.language, i.toolchain);
 
-        const loaderInput: { artifactUrl: string; glueUrl?: string } = (() => {
+        const loaderInput: { artifactUrl: string; glueUrl?: string; entry: string } = (() => {
+            // Entry == benchmarkId until --entry flag lands (Task 12).
+            const entry = i.benchmarkId;
             if (i.language === "js") {
-                return { artifactUrl: `${distBase}/module.js` };
+                return { artifactUrl: `${distBase}/module.js`, entry };
             }
             if (i.toolchain === "bindgen") {
                 return {
                     artifactUrl: `${distBase}/module.wasm`,
                     glueUrl: `${distBase}/glue.js`,
+                    entry,
                 };
             }
             if (i.toolchain === "emscripten") {
                 return {
                     artifactUrl: `${distBase}/glue.wasm`,
                     glueUrl: `${distBase}/glue.mjs`,
+                    entry,
                 };
             }
-            return { artifactUrl: `${distBase}/module.wasm` };
+            return { artifactUrl: `${distBase}/module.wasm`, entry };
         })();
 
         const loaded = await loader.load(loaderInput);

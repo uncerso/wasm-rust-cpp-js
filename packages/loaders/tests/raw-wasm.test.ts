@@ -8,7 +8,7 @@ const fixtureUrl = fileURLToPath(
 
 describe("rawWasmLoader", () => {
     it("loads a wasm module conforming to the raw contract", async () => {
-        const loaded = await rawWasmLoader.load({ artifactUrl: fixtureUrl });
+        const loaded = await rawWasmLoader.load({ artifactUrl: fixtureUrl, entry: "hello" });
         expect(loaded.memoryRef).toBeInstanceOf(WebAssembly.Memory);
         expect(loaded.wasmRawBytes).toBeGreaterThan(0);
 

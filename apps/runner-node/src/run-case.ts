@@ -76,14 +76,18 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
     const meta = JSON.parse(await readFile(join(distRoot, "meta.json"), "utf8")) as ArtifactMetaFile;
 
     const loader = pickLoader(input.language, input.toolchain);
-    const loaderInput: { artifactUrl: string; glueUrl?: string } = (() => {
+    const loaderInput: { artifactUrl: string; glueUrl?: string; entry: string } = (() => {
+        // Entry == benchmarkId until --entry flag lands (Task 11). All four
+        // loader branches share the same entry value here.
+        const entry = input.benchmarkId;
         if (input.language === "js") {
-            return { artifactUrl: pathToFileURL(join(distRoot, "module.js")).href };
+            return { artifactUrl: pathToFileURL(join(distRoot, "module.js")).href, entry };
         }
         if (input.toolchain === "bindgen") {
             return {
                 artifactUrl: pathToFileURL(join(distRoot, "module.wasm")).href,
                 glueUrl: pathToFileURL(join(distRoot, "glue.js")).href,
+                entry,
             };
         }
         if (input.toolchain === "emscripten") {
@@ -92,9 +96,10 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
             return {
                 artifactUrl: pathToFileURL(join(distRoot, "glue.wasm")).href,
                 glueUrl: pathToFileURL(join(distRoot, "glue.mjs")).href,
+                entry,
             };
         }
-        return { artifactUrl: join(distRoot, "module.wasm") }; // raw-wasm reads via fs
+        return { artifactUrl: join(distRoot, "module.wasm"), entry }; // raw-wasm reads via fs
     })();
 
     const loaded = await loader.load(loaderInput);
