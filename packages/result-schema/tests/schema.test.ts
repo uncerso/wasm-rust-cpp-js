@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BenchResultSchema, EnvSchema, SCHEMA_VERSION } from "../src/index.js";
+import { BenchResultSchema, EnvSchema, SCHEMA_VERSION, SpecSchema } from "../src/index.js";
 
 describe("BenchResultSchema", () => {
     it("accepts a fully-populated valid result", () => {
@@ -47,5 +47,63 @@ describe("BenchResultSchema", () => {
         expect(() => EnvSchema.parse({
             kind: "other", name: "X", version: "1", engine: "V8",
         })).toThrow();
+    });
+});
+
+describe("SpecSchema", () => {
+    const validSpec = {
+        id: "demo",
+        version: 2,
+        entries: ["demo"],
+        inputSizes: {
+            S: { fixtureBytes: 0, fixtureSha256: "e".repeat(64), innerIterations: 100 },
+        },
+        expectedChecksums: { demo: { S: 42 } },
+    };
+
+    it("accepts a minimal multi-entry spec", () => {
+        const parsed = SpecSchema.parse({
+            ...validSpec,
+            entries: ["a", "b"],
+            expectedChecksums: { a: { S: 1 }, b: { S: 2 } },
+        });
+        expect(parsed.entries).toEqual(["a", "b"]);
+    });
+
+    it("accepts workload-specific size params via passthrough", () => {
+        const parsed = SpecSchema.parse({
+            ...validSpec,
+            inputSizes: {
+                S: { fixtureBytes: 65536, fixtureSha256: "a".repeat(64), n: 64 },
+            },
+        });
+        expect((parsed.inputSizes.S as unknown as { n: number }).n).toBe(64);
+    });
+
+    it("rejects empty entries", () => {
+        expect(() => SpecSchema.parse({ ...validSpec, entries: [] })).toThrow();
+    });
+
+    it("rejects bad fixtureSha256 length", () => {
+        expect(() =>
+            SpecSchema.parse({
+                ...validSpec,
+                inputSizes: { S: { fixtureBytes: 0, fixtureSha256: "abc" } },
+            }),
+        ).toThrow();
+    });
+
+    it("rejects wrong spec version", () => {
+        expect(() => SpecSchema.parse({ ...validSpec, version: 1 })).toThrow();
+    });
+
+    it("rejects expectedChecksums for unknown size", () => {
+        // zod's z.record(InputSizeSchema, ...) rejects keys outside the enum.
+        expect(() =>
+            SpecSchema.parse({
+                ...validSpec,
+                expectedChecksums: { demo: { XX: 1 } },
+            }),
+        ).toThrow();
     });
 });
