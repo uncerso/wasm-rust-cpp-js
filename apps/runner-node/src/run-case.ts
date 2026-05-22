@@ -7,12 +7,13 @@ import {
     plainJsLoader, rawWasmLoader, rustBindgenLoader, emscriptenLoader, type Loader,
 } from "@bench/loaders";
 import {
-    BenchResultSchema, SCHEMA_VERSION,
-    type BenchResult, type Toolchain, type Profile, type Language, type InputSize,
+    BenchResultSchema, SCHEMA_VERSION, SpecSchema,
+    type BenchResult, type Toolchain, type Profile, type Language, type InputSize, type Spec,
 } from "@bench/result-schema";
 
 interface RunCaseInput {
     benchmarkId: string;
+    entry: string;
     language: Language;
     toolchain: Toolchain;
     profile: Profile;
@@ -34,15 +35,6 @@ interface ArtifactMetaFile {
     jsModule: ArtifactStat | null;
     totalTransferGzipBytes: number;
     toolchainVersions: Record<string, string>;
-}
-
-interface SpecSizeEntry {
-    fixtureSha256: string;
-    expectedChecksum: number | string;
-}
-
-interface SpecFile {
-    inputSizes: Record<InputSize, SpecSizeEntry>;
 }
 
 function pickLoader(lang: Language, tc: Toolchain): Loader {
@@ -71,23 +63,32 @@ function asSha256Prefixed(hash: string | undefined): string {
     return hash.startsWith("sha256:") ? hash : `sha256:${hash}`;
 }
 
+function expectedChecksumFor(spec: Spec, entry: string, size: InputSize): number | string {
+    const perEntry = spec.expectedChecksums[entry];
+    if (!perEntry) {
+        throw new Error(`spec missing expectedChecksums for entry "${entry}"`);
+    }
+    const v = perEntry[size];
+    if (v === undefined) {
+        throw new Error(`spec missing expectedChecksum for entry "${entry}" size "${size}"`);
+    }
+    return v;
+}
+
 export async function runCase(input: RunCaseInput): Promise<BenchResult> {
     const distRoot = resolve(`dist/${input.benchmarkId}/${input.language}-${input.toolchain}-${input.profile}`);
     const meta = JSON.parse(await readFile(join(distRoot, "meta.json"), "utf8")) as ArtifactMetaFile;
 
     const loader = pickLoader(input.language, input.toolchain);
     const loaderInput: { artifactUrl: string; glueUrl?: string; entry: string } = (() => {
-        // Entry == benchmarkId until --entry flag lands (Task 11). All four
-        // loader branches share the same entry value here.
-        const entry = input.benchmarkId;
         if (input.language === "js") {
-            return { artifactUrl: pathToFileURL(join(distRoot, "module.js")).href, entry };
+            return { artifactUrl: pathToFileURL(join(distRoot, "module.js")).href, entry: input.entry };
         }
         if (input.toolchain === "bindgen") {
             return {
                 artifactUrl: pathToFileURL(join(distRoot, "module.wasm")).href,
                 glueUrl: pathToFileURL(join(distRoot, "glue.js")).href,
-                entry,
+                entry: input.entry,
             };
         }
         if (input.toolchain === "emscripten") {
@@ -96,20 +97,21 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
             return {
                 artifactUrl: pathToFileURL(join(distRoot, "glue.wasm")).href,
                 glueUrl: pathToFileURL(join(distRoot, "glue.mjs")).href,
-                entry,
+                entry: input.entry,
             };
         }
-        return { artifactUrl: join(distRoot, "module.wasm"), entry }; // raw-wasm reads via fs
+        return { artifactUrl: join(distRoot, "module.wasm"), entry: input.entry }; // raw-wasm reads via fs
     })();
 
     const loaded = await loader.load(loaderInput);
 
     const specPath = resolve(`benches/${input.benchmarkId}/spec.json`);
-    const spec = JSON.parse(await readFile(specPath, "utf8")) as SpecFile;
+    const spec = SpecSchema.parse(JSON.parse(await readFile(specPath, "utf8")));
     const sizeSpec = spec.inputSizes[input.inputSize];
     if (!sizeSpec) {
         throw new Error(`spec missing inputSize ${input.inputSize}`);
     }
+    const expectedChecksum = expectedChecksumFor(spec, input.entry, input.inputSize);
     const fixturePath = resolve(`benches/${input.benchmarkId}/fixtures/${input.inputSize.toLowerCase()}.bin`);
     const fixture = new Uint8Array(await readFile(fixturePath));
 
@@ -117,7 +119,7 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
     const measure = await runMeasure({
         module: loaded.module,
         fixture,
-        expectedChecksum: sizeSpec.expectedChecksum,
+        expectedChecksum,
         config: input.measureConfig,
     });
     const memAfter = loaded.memoryRef?.buffer.byteLength ?? 0;
@@ -142,7 +144,9 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
         },
         env: { kind: "node", name: "node", version: process.version, engine: "V8" },
         benchmark: {
-            id: input.benchmarkId,
+            // benchmark.id is the entry id, not the binary id. The source binary
+            // is identified by dist path components (language/toolchain/profile).
+            id: input.entry,
             inputSize: input.inputSize,
             fixtureBytes: fixture.byteLength,
             fixtureSha256: sizeSpec.fixtureSha256,

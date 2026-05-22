@@ -1,7 +1,8 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir, readFile, access } from "node:fs/promises";
 import { resolve } from "node:path";
 import { execa, type ResultPromise } from "execa";
-import { ALL_COMBINATIONS } from "./lib/matrix.js";
+import { SpecSchema, type Spec } from "@bench/result-schema";
+import { enumerateBinaries } from "./lib/matrix.js";
 import { run } from "./lib/exec.js";
 
 type Env = "node" | "chromium" | "firefox";
@@ -44,6 +45,23 @@ function parseArgs(argv: string[]): CliArgs {
     };
 }
 
+async function fileExists(p: string): Promise<boolean> {
+    try { await access(p); return true; } catch { return false; }
+}
+
+async function loadSpecs(): Promise<Spec[]> {
+    const entries = await readdir("benches", { withFileTypes: true });
+    const out: Spec[] = [];
+    for (const e of entries) {
+        if (e.isDirectory() && await fileExists(`benches/${e.name}/spec.json`)) {
+            const raw = await readFile(`benches/${e.name}/spec.json`, "utf8");
+            out.push(SpecSchema.parse(JSON.parse(raw)));
+        }
+    }
+    out.sort((a, b) => a.id.localeCompare(b.id));
+    return out;
+}
+
 async function waitForServer(url: string, attempts = 30, delayMs = 500): Promise<void> {
     for (let i = 0; i < attempts; i++) {
         try {
@@ -60,6 +78,7 @@ async function waitForServer(url: string, attempts = 30, delayMs = 500): Promise
 async function main() {
     const args = parseArgs(process.argv.slice(2));
     await mkdir(args.out, { recursive: true });
+    const specs = await loadSpecs();
 
     const needWebServer = args.envs.some((e) => e !== "node");
     let serverProc: ResultPromise | null = null;
@@ -85,22 +104,31 @@ async function main() {
 
     let ranOK = true;
     try {
-        for (const c of ALL_COMBINATIONS) {
-            for (const sz of args.sizes) {
-                for (const env of args.envs) {
-                    const common = [
-                        `--benchmark=${c.benchmarkId}`,
-                        `--language=${c.language}`,
-                        `--toolchain=${c.toolchain}`,
-                        `--profile=${c.profile}`,
-                        `--size=${sz}`,
-                        `--out=${args.out}`,
-                        `--mode=${args.mode}`,
-                    ];
-                    if (env === "node") {
-                        await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
-                    } else {
-                        await run("tsx", ["apps/runner-web/src/driver.ts", ...common, `--browser=${env}`]);
+        for (const spec of specs) {
+            for (const c of enumerateBinaries(spec)) {
+                for (const entry of spec.entries) {
+                    for (const sz of args.sizes) {
+                        for (const env of args.envs) {
+                            const common = [
+                                `--benchmark=${c.sourceBench}`,
+                                `--entry=${entry}`,
+                                `--language=${c.language}`,
+                                `--toolchain=${c.toolchain}`,
+                                `--profile=${c.profile}`,
+                                `--size=${sz}`,
+                                `--out=${args.out}`,
+                                `--mode=${args.mode}`,
+                            ];
+                            // JS: speed profile only (esbuild produces identical output for both).
+                            if (c.language === "js" && c.profile !== "speed") {
+                                continue;
+                            }
+                            if (env === "node") {
+                                await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
+                            } else {
+                                await run("tsx", ["apps/runner-web/src/driver.ts", ...common, `--browser=${env}`]);
+                            }
+                        }
                     }
                 }
             }

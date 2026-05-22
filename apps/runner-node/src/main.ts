@@ -6,6 +6,7 @@ import type { Language, Toolchain, Profile, InputSize } from "@bench/result-sche
 
 interface CliArgs {
     benchmark: string;
+    entry: string;
     language: Language;
     toolchain: Toolchain;
     profile: Profile;
@@ -24,6 +25,7 @@ function parse(args: string[]): CliArgs {
     };
     return {
         benchmark: get("benchmark"),
+        entry: get("entry"),
         language: get("language") as Language,
         toolchain: get("toolchain") as Toolchain,
         profile: get("profile") as Profile,
@@ -40,6 +42,7 @@ async function main() {
         : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 100, cvThreshold: 0.05 };
     const r = await runCase({
         benchmarkId: a.benchmark,
+        entry: a.entry,
         language: a.language,
         toolchain: a.toolchain,
         profile: a.profile,
@@ -47,7 +50,8 @@ async function main() {
         measureConfig: config,
     });
     await mkdir(a.outDir, { recursive: true });
-    const fname = `${a.benchmark}__${a.language}-${a.toolchain}-${a.profile}__${a.size}__node.json`;
+    // Filename indexed by entry (== benchmark.id in result JSON).
+    const fname = `${a.entry}__${a.language}-${a.toolchain}-${a.profile}__${a.size}__node.json`;
     await writeFile(join(a.outDir, fname), JSON.stringify(r, null, 2));
     console.log(`wrote ${join(a.outDir, fname)}`);
 }
