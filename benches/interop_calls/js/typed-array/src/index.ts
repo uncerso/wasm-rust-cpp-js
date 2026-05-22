@@ -14,9 +14,15 @@ export default function create(entry: string): BenchModule {
     const accI32 = new Int32Array(1);
     const accF64 = new Float64Array(1);
 
-    function noopFn(): void { counter[0] = (counter[0] as number) + 1; }
-    function addI32Fn(a: number, b: number): number { return (a + b) | 0; }
-    function addF64Fn(a: number, b: number): number { return a + b; }
+    function noopFn(): void {
+        counter[0] = counter[0] + 1;
+    }
+    function addI32Fn(a: number, b: number): number {
+        return (a + b) | 0;
+    }
+    function addF64Fn(a: number, b: number): number {
+        return a + b;
+    }
 
     function reset(): void {
         counter[0] = 0;
@@ -27,10 +33,11 @@ export default function create(entry: string): BenchModule {
     function runEntry(iters: number): { checksum: number } {
         switch (entry) {
             case "interop_calls_noop": {
+                const before = counter[0];
                 for (let i = 0; i < iters; i++) {
                     noopFn();
                 }
-                return { checksum: counter[0] as number };
+                return { checksum: counter[0] - before };
             }
             case "interop_calls_add_i32": {
                 let acc = 0;
@@ -38,7 +45,7 @@ export default function create(entry: string): BenchModule {
                     acc = (acc + addI32Fn(i, i * 2)) | 0;
                 }
                 accI32[0] = acc;
-                return { checksum: accI32[0] as number };
+                return { checksum: accI32[0] };
             }
             case "interop_calls_add_f64": {
                 let acc = 0;
@@ -46,7 +53,7 @@ export default function create(entry: string): BenchModule {
                     acc += addF64Fn(i, i * 2);
                 }
                 accF64[0] = acc;
-                return { checksum: accF64[0] as number };
+                return { checksum: accF64[0] };
             }
             default:
                 throw new Error(`interop_calls/js-typed-array: unknown entry "${entry}"`);
@@ -54,7 +61,9 @@ export default function create(entry: string): BenchModule {
     }
 
     return {
-        loadInput(_input: Uint8Array) { reset(); },
+        loadInput() {
+            reset();
+        },
         run: runEntry,
         reset,
     };

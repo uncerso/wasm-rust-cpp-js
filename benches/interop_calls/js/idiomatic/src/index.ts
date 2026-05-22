@@ -11,9 +11,15 @@ interface BenchModule {
 export default function create(entry: string): BenchModule {
     let counter = 0;
 
-    function noopFn(): void { counter += 1; }
-    function addI32Fn(a: number, b: number): number { return (a + b) | 0; }
-    function addF64Fn(a: number, b: number): number { return a + b; }
+    function noopFn(): void {
+        counter += 1;
+    }
+    function addI32Fn(a: number, b: number): number {
+        return (a + b) | 0;
+    }
+    function addF64Fn(a: number, b: number): number {
+        return a + b;
+    }
 
     function reset(): void {
         counter = 0;
@@ -22,10 +28,11 @@ export default function create(entry: string): BenchModule {
     function runEntry(iters: number): { checksum: number } {
         switch (entry) {
             case "interop_calls_noop": {
+                const before = counter;
                 for (let i = 0; i < iters; i++) {
                     noopFn();
                 }
-                return { checksum: counter };
+                return { checksum: counter - before };
             }
             case "interop_calls_add_i32": {
                 let acc = 0;
@@ -47,7 +54,9 @@ export default function create(entry: string): BenchModule {
     }
 
     return {
-        loadInput(_input: Uint8Array) { reset(); },
+        loadInput() {
+            reset();
+        },
         run: runEntry,
         reset,
     };

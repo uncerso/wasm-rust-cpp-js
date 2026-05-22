@@ -44,11 +44,14 @@ function buildRunFor(
         }
         const fn = entryFn as () => void;
         const counter = counterFn as () => number;
+        // Counter delta — wasm-side counter is cumulative across all `run`
+        // calls (no reset wired up); per-call delta gives iter-only checksum.
         return (iters) => {
+            const before = counter();
             for (let i = 0; i < iters; i++) {
                 fn();
             }
-            return { checksum: counter() };
+            return { checksum: counter() - before };
         };
     }
 

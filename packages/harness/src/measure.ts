@@ -32,18 +32,13 @@ export async function runMeasure(input: MeasureInput): Promise<MeasureOutput> {
 
     module.loadInput(fixture);
 
+    // firstCallMs is the latency of one wasm invocation (`run(1)`). Its
+    // checksum is iter-dependent for some workloads (interop_calls *_add_* /
+    // _noop) and so isn't validated here — validation against the spec's
+    // `expectedChecksum` runs against `run(innerIterations)` in the warm loop.
     const firstCallStart = performance.now();
     const firstResult = module.run(1);
     const firstCallMs = performance.now() - firstCallStart;
-
-    if (!eqChecksum(firstResult.checksum, expectedChecksum)) {
-        return {
-            firstCallMs,
-            warmSamplesMs: [],
-            finalChecksum: firstResult.checksum,
-            correctnessFailed: true,
-        };
-    }
 
     for (let i = 0; i < config.warmupIterations; i++) {
         module.run(config.innerIterations);
