@@ -7,7 +7,10 @@ interface BenchModule {
     reset(): void;
 }
 
-export default function create(): BenchModule {
+export default function create(entry: string): BenchModule {
+    if (entry !== "matmul") {
+        throw new Error(`matmul/js-typed-array: unknown entry "${entry}"`);
+    }
     let n = 0;
     let A = new Float64Array();
     let B = new Float64Array();
