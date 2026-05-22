@@ -101,6 +101,18 @@ importers:
         specifier: ^6.0.0
         version: 6.4.2(@types/node@22.19.17)(tsx@4.21.0)
 
+  benches/interop_calls/js/idiomatic:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
+  benches/interop_calls/js/typed-array:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   benches/matmul/js/idiomatic:
     devDependencies:
       typescript:
