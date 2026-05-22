@@ -38,6 +38,7 @@ interface ArtifactMetaFile {
 
 export interface WorkerInput {
     benchmarkId: string;
+    entry: string;
     language: Language;
     toolchain: Toolchain;
     profile: Profile;
@@ -95,8 +96,7 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
         const loader = pickLoader(i.language, i.toolchain);
 
         const loaderInput: { artifactUrl: string; glueUrl?: string; entry: string } = (() => {
-            // Entry == benchmarkId until --entry flag lands (Task 12).
-            const entry = i.benchmarkId;
+            const entry = i.entry;
             if (i.language === "js") {
                 return { artifactUrl: `${distBase}/module.js`, entry };
             }
@@ -176,7 +176,8 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
                 engine: ua.includes("Firefox") ? "SpiderMonkey" : "V8",
             },
             benchmark: {
-                id: i.benchmarkId,
+                // benchmark.id is the entry id, not the binary id (mirrors runner-node).
+                id: i.entry,
                 inputSize: i.inputSize,
                 fixtureBytes: fixture.byteLength,
                 fixtureSha256: i.fixtureSha256,
