@@ -124,6 +124,14 @@ pub extern "C" fn run(iters: u32) -> f64 {
     }
 }
 
+// Transitional alias: raw-wasm loader now binds the entry export by name
+// (entry id == wasm export name). matmul's entry id is "matmul"; the legacy
+// `run` export is removed in Task 14 once all loaders migrate.
+#[unsafe(no_mangle)]
+pub extern "C" fn matmul(iters: u32) -> f64 {
+    run(iters)
+}
+
 #[unsafe(no_mangle)]
 #[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
 pub extern "C" fn output_ptr() -> u32 {

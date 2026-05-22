@@ -62,6 +62,7 @@ extern "C" double run(uint32_t iters) {
     return last;
 }
 
+extern "C" double matmul(uint32_t iters) { return run(iters); }
 extern "C" uint32_t output_ptr() { return C_OFF; }
 extern "C" uint32_t output_len() { return N * N * 8u; }
 extern "C" void reset() {}

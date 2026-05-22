@@ -14,7 +14,10 @@ async function buildRaw(c: Combination): Promise<void> {
 
     await run("cargo", ["build", `--profile=${profile}`, "--target=wasm32-unknown-unknown"], { cwd: crateDir });
     const wasmName = "matmul_rust_raw.wasm";
-    const src = join(crateDir, "target", "wasm32-unknown-unknown", profile, wasmName);
+    // Cargo workspace puts build artifacts at workspace root `target/`, not in
+    // the per-crate `target/`. Reading from crateDir/target/ silently pulled
+    // stale binaries (latent bug; refactors that preserved bytes hid it).
+    const src = join("target", "wasm32-unknown-unknown", profile, wasmName);
     const dst = join(out, "module.wasm");
     await copyFile(src, dst);
 
