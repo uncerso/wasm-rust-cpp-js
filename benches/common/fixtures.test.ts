@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { mulberry32, genF64Array } from "./fixtures.js";
+import { mulberry32, genF64Array, genAsciiHexKeys } from "./fixtures.js";
 
 describe("mulberry32", () => {
     it("produces deterministic sequence for given seed", () => {
@@ -29,5 +29,32 @@ describe("genF64Array", () => {
 
     it("output size == 2n² × 8 bytes", () => {
         expect(genF64Array(4, 1).byteLength).toBe(2 * 4 * 4 * 8);
+    });
+});
+
+describe("genAsciiHexKeys", () => {
+    it("output size == n × 24 bytes (16 ASCII + 8 LE u64)", () => {
+        expect(genAsciiHexKeys(4, 1).byteLength).toBe(4 * 24);
+    });
+
+    it("keys are 16 lowercase hex chars", () => {
+        const buf = genAsciiHexKeys(2, 1);
+        const k0 = new TextDecoder().decode(buf.slice(0, 16));
+        const k1 = new TextDecoder().decode(buf.slice(24, 40));
+        expect(k0).toMatch(/^[0-9a-f]{16}$/);
+        expect(k1).toMatch(/^[0-9a-f]{16}$/);
+    });
+
+    it("value u64 fits in [0, 2^32)", () => {
+        const buf = genAsciiHexKeys(1, 1);
+        const dv = new DataView(buf.buffer);
+        const v = dv.getBigUint64(16, true);
+        expect(v).toBeLessThan(1n << 32n);
+    });
+
+    it("SHA256 snapshot for (n=4, seed=0xDEAD_0001)", () => {
+        const buf = genAsciiHexKeys(4, 0xDEAD_0001);
+        const sha = createHash("sha256").update(buf).digest("hex");
+        expect(sha).toBe("2953f375ce7d76e4453ad898f9dd7719e56123ebc07ebc5521b1b5a8b1540339");
     });
 });
