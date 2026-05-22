@@ -1,17 +1,29 @@
 import { existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { SpecSchema, type Spec } from "@bench/result-schema";
 import { run } from "./lib/exec.js";
-import { ALL_COMBINATIONS, distDir, type Combination } from "./lib/matrix.js";
+import {
+    enumerateBinaries, distDirFor, type BinaryCombination,
+} from "./lib/matrix.js";
 import { statArtifact, writeMeta, type ArtifactMeta } from "./lib/meta.js";
 import { detectActual } from "./lib/tool-versions.js";
 import { wasiSdkPath } from "./lib/tool-paths.js";
 import { emsdkEnv } from "./lib/emsdk-env.js";
 
-async function buildEmscripten(c: Combination): Promise<void> {
-    const out = distDir(c);
+function metaFromBinary(c: BinaryCombination): ArtifactMeta["combination"] {
+    return {
+        benchmarkId: c.sourceBench,
+        language: c.language,
+        toolchain: c.toolchain,
+        profile: c.profile,
+    };
+}
+
+async function buildEmscripten(c: BinaryCombination): Promise<void> {
+    const out = distDirFor(c);
     await mkdir(out, { recursive: true });
-    const script = resolve(`benches/${c.benchmarkId}/cpp/build-emscripten.sh`);
+    const script = resolve(`benches/${c.sourceBench}/cpp/build-emscripten.sh`);
     // Fall back to system emsdk on PATH when .tools/emsdk is absent (dev convenience;
     // pnpm setup populates the dir, after which emsdkEnv() is the source of truth).
     const emsdk = existsSync(resolve(".tools/emsdk")) ? await emsdkEnv() : {};
@@ -26,7 +38,7 @@ async function buildEmscripten(c: Combination): Promise<void> {
     const wasmStat = await statArtifact(join(out, "glue.wasm"));
     const glueStat = await statArtifact(join(out, "glue.mjs"));
     const meta: ArtifactMeta = {
-        combination: c,
+        combination: metaFromBinary(c),
         wasm: wasmStat,
         jsGlue: glueStat,
         jsModule: null,
@@ -34,13 +46,13 @@ async function buildEmscripten(c: Combination): Promise<void> {
         toolchainVersions: await detectActual(),
     };
     await writeMeta(out, meta);
-    console.log(`built emscripten (${c.profile}) -> ${out} (${wasmStat.rawBytes} B + ${glueStat.rawBytes} B glue)`);
+    console.log(`built emscripten ${c.sourceBench} (${c.profile}) -> ${out} (${wasmStat.rawBytes} B + ${glueStat.rawBytes} B glue)`);
 }
 
-async function buildWasiSdk(c: Combination): Promise<void> {
-    const out = distDir(c);
+async function buildWasiSdk(c: BinaryCombination): Promise<void> {
+    const out = distDirFor(c);
     await mkdir(out, { recursive: true });
-    const script = resolve(`benches/${c.benchmarkId}/cpp/build-wasi-sdk.sh`);
+    const script = resolve(`benches/${c.sourceBench}/cpp/build-wasi-sdk.sh`);
     const toolsBin = resolve(".tools/bin");
     const mergedPath = `${toolsBin}:${process.env["PATH"] ?? ""}`;
     await run("bash", [script, c.profile, resolve(out)], {
@@ -49,7 +61,7 @@ async function buildWasiSdk(c: Combination): Promise<void> {
 
     const wasmStat = await statArtifact(join(out, "module.wasm"));
     const meta: ArtifactMeta = {
-        combination: c,
+        combination: metaFromBinary(c),
         wasm: wasmStat,
         jsGlue: null,
         jsModule: null,
@@ -57,15 +69,28 @@ async function buildWasiSdk(c: Combination): Promise<void> {
         toolchainVersions: await detectActual(),
     };
     await writeMeta(out, meta);
-    console.log(`built wasi-sdk (${c.profile}) -> ${out} (${wasmStat.rawBytes} B)`);
+    console.log(`built wasi-sdk ${c.sourceBench} (${c.profile}) -> ${out} (${wasmStat.rawBytes} B)`);
+}
+
+async function loadSpec(benchId: string): Promise<Spec> {
+    const raw = await readFile(`benches/${benchId}/spec.json`, "utf8");
+    return SpecSchema.parse(JSON.parse(raw));
 }
 
 async function main() {
-    for (const c of ALL_COMBINATIONS.filter((c) => c.language === "cpp")) {
-        if (c.toolchain === "emscripten") {
-            await buildEmscripten(c);
-        } else if (c.toolchain === "wasi-sdk") {
-            await buildWasiSdk(c);
+    const benches = process.argv.slice(2);
+    if (benches.length === 0) {
+        throw new Error("usage: tsx scripts/build-cpp.ts <bench-id> [<bench-id>...]");
+    }
+    for (const benchId of benches) {
+        const spec = await loadSpec(benchId);
+        const combos = enumerateBinaries(spec).filter((b) => b.language === "cpp");
+        for (const c of combos) {
+            if (c.toolchain === "emscripten") {
+                await buildEmscripten(c);
+            } else if (c.toolchain === "wasi-sdk") {
+                await buildWasiSdk(c);
+            }
         }
     }
 }

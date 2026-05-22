@@ -115,7 +115,7 @@ pnpm report --in=results/raw/<run>     # → results/summarized/<ISO>/index.html
 
 ```bash
 pnpm exec tsx apps/runner-node/src/main.ts \
-  --benchmark=matmul --language=rust --toolchain=raw --profile=speed \
+  --benchmark=matmul --entry=matmul --language=rust --toolchain=raw --profile=speed \
   --size=S --out=results/raw/single --mode=quick
 ```
 
@@ -128,6 +128,19 @@ pnpm exec tsx apps/runner-node/src/main.ts \
 - **Не редактируй** auto-generated файлы: `**/glue.mjs`, `**/glue.js` (Emscripten output) — игнорируются ESLint.
 - **Tool versions** — все pin'ы (sha256+URL) в `tool-versions.json`. Изменение версии должно обновлять и `meta.json` writer и downstream documentation. `wasm-opt` зовётся с `--enable-bulk-memory --enable-nontrapping-float-to-int` — без этих флагов современный rustc/emcc output не парсится.
 - **Изменение `BenchResult` schema** — только через `packages/result-schema`. Старые JSON'ы в `results/raw/` могут перестать парситься; это ОК для phase boundary, но требует bump'а в `meta.schemaVersion` если phase живая.
+
+## Tooling environment
+
+- **Cargo workspace target.** Когда build scripts оркестрируют `cargo build` per crate
+  (e.g. `scripts/build-rust.ts`), артефакты надо читать из **workspace-root** `target/`,
+  не из `<crateDir>/target/`. Workspace cargo пишет только в root; per-crate `target/`
+  может содержать stale binaries от pre-workspace эры и копироваться silently.
+  Симптом «byte-preserving refactor компилируется, но не доезжает до dist» — этот
+  баг (см. `docs/pitfalls/2026-05-22-phase-1-1-1-w1.md` § 1).
+- **tsx + sandbox.** Pure `pnpm typecheck`/`test`/`lint:*` работают в sandbox. Любые
+  invocations через `tsx` subprocess (`pnpm smoke`, `pnpm build:*`, `pnpm fixtures`,
+  `pnpm exec tsx -e '...'`) — требуют `dangerouslyDisableSandbox: true`: tsx создаёт
+  Unix IPC socket в `/tmp/claude-501/tsx-501/*.pipe`, который sandbox блокирует.
 
 ## Spec & plan conventions
 

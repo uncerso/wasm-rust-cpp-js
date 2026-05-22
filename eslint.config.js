@@ -11,7 +11,7 @@ export default tseslint.config(
             "**/pkg-tmp/**",
             "results/**",
             ".tools/**",
-            "benches/matmul/fixtures/**",
+            "benches/*/fixtures/**",
             // emscripten output
             "**/glue.mjs",
             "**/glue.js",

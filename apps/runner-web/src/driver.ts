@@ -8,6 +8,7 @@ import * as firefox from "selenium-webdriver/firefox";
 import * as chrome from "selenium-webdriver/chrome";
 import { BenchResultSchema } from "@bench/result-schema";
 import type { Language, Toolchain, Profile, InputSize } from "@bench/result-schema";
+import { SpecSchema } from "@bench/result-schema";
 import type { WorkerInput } from "./worker.js";
 import { getBrowserPaths } from "./browser-paths.js";
 
@@ -16,6 +17,7 @@ const REPO_ROOT = resolve(__dirname, "../../..");
 
 interface CliArgs {
     benchmark: string;
+    entry: string;
     language: Language;
     toolchain: Toolchain;
     profile: Profile;
@@ -40,6 +42,7 @@ function parseCli(args: string[]): CliArgs {
     };
     return {
         benchmark: get("benchmark"),
+        entry: get("entry"),
         language: get("language") as Language,
         toolchain: get("toolchain") as Toolchain,
         profile: get("profile") as Profile,
@@ -49,15 +52,6 @@ function parseCli(args: string[]): CliArgs {
         browser: getOpt("browser", "chromium") as "chromium" | "firefox",
         port: parseInt(getOpt("port", "5174"), 10),
     };
-}
-
-interface SpecSizeEntry {
-    fixtureSha256: string;
-    expectedChecksum: number | string;
-}
-
-interface SpecFile {
-    inputSizes: Record<InputSize, SpecSizeEntry>;
 }
 
 async function launchBrowser(env: "chromium" | "firefox"): Promise<WebDriver> {
@@ -98,27 +92,41 @@ async function launchBrowser(env: "chromium" | "firefox"): Promise<WebDriver> {
 async function main() {
     const a = parseCli(argv.slice(2));
 
-    const measureConfig = a.mode === "quick"
+    const baseMeasureConfig = a.mode === "quick"
         ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 10, cvThreshold: 0.05 }
         : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 100, cvThreshold: 0.05 };
 
     const specPath = join(REPO_ROOT, `dist/${a.benchmark}/spec.json`);
-    const spec = JSON.parse(await readFile(specPath, "utf8")) as SpecFile;
+    const spec = SpecSchema.parse(JSON.parse(await readFile(specPath, "utf8")));
     const sizeSpec = spec.inputSizes[a.size];
     if (!sizeSpec) {
         throw new Error(`spec missing inputSize ${a.size}`);
     }
+    const perEntry = spec.expectedChecksums[a.entry];
+    if (!perEntry) {
+        throw new Error(`spec missing expectedChecksums for entry "${a.entry}"`);
+    }
+    const expectedChecksum = perEntry[a.size];
+    if (expectedChecksum === undefined) {
+        throw new Error(`spec missing expectedChecksum for entry "${a.entry}" size "${a.size}"`);
+    }
+
+    // Spec may override innerIterations per (entry, size); see run-case.ts.
+    const measureConfig = sizeSpec.innerIterations !== undefined
+        ? { ...baseMeasureConfig, innerIterations: sizeSpec.innerIterations }
+        : baseMeasureConfig;
 
     const baseUrl = `http://localhost:${a.port}`;
 
     const workerInput: WorkerInput = {
         benchmarkId: a.benchmark,
+        entry: a.entry,
         language: a.language,
         toolchain: a.toolchain,
         profile: a.profile,
         inputSize: a.size,
         fixtureSha256: sizeSpec.fixtureSha256,
-        expectedChecksum: sizeSpec.expectedChecksum,
+        expectedChecksum,
         measureConfig,
         baseUrl,
     };
@@ -193,7 +201,7 @@ async function main() {
 
     const resolvedOutDir = resolve(REPO_ROOT, a.outDir);
     await mkdir(resolvedOutDir, { recursive: true });
-    const fname = `${a.benchmark}__${a.language}-${a.toolchain}-${a.profile}__${a.size}__${a.browser}.json`;
+    const fname = `${a.entry}__${a.language}-${a.toolchain}-${a.profile}__${a.size}__${a.browser}.json`;
     const outPath = join(resolvedOutDir, fname);
     await writeFile(outPath, JSON.stringify(final, null, 2));
     console.log(`wrote ${outPath}`);

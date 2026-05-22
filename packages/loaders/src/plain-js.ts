@@ -3,7 +3,7 @@ import type { Loader, LoaderInput, LoadedModule } from "./types.js";
 import { TimingRecorder, timed } from "./timings.js";
 
 interface JsModuleFactory {
-    default: () => BenchModule;
+    default: (entry: string) => BenchModule;
 }
 
 export const plainJsLoader: Loader = {
@@ -17,7 +17,7 @@ export const plainJsLoader: Loader = {
             throw new Error(`plainJsLoader: module ${input.artifactUrl} has no default export`);
         }
 
-        const compiled = await timed(() => factory.default());
+        const compiled = await timed(() => factory.default(input.entry));
         tr.recordCompile(compiled.ms);
         tr.recordInstantiate(0);
 

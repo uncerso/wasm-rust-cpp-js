@@ -110,8 +110,8 @@ unsafe fn with_slices<R>(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn run(iters: u32) -> f64 {
-    // SAFETY: load_input was called by JS host before run; A/B/C are valid.
+pub extern "C" fn matmul(iters: u32) -> f64 {
+    // SAFETY: load_input was called by JS host before matmul; A/B/C are valid.
     unsafe {
         with_slices(|a, b, c, n| {
             let mut last = 0.0_f64;

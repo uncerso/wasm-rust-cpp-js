@@ -4,6 +4,8 @@ members = [
     "benches/matmul/rust/shared",
     "benches/matmul/rust/raw",
     "benches/matmul/rust/bindgen",
+    "benches/interop_calls/rust/raw",
+    "benches/interop_calls/rust/bindgen",
 ]
 
 [workspace.package]

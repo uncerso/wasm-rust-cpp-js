@@ -1,0 +1,53 @@
+{
+    "id": "interop_calls",
+    "version": 2,
+    "description": "Three trivial wasm functions exercising JS<->wasm call overhead: noop (no args/no return), add_i32 (i32, i32) -> i32, add_f64 (f64, f64) -> f64. JS-side inner loop calls the wasm export `iters` times; checksum is either a wasm-side counter (noop) or a JS-side accumulator (add_*) for DCE-defense.",
+    "entries": ["interop_calls_noop", "interop_calls_add_i32", "interop_calls_add_f64"],
+    "inputSizes": {
+        "S": {
+            "fixtureBytes": 0,
+            "fixtureSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "innerIterations": 100000
+        },
+        "M": {
+            "fixtureBytes": 0,
+            "fixtureSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "innerIterations": 1000000
+        },
+        "L": {
+            "fixtureBytes": 0,
+            "fixtureSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "innerIterations": 10000000
+        }
+    },
+    "expectedChecksums": {
+        "interop_calls_noop": {
+            "S": 100000,
+            "M": 1000000,
+            "L": 10000000
+        },
+        "interop_calls_add_i32": {
+            "S": 2114948112,
+            "M": 1054913696,
+            "L": -1747812800
+        },
+        "interop_calls_add_f64": {
+            "S": 14999850000,
+            "M": 1499998500000,
+            "L": 149999985000000
+        }
+    },
+    "supported": {
+        "languages": ["js", "rust", "cpp"],
+        "toolchains": {
+            "js": ["idiomatic", "typed-array"],
+            "rust": ["raw", "bindgen"],
+            "cpp": ["emscripten", "wasi-sdk"]
+        },
+        "profiles": ["speed", "size"]
+    },
+    "ioContract": {
+        "fixtureLayout": "Empty. Inputs are derived from inner loop index (i, 2*i for add_*).",
+        "outputLayout": "Single scalar checksum: counter (noop) or accumulator (add_*)."
+    }
+}

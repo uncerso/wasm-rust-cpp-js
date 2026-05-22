@@ -117,3 +117,43 @@ export type Memory = z.infer<typeof MemorySchema>;
 export type Stats = z.infer<typeof StatsSchema>;
 export type Quality = z.infer<typeof QualitySchema>;
 export type Notes = z.infer<typeof NotesSchema>;
+
+// ─── spec.json (per-bench input) ─────────────────────────────────────────
+// Layout v2: multi-entry binaries. `entries: string[]` lists benchmark IDs
+// served by one binary; `expectedChecksums[entry][size]` holds expected output
+// per (entry, size). Per-size object carries binary-level fixture metadata +
+// workload-specific params (n for matmul, innerIterations for interop_calls).
+
+export const SpecInputSizeSchema = z
+    .object({
+        fixtureBytes: z.number().int().nonnegative(),
+        fixtureSha256: z.string().length(64),
+        // Optional: workloads whose `run(iters)` checksum depends on `iters`
+        // (e.g. interop_calls) declare iters per size here; runner-node /
+        // runner-web override MeasureConfig.innerIterations from this value.
+        innerIterations: z.number().int().positive().optional(),
+    })
+    .passthrough();
+
+export const SpecSchema = z.object({
+    id: z.string().min(1),
+    version: z.literal(2),
+    description: z.string().optional(),
+    entries: z.array(z.string().min(1)).min(1),
+    inputSizes: z.record(InputSizeSchema, SpecInputSizeSchema),
+    expectedChecksums: z.record(
+        z.string(),
+        z.record(InputSizeSchema, z.union([z.string(), z.number()])),
+    ),
+    supported: z
+        .object({
+            languages: z.array(LanguageSchema),
+            toolchains: z.record(z.string(), z.array(ToolchainSchema)),
+            profiles: z.array(ProfileSchema),
+        })
+        .optional(),
+    ioContract: z.record(z.string(), z.string()).optional(),
+});
+
+export type Spec = z.infer<typeof SpecSchema>;
+export type SpecInputSize = z.infer<typeof SpecInputSizeSchema>;

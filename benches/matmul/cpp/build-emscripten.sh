@@ -7,7 +7,7 @@ OUT_DIR="$2"
 mkdir -p "$OUT_DIR"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-EXPORTS='["_alloc","_load_input","_run","_output_ptr","_output_len","_reset"]'
+EXPORTS='["_alloc","_load_input","_matmul","_output_ptr","_output_len","_reset"]'
 RT_METHODS='["HEAPU8","HEAPF64","wasmMemory"]'
 
 if [[ "$PROFILE" == "speed" ]]; then

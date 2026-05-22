@@ -11,6 +11,10 @@ export interface LoadedModule {
 export interface LoaderInput {
     artifactUrl: string;
     glueUrl?: string | undefined;
+    /** Benchmark entry id (e.g. "matmul", "interop_calls_noop"). Loader binds
+     * `BenchModule.run` to the wasm/JS export named by this id. For
+     * single-entry binaries, equals the binary id. */
+    entry: string;
 }
 
 export interface Loader {

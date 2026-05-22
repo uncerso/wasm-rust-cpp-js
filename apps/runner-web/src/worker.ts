@@ -38,6 +38,7 @@ interface ArtifactMetaFile {
 
 export interface WorkerInput {
     benchmarkId: string;
+    entry: string;
     language: Language;
     toolchain: Toolchain;
     profile: Profile;
@@ -94,23 +95,26 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
 
         const loader = pickLoader(i.language, i.toolchain);
 
-        const loaderInput: { artifactUrl: string; glueUrl?: string } = (() => {
+        const loaderInput: { artifactUrl: string; glueUrl?: string; entry: string } = (() => {
+            const entry = i.entry;
             if (i.language === "js") {
-                return { artifactUrl: `${distBase}/module.js` };
+                return { artifactUrl: `${distBase}/module.js`, entry };
             }
             if (i.toolchain === "bindgen") {
                 return {
                     artifactUrl: `${distBase}/module.wasm`,
                     glueUrl: `${distBase}/glue.js`,
+                    entry,
                 };
             }
             if (i.toolchain === "emscripten") {
                 return {
                     artifactUrl: `${distBase}/glue.wasm`,
                     glueUrl: `${distBase}/glue.mjs`,
+                    entry,
                 };
             }
-            return { artifactUrl: `${distBase}/module.wasm` };
+            return { artifactUrl: `${distBase}/module.wasm`, entry };
         })();
 
         const loaded = await loader.load(loaderInput);
@@ -172,7 +176,8 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
                 engine: ua.includes("Firefox") ? "SpiderMonkey" : "V8",
             },
             benchmark: {
-                id: i.benchmarkId,
+                // benchmark.id is the entry id, not the binary id (mirrors runner-node).
+                id: i.entry,
                 inputSize: i.inputSize,
                 fixtureBytes: fixture.byteLength,
                 fixtureSha256: i.fixtureSha256,

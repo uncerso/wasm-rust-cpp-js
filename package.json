@@ -16,7 +16,7 @@
     "build:cpp": "tsx scripts/build-cpp.ts",
     "build:all": "tsx scripts/build-all.ts",
     "collect-sizes": "tsx scripts/collect-sizes.ts",
-    "generate-fixtures": "tsx scripts/generate-fixtures.ts",
+    "fixtures": "tsx scripts/fixtures.ts",
     "setup-tools": "tsx scripts/setup.ts",
     "smoke": "tsx scripts/smoke.ts",
     "clear": "tsx scripts/clear.ts",

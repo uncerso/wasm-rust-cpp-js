@@ -67,7 +67,7 @@ pub fn load_input(buf: &[u8]) {
 
 #[must_use]
 #[wasm_bindgen]
-pub fn run(iters: u32) -> f64 {
+pub fn matmul(iters: u32) -> f64 {
     let mut s = STATE.0.borrow_mut();
     let n = s.n;
     let mut last = 0.0_f64;
