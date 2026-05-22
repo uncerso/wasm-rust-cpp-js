@@ -3,7 +3,11 @@ import { join } from "node:path";
 import { run } from "./lib/exec.js";
 
 async function fileExists(p: string): Promise<boolean> {
-    try { await access(p); return true; } catch { return false; }
+    try {
+        await access(p); return true;
+    } catch {
+        return false;
+    }
 }
 
 /** Bench discovery: a directory under `benches/` with a `spec.json` is a bench. */

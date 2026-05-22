@@ -110,8 +110,8 @@ unsafe fn with_slices<R>(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn run(iters: u32) -> f64 {
-    // SAFETY: load_input was called by JS host before run; A/B/C are valid.
+pub extern "C" fn matmul(iters: u32) -> f64 {
+    // SAFETY: load_input was called by JS host before matmul; A/B/C are valid.
     unsafe {
         with_slices(|a, b, c, n| {
             let mut last = 0.0_f64;
@@ -122,14 +122,6 @@ pub extern "C" fn run(iters: u32) -> f64 {
             last
         })
     }
-}
-
-// Transitional alias: raw-wasm loader now binds the entry export by name
-// (entry id == wasm export name). matmul's entry id is "matmul"; the legacy
-// `run` export is removed in Task 14 once all loaders migrate.
-#[unsafe(no_mangle)]
-pub extern "C" fn matmul(iters: u32) -> f64 {
-    run(iters)
 }
 
 #[unsafe(no_mangle)]

@@ -35,7 +35,7 @@ extern "C" void load_input(uint32_t ptr, uint32_t len) {
     C_OFF = alloc(n * n * 8u);
 }
 
-extern "C" double run(uint32_t iters) {
+extern "C" double matmul(uint32_t iters) {
     const uint32_t n = N;
 // alloc() aligns to 8 bytes ((next_off + sz + 7u) & ~7u), so these
 // wasm32 linear-memory offsets are always 8-byte aligned. The
@@ -62,7 +62,6 @@ extern "C" double run(uint32_t iters) {
     return last;
 }
 
-extern "C" double matmul(uint32_t iters) { return run(iters); }
 extern "C" uint32_t output_ptr() { return C_OFF; }
 extern "C" uint32_t output_len() { return N * N * 8u; }
 extern "C" void reset() {}

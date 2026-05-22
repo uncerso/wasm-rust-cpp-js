@@ -36,7 +36,7 @@ STD_FLAG="-std=c++23"
   -mbulk-memory \
   "$HERE/src/matmul.cpp" \
   -Wl,--no-entry \
-  -Wl,--export=alloc -Wl,--export=load_input -Wl,--export=run -Wl,--export=matmul \
+  -Wl,--export=alloc -Wl,--export=load_input -Wl,--export=matmul \
   -Wl,--export=output_ptr -Wl,--export=output_len -Wl,--export=reset \
   -Wl,--export=memory \
   -Wl,--allow-undefined \

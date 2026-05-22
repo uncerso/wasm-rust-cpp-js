@@ -2,7 +2,11 @@ import { readdir, access } from "node:fs/promises";
 import { run } from "./lib/exec.js";
 
 async function fileExists(p: string): Promise<boolean> {
-    try { await access(p); return true; } catch { return false; }
+    try {
+        await access(p); return true;
+    } catch {
+        return false;
+    }
 }
 
 async function listBenches(): Promise<string[]> {
@@ -36,4 +40,6 @@ async function main() {
     }
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+    console.error(e); process.exit(1);
+});

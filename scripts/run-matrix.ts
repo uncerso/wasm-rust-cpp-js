@@ -46,7 +46,11 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 async function fileExists(p: string): Promise<boolean> {
-    try { await access(p); return true; } catch { return false; }
+    try {
+        await access(p); return true;
+    } catch {
+        return false;
+    }
 }
 
 async function loadSpecs(): Promise<Spec[]> {

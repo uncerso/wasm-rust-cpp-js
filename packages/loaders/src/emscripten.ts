@@ -87,7 +87,7 @@ export const emscriptenLoader: Loader = {
 
         const inst = initTimed.value;
         const run = buildRunFor(input.entry, inst);
-        const resetFn = inst._reset;
+        const resetFn = inst._reset?.bind(inst);
 
         const module: BenchModule = {
             loadInput(buf: Uint8Array) {

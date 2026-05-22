@@ -65,16 +65,9 @@ pub fn load_input(buf: &[u8]) {
     s.c = vec![0.0; n * n];
 }
 
-// Transitional alias: see matmul/rust/raw for rationale. Removed in Task 14.
 #[must_use]
 #[wasm_bindgen]
 pub fn matmul(iters: u32) -> f64 {
-    run(iters)
-}
-
-#[must_use]
-#[wasm_bindgen]
-pub fn run(iters: u32) -> f64 {
     let mut s = STATE.0.borrow_mut();
     let n = s.n;
     let mut last = 0.0_f64;
