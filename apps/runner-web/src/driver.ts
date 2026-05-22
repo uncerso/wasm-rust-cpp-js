@@ -92,7 +92,7 @@ async function launchBrowser(env: "chromium" | "firefox"): Promise<WebDriver> {
 async function main() {
     const a = parseCli(argv.slice(2));
 
-    const measureConfig = a.mode === "quick"
+    const baseMeasureConfig = a.mode === "quick"
         ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 10, cvThreshold: 0.05 }
         : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 100, cvThreshold: 0.05 };
 
@@ -110,6 +110,11 @@ async function main() {
     if (expectedChecksum === undefined) {
         throw new Error(`spec missing expectedChecksum for entry "${a.entry}" size "${a.size}"`);
     }
+
+    // Spec may override innerIterations per (entry, size); see run-case.ts.
+    const measureConfig = sizeSpec.innerIterations !== undefined
+        ? { ...baseMeasureConfig, innerIterations: sizeSpec.innerIterations }
+        : baseMeasureConfig;
 
     const baseUrl = `http://localhost:${a.port}`;
 

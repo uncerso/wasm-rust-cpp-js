@@ -128,6 +128,10 @@ export const SpecInputSizeSchema = z
     .object({
         fixtureBytes: z.number().int().nonnegative(),
         fixtureSha256: z.string().length(64),
+        // Optional: workloads whose `run(iters)` checksum depends on `iters`
+        // (e.g. interop_calls) declare iters per size here; runner-node /
+        // runner-web override MeasureConfig.innerIterations from this value.
+        innerIterations: z.number().int().positive().optional(),
     })
     .passthrough();
 

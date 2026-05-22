@@ -115,12 +115,19 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
     const fixturePath = resolve(`benches/${input.benchmarkId}/fixtures/${input.inputSize.toLowerCase()}.bin`);
     const fixture = new Uint8Array(await readFile(fixturePath));
 
+    // Spec may override innerIterations per (entry, size) — required for
+    // iter-dependent workloads (interop_calls). Matmul omits the field and
+    // inherits the CLI default (1 unit = 1 full multiply).
+    const effectiveConfig: MeasureConfig = sizeSpec.innerIterations !== undefined
+        ? { ...input.measureConfig, innerIterations: sizeSpec.innerIterations }
+        : input.measureConfig;
+
     const memBefore = loaded.memoryRef?.buffer.byteLength ?? 0;
     const measure = await runMeasure({
         module: loaded.module,
         fixture,
         expectedChecksum,
-        config: input.measureConfig,
+        config: effectiveConfig,
     });
     const memAfter = loaded.memoryRef?.buffer.byteLength ?? 0;
 
