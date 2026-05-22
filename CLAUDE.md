@@ -49,11 +49,12 @@ Reframe: цель проекта не «сравнить три языка», а
 
 Workspace — pnpm + cargo. Три типа packages:
 
-- **`benches/matmul/`** — benchmark sources. Один workload (matmul) в 10 combos:
+- **`benches/<workload>/`** — benchmark sources. Один workload на каталог; обнаруживаются `scripts/build-all.ts` через `glob("benches/*/spec.json")`. На текущий момент: `matmul`, `interop_calls`. Каждый workload даёт 10 binary combos:
   - `js/{idiomatic,typed-array}` — TS implementations (ESM, bundled через esbuild).
-  - `rust/{shared,raw,bindgen}` — три cargo crates; `shared` — pure-Rust core, `raw` — no_std + manual exports, `bindgen` — wasm-bindgen. Каждый crate × {speed, size} profile.
-  - `cpp/` — общий `.cpp`, собирается двумя toolchains: Emscripten (выдаёт `glue.mjs`+`glue.wasm`) и wasi-sdk freestanding (выдаёт raw `module.wasm`). × {speed, size}.
-  - `validate/` — генератор reference checksums, фикстуры читаются из `fixtures/` (gitignored, генерируются по `spec.json`).
+  - `rust/{raw,bindgen}` — cargo crates (matmul также имеет `shared` pure-Rust core). `raw` — no_std + manual exports, `bindgen` — wasm-bindgen. Каждый crate × {speed, size} profile.
+  - `cpp/` — общий `.cpp` + per-bench `build-{emscripten,wasi-sdk}.sh`. Emscripten выдаёт `glue.mjs`+`glue.wasm`, wasi-sdk freestanding — `module.wasm`. × {speed, size}.
+  - `validate/` — reference TS, computes ожидаемые checksums per (entry, size). Фикстуры под `fixtures/` (`.gitignore` на `*.bin`); interop_calls fixture-less (0 байт sentinel-файлы).
+  - Multi-entry binaries: `spec.json` v2 имеет `entries: string[]` + `expectedChecksums[entry][size]`. matmul = 1 entry; interop_calls = 3 (noop / add_i32 / add_f64).
 
 - **`packages/`** — host libraries (workspace внутренний):
   - `result-schema` — zod `BenchResultSchema` (single source of truth для формата результата; **любое изменение схемы обязано пройти через этот файл**).
@@ -67,14 +68,14 @@ Workspace — pnpm + cargo. Три типа packages:
 
 - **`scripts/`** — orchestrators (tsx-исполняемые TS). `lib/` содержит общую infra: `matrix.ts` (combo enumeration), `exec.ts` (process spawning), `meta.ts` (write `meta.json` per artifact), `tool-paths.ts` + `tool-versions.ts` (резолв `.tools/`-installed binaries).
 
-Всё связано через `BenchResult` — каждый прогон одной combo выдаёт JSON, который `BenchResultSchema.parse` валидирует. Reporter ест эти JSON'ы агрегатом. Reference checksums зашиты в `benches/matmul/spec.json`; correctness failure останавливает кейс сразу.
+Всё связано через `BenchResult` — каждый прогон одной (binary × entry × size × env) выдаёт JSON, который `BenchResultSchema.parse` валидирует. Reporter ест эти JSON'ы агрегатом. Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.json` (v2 schema: `entries: string[]` + `expectedChecksums: { entry: { S, M, L } }`); correctness failure останавливает кейс сразу.
 
 ## Common commands
 
 ### Build
 
 ```bash
-pnpm build:all              # все 10 combos + fixtures + spec в dist/matmul/
+pnpm build:all              # auto-discover benches/*/spec.json → dist/<id>/ (combos + fixtures + spec)
 pnpm build:js               # только JS bundles
 pnpm build:rust             # только Rust (требует wasm-pack + wasm-opt)
 pnpm build:cpp              # только C++ (требует emcc + wasi-sdk + wasm-opt)

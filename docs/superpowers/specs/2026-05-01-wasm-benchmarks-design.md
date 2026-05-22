@@ -83,11 +83,25 @@ interface RunResult {
 
 1. `loader.load()` → получить модуль + `initTimings`.
 2. `module.loadInput(fixture)` — не мерится, но логируется.
-3. `firstCall = module.run(1)` — отдельная метрика.
+3. `firstCall = module.run(1)` — отдельная метрика. **Checksum от `run(1)` НЕ валидируется** (см. § «Checksum-семантика workload'а» ниже): он нужен только для timing'а tier-up'а.
 4. **Warmup**: фиксированное число итераций (≥10× для V8 tier-up до Turbofan), результаты выкидываются.
-5. **Sample loop**: повторяющиеся блоки `module.run(N)`, между блоками `reset?()`. Минимум 30 sample'ов в Phase 1, авто-расширение до 100 при CV>5%.
-6. После каждого блока валидация checksum.
+5. **Sample loop**: повторяющиеся блоки `module.run(N)`, где `N = spec.inputSizes[size].innerIterations ?? config.innerIterations`; между блоками `reset?()`. Минимум 30 sample'ов в Phase 1, авто-расширение до 100 при CV>5%.
+6. После каждого блока валидация checksum против `spec.expectedChecksums[entry][size]`.
 7. Агрегация: median, p95, p99, stddev, min, max, n_samples, CV.
+
+### Checksum-семантика workload'а
+
+Spec нового workload'а **обязан** явно проговорить три инварианта, иначе harness и loaders могут давать ложно-валидные или ложно-невалидные результаты. Эти инварианты исторически были implicit (matmul их удовлетворял случайно) и attributed к surprise в Phase 1.1.1 (interop_calls).
+
+1. **Iter-семантика checksum'а.** Один из двух режимов, прописывается в `spec.json § ioContract` / spec description:
+   - **Iter-invariant** (matmul-style): `run(N)` делает N полных «единиц работы», но результат каждой единицы НЕ зависит от N (например, matmul reset'ит C[] перед каждой итерацией → `abs_sum(C)` инвариантен). `expectedChecksum` валиден для любого N.
+   - **Iter-dependent** (interop_calls-style): `run(N)` — это N маленьких операций, checksum накапливается (counter, JS-accumulator). `expectedChecksum` определён для **конкретного N = innerIterations**, который объявлен в `spec.inputSizes[size].innerIterations`.
+
+2. **Per-call state leakage.** Есть ли state в wasm/JS module, который persist'ит между двумя `run()` вызовами одного modulа? Если да (например, noop counter в interop_calls) — loader должен возвращать **delta** на одном вызове (counter_after − counter_before), а не absolute. Иначе harness'овский cycle `loadInput → run(1) → warmup → samples` корраптит checksum накопленным history.
+
+3. **`innerIterations` ratio.** Для iter-dependent workload'ов: какое N для каждого размера (S/M/L) даёт «человекомерное» время (>>100× resolution `performance.now()`, но <<10 секунд per sample)? Записывается в `spec.inputSizes[size].innerIterations` (optional field, fallback на CLI `--mode` default = 1).
+
+**Harness contract follow-up.** `packages/harness/src/measure.ts` валидирует checksum **только** в warm-samples loop (`module.run(innerIterations)`), не на `run(1)`. Runner-node/web переопределяют `MeasureConfig.innerIterations` из spec'а, если поле объявлено. Loaders для arity-0 noop pattern (`<entry>_counter` companion) **обязаны** возвращать delta. См. `docs/pitfalls/2026-05-23-phase-1-1-1-execution.md` § P1 для full incident write-up.
 
 ### Метрики
 
