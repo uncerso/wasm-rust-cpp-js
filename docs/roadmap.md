@@ -26,7 +26,6 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 > close). Brainstorm + writing-plans — следующий шаг.
 
 ### Workloads
-- **interop-calls** — 100k-1M коротких JS↔Wasm calls, cost interop-границы ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 - **hashmap-workload** — std::unordered_map vs Rust HashMap vs JS Map (insert/lookup/delete) ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 - **shape-dispatch** — static (templates/generics) vs dynamic (virtual/dyn Trait/class hierarchy) dispatch ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 
