@@ -31,7 +31,9 @@ function computeInsert(pairs: Pair[]): number {
 
 function computeLookup(pairs: Pair[]): number {
     const map = new Map<string, number>();
-    for (const { key, value } of pairs) { map.set(key, value); }
+    for (const { key, value } of pairs) {
+        map.set(key, value);
+    }
     let acc = 0;
     for (const { key } of pairs) {
         acc += map.get(key) ?? 0;
@@ -41,11 +43,15 @@ function computeLookup(pairs: Pair[]): number {
 
 function computeDelete(pairs: Pair[]): number {
     const map = new Map<string, number>();
-    for (const { key, value } of pairs) { map.set(key, value); }
+    for (const { key, value } of pairs) {
+        map.set(key, value);
+    }
     let acc = 0;
     for (const { key } of pairs) {
         const v = map.get(key);
-        if (v !== undefined) { acc += v; map.delete(key); }
+        if (v !== undefined) {
+            acc += v; map.delete(key);
+        }
     }
     return acc;
 }
@@ -68,4 +74,6 @@ async function main(): Promise<void> {
     console.log(JSON.stringify(report, null, 2));
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+    console.error(e); process.exit(1);
+});
