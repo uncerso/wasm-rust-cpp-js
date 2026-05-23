@@ -41,3 +41,19 @@ export function genAsciiHexKeys(n: number, seed: number): Uint8Array {
     }
     return out;
 }
+
+export function genIntPairs53(n: number, seed: number): Uint8Array {
+    const rng = mulberry32(seed);
+    const PAIR_BYTES = 16;
+    const out = new Uint8Array(n * PAIR_BYTES);
+    const dv = new DataView(out.buffer);
+    const TWO_53 = 0x20000000000000;  // 2^53
+    const TWO_32 = 0x100000000;       // 2^32
+    for (let i = 0; i < n; i++) {
+        const k = Math.floor(rng() * TWO_53);   // [0, 2^53)
+        const v = Math.floor(rng() * TWO_32);   // [0, 2^32)
+        dv.setBigUint64(i * PAIR_BYTES,     BigInt(k), true);
+        dv.setBigUint64(i * PAIR_BYTES + 8, BigInt(v), true);
+    }
+    return out;
+}

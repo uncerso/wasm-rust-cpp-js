@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { mulberry32, genF64Array, genAsciiHexKeys } from "./fixtures.js";
+import { mulberry32, genF64Array, genAsciiHexKeys, genIntPairs53 } from "./fixtures.js";
 
 describe("mulberry32", () => {
     it("produces deterministic sequence for given seed", () => {
@@ -56,5 +56,34 @@ describe("genAsciiHexKeys", () => {
         const buf = genAsciiHexKeys(4, 0xDEAD_0001);
         const sha = createHash("sha256").update(buf).digest("hex");
         expect(sha).toBe("2953f375ce7d76e4453ad898f9dd7719e56123ebc07ebc5521b1b5a8b1540339");
+    });
+});
+
+describe("genIntPairs53", () => {
+    it("output size == n × 16 bytes", () => {
+        expect(genIntPairs53(4, 1).byteLength).toBe(4 * 16);
+    });
+
+    it("keys in [0, 2^53) — JS-safe range", () => {
+        const buf = genIntPairs53(10, 1);
+        const dv = new DataView(buf.buffer);
+        for (let i = 0; i < 10; i++) {
+            const k = dv.getBigUint64(i * 16, true);
+            expect(k).toBeLessThan(1n << 53n);
+        }
+    });
+
+    it("values in [0, 2^32)", () => {
+        const buf = genIntPairs53(10, 1);
+        const dv = new DataView(buf.buffer);
+        for (let i = 0; i < 10; i++) {
+            const v = dv.getBigUint64(i * 16 + 8, true);
+            expect(v).toBeLessThan(1n << 32n);
+        }
+    });
+
+    it("SHA256 snapshot for (n=4, seed=0xBEEF_0001)", () => {
+        const sha = createHash("sha256").update(genIntPairs53(4, 0xBEEF_0001)).digest("hex");
+        expect(sha).toBe("7f1f20dd560fec44203f2391da5a234ab165b312e65d8609a801db0ccc79d9e3");
     });
 });
