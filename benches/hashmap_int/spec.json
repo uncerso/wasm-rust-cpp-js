@@ -4,9 +4,9 @@
     "description": "stdlib hashmap workload with u64 keys (in [0, 2^53) for JS-safety). 3 entry points (insert/lookup/delete) exercise std HashMap/unordered_map/Map. Iter-dependent checksums; per-entry reset companion exports manage state.",
     "entries": ["hashmap_int_insert", "hashmap_int_lookup", "hashmap_int_delete"],
     "inputSizes": {
-        "S": { "fixtureBytes": 0, "fixtureSha256": "TBD", "innerIterations": 1000 },
-        "M": { "fixtureBytes": 0, "fixtureSha256": "TBD", "innerIterations": 10000 },
-        "L": { "fixtureBytes": 0, "fixtureSha256": "TBD", "innerIterations": 100000 }
+        "S": { "fixtureBytes": 16000, "fixtureSha256": "054201d12abb3008d5990517ae600749988e1e66a5651fb9906477af2cd1d2a8", "innerIterations": 1000 },
+        "M": { "fixtureBytes": 160000, "fixtureSha256": "0a8e5759899167143ba388aee2b015e2d396adf644b44f90820e04fdb36a8d5e", "innerIterations": 10000 },
+        "L": { "fixtureBytes": 1600000, "fixtureSha256": "3d04f7948bc873ac5c338f2196ca7f69865d545bf0edbd2701df0fec9d2665c3", "innerIterations": 100000 }
     },
     "expectedChecksums": {
         "hashmap_int_insert": { "S": 0, "M": 0, "L": 0 },
