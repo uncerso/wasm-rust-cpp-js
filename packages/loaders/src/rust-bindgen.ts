@@ -2,6 +2,7 @@ import type { BenchModule, RunResult } from "@bench/harness";
 import type { Loader, LoaderInput, LoadedModule } from "./types.js";
 import { TimingRecorder, timed } from "./timings.js";
 import { fetchBytes } from "./fetch-bytes.js";
+import { bindReset } from "./bind-reset.js";
 
 /**
  * wasm-bindgen glue exports: an `init(url)` async function plus named exports
@@ -98,11 +99,11 @@ export const rustBindgenLoader: Loader = {
         const memory = glue.wasm_memory();
         const run = buildRunFor(input.entry, glue);
 
-        const resetFn = glue.reset;
+        const resetFn = bindReset(glue, input.entry);
         const module: BenchModule = {
             loadInput: (buf: Uint8Array) => glue.load_input(buf),
             run,
-            ...(resetFn ? { reset: () => resetFn() } : {}),
+            ...(resetFn ? { reset: resetFn } : {}),
         };
 
         return {
