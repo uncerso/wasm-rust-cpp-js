@@ -1,0 +1,31 @@
+{
+    "id": "hashmap_string",
+    "version": 2,
+    "description": "stdlib hashmap workload with 16-byte ASCII hex keys. 3 entry points (insert/lookup/delete) exercise std HashMap/unordered_map/Map. Iter-dependent checksums; per-entry reset companion exports manage state.",
+    "entries": ["hashmap_string_insert", "hashmap_string_lookup", "hashmap_string_delete"],
+    "inputSizes": {
+        "S": { "fixtureBytes": 0, "fixtureSha256": "TBD", "innerIterations": 1000 },
+        "M": { "fixtureBytes": 0, "fixtureSha256": "TBD", "innerIterations": 10000 },
+        "L": { "fixtureBytes": 0, "fixtureSha256": "TBD", "innerIterations": 100000 }
+    },
+    "expectedChecksums": {
+        "hashmap_string_insert": { "S": 0, "M": 0, "L": 0 },
+        "hashmap_string_lookup": { "S": 0, "M": 0, "L": 0 },
+        "hashmap_string_delete": { "S": 0, "M": 0, "L": 0 }
+    },
+    "supported": {
+        "languages": ["js", "rust", "cpp"],
+        "toolchains": {
+            "js": ["idiomatic"],
+            "rust": ["bindgen"],
+            "cpp": ["emscripten"]
+        },
+        "profiles": ["speed", "size"]
+    },
+    "ioContract": {
+        "fixtureLayout": "N pairs of (16 ASCII lowercase hex key, u64_value_le); 24N bytes total. Keys uniform 64-bit hex; values in [0, 2^32) for JS-safe lookup sum.",
+        "iterSemantics": "Iter-dependent. expectedChecksum валиден только для N = innerIterations[size].",
+        "stateModel": "Map state persists between run() calls. Per-entry <entry>_reset: insert→clear; lookup→no-op; delete→clear+refill from stored pairs.",
+        "outputLayout": "Single scalar checksum: insert→map.size(); lookup→Σ values; delete→Σ removed values."
+    }
+}
