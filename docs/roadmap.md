@@ -26,7 +26,6 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 > close). Brainstorm + writing-plans — следующий шаг.
 
 ### Workloads
-- **hashmap-workload** — std::unordered_map vs Rust HashMap vs JS Map (insert/lookup/delete) ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 - **shape-dispatch** — static (templates/generics) vs dynamic (virtual/dyn Trait/class hierarchy) dispatch ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 
 ## Phase 1.2
@@ -42,6 +41,9 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 
 ### Browsers
 - **safari-implementation** — selenium-webdriver extension, macOS-only safaridriver ([→ web-pipeline-finalize spec § Future Safari](superpowers/specs/2026-05-12-web-pipeline-finalize-design.md))
+
+### Workload expansion
+- **hashmap-stdlib-no-glue** — extend hashmap workload to rust/raw + cpp/wasi-sdk without bindgen/emscripten glue overhead. Bundle-size delta for std-only inclusion — investigation question. ([→ spec § Out of scope](superpowers/specs/2026-05-23-phase-1-1-2-hashmap-design.md))
 
 ## Phase 2+
 
