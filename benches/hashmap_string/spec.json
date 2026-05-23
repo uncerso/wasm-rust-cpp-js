@@ -9,9 +9,9 @@
         "L": { "fixtureBytes": 2400000, "fixtureSha256": "7b80efc5659c533e58da89412731633af9fbd96b472abbdf57bd3cc1833187c5", "innerIterations": 100000 }
     },
     "expectedChecksums": {
-        "hashmap_string_insert": { "S": 0, "M": 0, "L": 0 },
-        "hashmap_string_lookup": { "S": 0, "M": 0, "L": 0 },
-        "hashmap_string_delete": { "S": 0, "M": 0, "L": 0 }
+        "hashmap_string_insert": { "S": 1000, "M": 10000, "L": 100000 },
+        "hashmap_string_lookup": { "S": 2159782707395, "M": 21382149918559, "L": 214962993694896 },
+        "hashmap_string_delete": { "S": 2159782707395, "M": 21382149918559, "L": 214962993694896 }
     },
     "supported": {
         "languages": ["js", "rust", "cpp"],
