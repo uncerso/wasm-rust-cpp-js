@@ -120,11 +120,11 @@ Mechanism (hypothesis): turbofan speculates тип `entry` based на frequent h
 
 ### Не используй `thread_local!` для глобального состояния в wasm32 cdylib — бери `static SyncCell<T>` с vacuous `Sync` impl
 **Status:** tentative
-**Evidence:** Phase 1.1.0 W5.3, `benches/matmul/rust/bindgen/src/lib.rs` (commit `2dea1d5`). Замена `thread_local! { static STATE: RefCell<State> }` на `static STATE: SyncCell<State>` с `unsafe impl Sync` (single-threaded vacuous) дала -751 B (speed profile) / -689 B (size profile) на raw wasm.
-**Phase:** introduced 1.1
-**Caveats:** Применимо только для targets без реальных threads (wasm32-unknown-unknown). Для threads-enabled wasm или native targets — нужен реальный sync primitive (Mutex/OnceLock). Single workload пока — статус `tentative` до подтверждения в Phase 1.1.1+.
+**Evidence:** Phase 1.1.0 W5.3, `benches/matmul/rust/bindgen/src/lib.rs` (commit `2dea1d5`). Замена `thread_local! { static STATE: RefCell<State> }` на `static STATE: SyncCell<State>` с `unsafe impl Sync` (single-threaded vacuous) дала -751 B (speed profile) / -689 B (size profile) на raw wasm. Phase 1.1.2 подтвердила pattern на 2 новых workload'ах (hashmap_string, hashmap_int) — но для типов с non-const init (e.g. `HashMap::new()` нельзя в `const fn`) нужен wrapper `static STATE: LazyLock<SyncCell<State>>` вместо прямого `static`.
+**Phase:** introduced 1.1 / refined 1.1.2
+**Caveats:** Применимо только для targets без реальных threads (wasm32-unknown-unknown). Для threads-enabled wasm или native targets — нужен реальный sync primitive (Mutex/OnceLock). Если state type содержит non-const constructors (e.g. `HashMap` с default RandomState hasher) — оборачивай в `LazyLock` (`use std::sync::LazyLock`); LazyLock инициализируется лениво при первом обращении.
 
-Mechanism: `thread_local!` разворачивается в `LocalKey<T>` с lazy-init shim'ом (atomic-guarded init state + `.with()` dispatch + panic paths для TLS destruction). На single-threaded wasm32 — pure overhead. `SyncCell<T>(RefCell<T>)` с `const fn new()` — обычная константная инициализация, прямой доступ через `STATE.0.borrow_mut()`. RefCell runtime borrow checks остаются (микроскопические).
+Mechanism: `thread_local!` разворачивается в `LocalKey<T>` с lazy-init shim'ом (atomic-guarded init state + `.with()` dispatch + panic paths для TLS destruction). На single-threaded wasm32 — pure overhead. `SyncCell<T>(RefCell<T>)` с `const fn new()` — обычная константная инициализация, прямой доступ через `STATE.0.borrow_mut()`. RefCell runtime borrow checks остаются (микроскопические). Под `LazyLock` — добавляется один atomic-guarded init check at first access, после прогрева indistinguishable от direct static.
 
 ### Не оставляй `#[wasm_bindgen]` exports «на будущее» — каждый dead export тянет свою call chain
 **Status:** tentative

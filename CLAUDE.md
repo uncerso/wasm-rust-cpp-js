@@ -49,17 +49,19 @@ Reframe: цель проекта не «сравнить три языка», а
 
 Workspace — pnpm + cargo. Три типа packages:
 
-- **`benches/<workload>/`** — benchmark sources. Один workload на каталог; обнаруживаются `scripts/build-all.ts` через `glob("benches/*/spec.json")`. На текущий момент: `matmul`, `interop_calls`. Каждый workload даёт 10 binary combos:
+- **`benches/<workload>/`** — benchmark sources. Один workload на каталог; обнаруживаются `scripts/build-all.ts` через `glob("benches/*/spec.json")`. На текущий момент: `matmul`, `interop_calls`, `hashmap_string`, `hashmap_int`. Coverage по toolchain'ам **варьируется per workload** — определяется `spec.json.supported` (matmul / interop_calls = full 10 combos; hashmap_* = 5 combos: js-idiomatic + rust-bindgen × {speed,size} + cpp-emscripten × {speed,size}):
   - `js/{idiomatic,typed-array}` — TS implementations (ESM, bundled через esbuild).
   - `rust/{raw,bindgen}` — cargo crates (matmul также имеет `shared` pure-Rust core). `raw` — no_std + manual exports, `bindgen` — wasm-bindgen. Каждый crate × {speed, size} profile.
   - `cpp/` — общий `.cpp` + per-bench `build-{emscripten,wasi-sdk}.sh`. Emscripten выдаёт `glue.mjs`+`glue.wasm`, wasi-sdk freestanding — `module.wasm`. × {speed, size}.
   - `validate/` — reference TS, computes ожидаемые checksums per (entry, size). Фикстуры под `fixtures/` (`.gitignore` на `*.bin`); interop_calls fixture-less (0 байт sentinel-файлы).
-  - Multi-entry binaries: `spec.json` v2 имеет `entries: string[]` + `expectedChecksums[entry][size]`. matmul = 1 entry; interop_calls = 3 (noop / add_i32 / add_f64).
+  - Multi-entry binaries: `spec.json` v2 имеет `entries: string[]` + `expectedChecksums[entry][size]`. matmul = 1 entry; interop_calls = 3 (noop / add_i32 / add_f64); hashmap_string / hashmap_int = 3 each (insert / lookup / delete).
+
+- **`benches/common/`** — shared fixture-generation utilities (`fixtures.ts`): `mulberry32` PRNG + `genF64Array` (byte-preserving для matmul) + `genAsciiHexKeys` (hashmap_string) + `genIntPairs53` (hashmap_int). Lifted в Phase 1.1.2 rule-of-three refactor; добавляй новые generators сюда, когда ≥2 workloads нужно одно и то же.
 
 - **`packages/`** — host libraries (workspace внутренний):
   - `result-schema` — zod `BenchResultSchema` (single source of truth для формата результата; **любое изменение схемы обязано пройти через этот файл**).
   - `harness` — measure loop (warm samples + CV-stop), stats, correctness validation против reference checksum.
-  - `loaders` — четыре loader'а (`plain-js`, `raw-wasm`, `rust-bindgen`, `emscripten`), каждый возвращает унифицированную `BenchModule`.
+  - `loaders` — четыре loader'а (`plain-js`, `raw-wasm`, `rust-bindgen`, `emscripten`), каждый возвращает унифицированную `BenchModule`. Per-entry reset резолвится через DRY helper `bind-reset.ts` (lookup order: `exports[<entry>_reset]` → `exports.reset` → undefined; emscripten loader reshapes keys из-за `_`-prefix C-style exports).
   - `reporter` — aggregate JSON → static HTML.
 
 - **`apps/`** — CLI-драйверы:
@@ -142,6 +144,18 @@ pnpm exec tsx apps/runner-node/src/main.ts \
   invocations через `tsx` subprocess (`pnpm smoke`, `pnpm build:*`, `pnpm fixtures`,
   `pnpm exec tsx -e '...'`) — требуют `dangerouslyDisableSandbox: true`: tsx создаёт
   Unix IPC socket в `/tmp/claude-501/tsx-501/*.pipe`, который sandbox блокирует.
+- **Pipe exit codes для gate commands.** При chain'ировании gates типа
+  `pnpm typecheck && pnpm lint:all && pnpm test 2>&1 | tail -10` — exit code pipeline'а
+  это exit code `tail` (rightmost), а не failed `pnpm` step. Реальный failure скрывается.
+  Используй `set -o pipefail` или захватывай `${PIPESTATUS[0]}` явно. Безопасный pattern:
+  `pnpm X 2>&1 | tee /tmp/out; rc=$?; [ "$rc" = 0 ] || exit $rc`. Симптом — «gates green»
+  reported когда реально что-то failed; см. `docs/pitfalls/2026-05-23-phase-1-1-2-execution.md`
+  § Process > "Subagent task-completion verification used `| tail`".
+- **`git stash` под sandbox restrictions.** На этой машине `git stash` интерактирует
+  непредсказуемо с `.claude/settings.local.json` (denyWithinAllow) — partial stash,
+  silent pop failures, working tree оставляется в inconsistent state. Предпочитай
+  `git diff <commit> -- <file>` или `git show <commit>:<file>` для inspection без
+  модификации working tree; либо копируй файлы в `$TMPDIR/` (sandbox-writable).
 
 ## Spec & plan conventions
 
@@ -154,6 +168,25 @@ pnpm exec tsx apps/runner-node/src/main.ts \
 **Plan executor protocol.** Wave 0 ≡ baseline check на момент начала execution
 (тот же набор gates). Если падает — STOP, surface к user, не маскировать через
 out-of-scope lint:fix commit.
+
+**Wave 2 close — eval-mode validation gate.** Standard `pnpm smoke` (quick mode, size S
+только) недостаточно для closing Wave 2 импементационной волны: V8 turbofan / JIT
+tier-up boundaries triggered только в eval mode (warmup=10, samples=30-100). Phase 1.1.2
+Wave 2 close report'нул «smoke OK» при наличии bug, который surface'нулся только в
+Wave 3 bench:all (см. `docs/pitfalls/2026-05-23-phase-1-1-2-execution.md` § Planning
+> "Smoke at S only — eval-mode bugs survive Wave 2 close" + bug branch
+`feature/phase-1.1.2-bug`). **Перед declaring Wave 2 closed** прогони хотя бы 1
+representative case per workload в eval mode:
+
+```bash
+pnpm exec tsx apps/runner-node/src/main.ts \
+  --benchmark=<workload> --entry=<entry> --language=js \
+  --toolchain=idiomatic --profile=speed --size=S \
+  --out=/tmp/eval-check --mode=eval
+```
+
+Все 3-9 cases должны exit 0 без correctness failures. Особенно для JS workloads с
+per-entry dispatch в hot loops — там turbofan deopt'ы наиболее вероятны.
 
 ## Tech-debt capture
 
