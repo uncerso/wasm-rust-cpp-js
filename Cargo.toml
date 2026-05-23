@@ -6,6 +6,7 @@ members = [
     "benches/matmul/rust/bindgen",
     "benches/interop_calls/rust/raw",
     "benches/interop_calls/rust/bindgen",
+    "benches/hashmap_string/rust/bindgen",
 ]
 
 [workspace.package]
