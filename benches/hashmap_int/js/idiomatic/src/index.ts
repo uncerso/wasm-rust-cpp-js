@@ -6,6 +6,12 @@ interface BenchModule {
 
 const PAIR_BYTES = 16;
 
+// Factory-time dispatch on `entry`: each create() returns specialized run/reset
+// closures rather than a single function with a per-call switch. Workaround for a
+// V8 JIT deopt bug where switch-over-closure-const in a hot loop body falls into
+// the default branch under turbofan tier-up. See
+// docs/superpowers/bug-reports/2026-05-23-v8-deopt-switch-over-closure-const.md
+// for reproduction details.
 export default function create(entry: string): BenchModule {
     let pairs: Array<readonly [number, number]> = [];
     const map = new Map<number, number>();
@@ -30,31 +36,37 @@ export default function create(entry: string): BenchModule {
         }
     }
 
-    function reset(): void {
-        switch (entry) {
-            case "hashmap_int_insert": map.clear(); break;
-            case "hashmap_int_lookup": break;
-            case "hashmap_int_delete": refillMap(); break;
-        }
-    }
+    let runFn: (iters: number) => { checksum: number };
+    let resetFn: () => void;
 
-    function run(iters: number): { checksum: number } {
-        switch (entry) {
-            case "hashmap_int_insert": {
+    switch (entry) {
+        case "hashmap_int_insert":
+            resetFn = () => {
+                map.clear();
+            };
+            runFn = (iters) => {
                 for (let i = 0; i < iters; i++) {
                     const [k, v] = pairs[i];
                     map.set(k, v);
                 }
                 return { checksum: map.size };
-            }
-            case "hashmap_int_lookup": {
+            };
+            break;
+        case "hashmap_int_lookup":
+            resetFn = () => {};
+            runFn = (iters) => {
                 let acc = 0;
                 for (let i = 0; i < iters; i++) {
                     acc += map.get(pairs[i][0]) ?? 0;
                 }
                 return { checksum: acc };
-            }
-            case "hashmap_int_delete": {
+            };
+            break;
+        case "hashmap_int_delete":
+            resetFn = () => {
+                refillMap();
+            };
+            runFn = (iters) => {
                 let acc = 0;
                 for (let i = 0; i < iters; i++) {
                     const k = pairs[i][0];
@@ -65,10 +77,10 @@ export default function create(entry: string): BenchModule {
                     }
                 }
                 return { checksum: acc };
-            }
-            default:
-                throw new Error(`hashmap_int/js-idiomatic: unknown entry "${entry}"`);
-        }
+            };
+            break;
+        default:
+            throw new Error(`hashmap_int/js-idiomatic: unknown entry "${entry}"`);
     }
 
     return {
@@ -76,7 +88,7 @@ export default function create(entry: string): BenchModule {
             parsePairs(buf);
             refillMap();
         },
-        run,
-        reset,
+        run: runFn,
+        reset: resetFn,
     };
 }
