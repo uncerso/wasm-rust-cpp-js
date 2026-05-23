@@ -2,10 +2,10 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { genF64Array } from "../../common/fixtures.js";
+import { genIntPairs53 } from "../../common/fixtures.js";
 
-const SIZES = { S: 64, M: 256, L: 1024 } as const;
-const SEEDS = { S: 0xC0FFEE_01, M: 0xC0FFEE_02, L: 0xC0FFEE_03 } as const;
+const SIZES = { S: 1000, M: 10000, L: 100000 } as const;
+const SEEDS = { S: 0xBEEF_0001, M: 0xBEEF_0002, L: 0xBEEF_0003 } as const;
 
 async function main() {
     const here = dirname(fileURLToPath(import.meta.url));
@@ -13,7 +13,7 @@ async function main() {
 
     const result: Record<string, { bytes: number; sha256: string }> = {};
     for (const [size, n] of Object.entries(SIZES) as [keyof typeof SIZES, number][]) {
-        const buf = genF64Array(n, SEEDS[size]);
+        const buf = genIntPairs53(n, SEEDS[size]);
         const path = join(here, `${size.toLowerCase()}.bin`);
         await writeFile(path, buf);
         const sha = createHash("sha256").update(buf).digest("hex");

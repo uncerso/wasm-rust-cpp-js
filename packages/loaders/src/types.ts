@@ -17,6 +17,14 @@ export interface LoaderInput {
     entry: string;
 }
 
+/**
+ * Loader implementations bind `BenchModule.reset` via `bindReset`:
+ *   - Per-entry companion (`<entry>_reset`) if present — Phase 1.1.2+ workloads.
+ *   - Generic `reset` if present — matmul/interop_calls precedent.
+ *   - Otherwise omit `BenchModule.reset` — harness uses optional chain.
+ * Emscripten exports are underscore-prefixed; that loader reshapes the lookup
+ * keys before calling bindReset.
+ */
 export interface Loader {
     load(input: LoaderInput): Promise<LoadedModule>;
 }

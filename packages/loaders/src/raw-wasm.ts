@@ -2,6 +2,7 @@ import type { BenchModule, RunResult } from "@bench/harness";
 import type { Loader, LoaderInput, LoadedModule } from "./types.js";
 import { TimingRecorder, timed } from "./timings.js";
 import { fetchBytes } from "./fetch-bytes.js";
+import { bindReset } from "./bind-reset.js";
 
 interface RawExportsBase {
     memory: WebAssembly.Memory;
@@ -92,6 +93,7 @@ export const rawWasmLoader: Loader = {
 
         const memBuffer = exports.memory.buffer;
         const run = buildRunFor(input.entry, exports);
+        const resetFn = bindReset(exports, input.entry);
         const module: BenchModule = {
             loadInput(buf: Uint8Array) {
                 let ptr = 0;
@@ -102,9 +104,7 @@ export const rawWasmLoader: Loader = {
                 exports.load_input(ptr, buf.byteLength);
             },
             run,
-            reset() {
-                exports.reset?.();
-            },
+            ...(resetFn ? { reset: resetFn } : {}),
         };
 
         return {

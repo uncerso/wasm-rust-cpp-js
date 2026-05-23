@@ -1,6 +1,7 @@
 import type { BenchModule, RunResult } from "@bench/harness";
 import type { Loader, LoaderInput, LoadedModule } from "./types.js";
 import { TimingRecorder, timed } from "./timings.js";
+import { bindReset } from "./bind-reset.js";
 
 /**
  * Emscripten with -s MODULARIZE=1 -s ENVIRONMENT=web,worker,node exports a
@@ -90,7 +91,13 @@ export const emscriptenLoader: Loader = {
 
         const inst = initTimed.value;
         const run = buildRunFor(input.entry, inst);
-        const resetFn = inst._reset?.bind(inst);
+        // Emscripten C exports are underscore-prefixed; bindReset uses unprefixed
+        // names, so look up with explicit C-style keys.
+        const reshaped: Record<string, unknown> = {
+            [`${input.entry}_reset`]: (inst as Record<string, unknown>)[`_${input.entry}_reset`],
+            reset: inst._reset?.bind(inst),
+        };
+        const resetFn = bindReset(reshaped, input.entry);
 
         const module: BenchModule = {
             loadInput(buf: Uint8Array) {
@@ -102,7 +109,7 @@ export const emscriptenLoader: Loader = {
                 inst._load_input(ptr, buf.byteLength);
             },
             run,
-            ...(resetFn ? { reset: () => resetFn() } : {}),
+            ...(resetFn ? { reset: resetFn } : {}),
         };
 
         return {
