@@ -3,5 +3,5 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["scripts/**/*", "benches/*/validate/**/*"]
+  "include": ["scripts/**/*", "benches/common/**/*", "benches/*/validate/**/*"]
 }
