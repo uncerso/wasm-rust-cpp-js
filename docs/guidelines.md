@@ -108,15 +108,15 @@ export default function create(entry: string): BenchModule {
 }
 ```
 
-под `--mode=eval` (warmup=10, samples=30-100) у `*_lookup` entries при size S детерминированно падает в `default:` ветку через 30+ samples — turbofan deopt'ит switch'у на closure-constant и попадает в неправильную ветку. Воспроизводимо на обоих workload'ах (hashmap_string + hashmap_int) при eval+S+lookup. `--jitless` устраняет (подтверждение V8 JIT-cause). Manual repro вне harness не падает.
+под `--mode=eval` (warmup=10, samples=30-100) у `*_lookup` entries при size S детерминированно падает в `default:` ветку на первом optimized run-call. Воспроизводимо на обоих workload'ах (hashmap_string + hashmap_int) при eval+S+lookup. `--jitless` устраняет (подтверждение V8 JIT-cause).
 
-**Workaround в этом репо:** factory-time dispatch — `create(entry)` возвращает специализированные `runFn`/`resetFn` closures (один switch на factory call, никакого switch'а внутри hot loop). Bundle ~10% smaller, корректность восстановлена. Apply в commit `0cc508b` для hashmap_string + hashmap_int.
+**Workaround в этом репо:** factory-time dispatch — `create(entry)` возвращает специализированные `runFn`/`resetFn` closures (один switch на factory call, никакого switch'а внутри hot loop). Корректность восстановлена; bundle marginally smaller (~7% raw). Apply в commit `0cc508b` для hashmap_string + hashmap_int.
 
-**Phase:** introduced 1.1.2
+**Phase:** introduced 1.1.2 / root-caused 2026-05-26 (post-phase investigation)
 
-**Caveats:** Reproduced только на Node 22 / V8 12.4. Точный root cause не идентифицирован (см. bug report для hypotheses + V8 tracing commands). Manual repro вне harness не воспроизводится — что-то в harness/runner-node взаимодействии (likely performance.now() + await boundaries + size of pairs array) триггерит deopt. Pattern likely общий — switch over closure-const в hot V8 loops следует избегать заранее.
+**Caveats:** Bug строго **V8 12.4-only** (Node 22.x). Verified clean на Node 20.19.5 (V8 11.3) и Node 24.14.1 (V8 13.6) — то есть исправлено upstream между V8 minor releases. Workaround сохраняем permanent: Node 22 — current LTS до 2027-04, и pattern-class общий (любой closure-const switch с default-branch template-literal в hot loop потенциально fragile через JIT codegen bugs аналогичного класса). Repro требует ОБА триггера: (1) tsx CLI invocation (`pnpm exec tsx` ⇔ `node --require preflight.cjs --import loader.mjs`) — bare `node script.mjs` без preflight НЕ воспроизводит; (2) full harness "competing work" volume — изолированный minimal repro под тем же tsx invocation тоже НЕ воспроизводит. Preflight.cjs + Zod parses + multi-module import graph совместно сдвигают turbofan tier-up timing в момент пустого feedback slot [67]. См. bug-report § Heisenbug attribution.
 
-Mechanism (hypothesis): turbofan speculates тип `entry` based на frequent hits, инлайнит switch с предположением, что только один case срабатывает. При hot enough tier-up до maglev/turbofan, speculation расходится с bytecode-fallback (через soft-deopt trigger), и fallback path попадает в `default:`. Не root-caused; investigation deferred (см. bug branch `feature/phase-1.1.2-bug`).
+Mechanism (confirmed, V8 12.4 deopt-eager codegen bug): turbofan компилирует `run` ("hot and stable"). Default branch содержит template literal `` `...${entry}` `` — его string-concat `Add` instruction (bytecode offset 427) имеет пустой feedback slot [67], т.к. default never executed. Turbofan ставит deopt-eager guard, но deopt continuation point miscomputed — interpreter резюмит выполнение с bytecode offset 427 (`Add r10 [67]` → `Construct Error` → `Throw`) вместо корректного location в lookup-ветке. Trace: `[bailout deopt-eager, reason: Insufficient type feedback for binary operation, bytecode offset 427]`. Bug class — недостаточная feedback в never-executed branch заставляет turbofan deopt'ить, но resume-point вычислен неправильно.
 
 ### Не используй `thread_local!` для глобального состояния в wasm32 cdylib — бери `static SyncCell<T>` с vacuous `Sync` impl
 **Status:** tentative
