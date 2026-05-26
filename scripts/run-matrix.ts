@@ -1,9 +1,11 @@
-import { mkdir, readdir, readFile, access } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, readdir, readFile, access, writeFile } from "node:fs/promises";
+import { resolve, join } from "node:path";
 import { execa, type ResultPromise } from "execa";
 import { SpecSchema, type Spec } from "@bench/result-schema";
 import { enumerateBinaries } from "./lib/matrix.js";
 import { run } from "./lib/exec.js";
+import { createDriverSession, type CaseInput, type DriverSession } from "../apps/runner-web/src/driver.js";
+import { runCaseWithRetry, type RetryFailure } from "../apps/runner-web/src/run-case-with-retry.js";
 
 type Env = "node" | "chromium" | "firefox";
 type Size = "S" | "M" | "L";
@@ -17,6 +19,7 @@ interface CliArgs {
     mode: "quick" | "eval";
     out: string;
     benchmarks: string[];
+    restartEvery: number;
 }
 
 function parseList<T extends string>(raw: string, allowed: readonly T[], label: string): T[] {
@@ -42,12 +45,17 @@ function parseArgs(argv: string[]): CliArgs {
     const benchmarks = benchmarksRaw === ""
         ? []
         : benchmarksRaw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+    const restartEveryRaw = parseInt(get("restart-every", "0"), 10);
+    if (!Number.isFinite(restartEveryRaw) || restartEveryRaw < 0) {
+        throw new Error(`--restart-every must be a non-negative integer; got "${get("restart-every", "0")}"`);
+    }
     return {
         envs: parseList(get("envs", "node,chromium,firefox"), ALL_ENVS, "env"),
         sizes: parseList(get("sizes", "S,M"), ALL_SIZES, "size"),
         mode,
         out: get("out", `results/raw/${new Date().toISOString().replace(/[:.]/g, "-")}`),
         benchmarks,
+        restartEvery: restartEveryRaw,
     };
 }
 
@@ -122,12 +130,17 @@ async function main() {
     }
 
     let ranOK = true;
+    const accumulateFailures: Array<RetryFailure & { env: Env }> = [];
     try {
-        for (const spec of filteredSpecs) {
-            for (const c of enumerateBinaries(spec)) {
-                for (const entry of spec.entries) {
-                    for (const sz of args.sizes) {
-                        for (const env of args.envs) {
+        // ── Node loop: per-case subprocess (unchanged behaviour) ─────────────
+        if (args.envs.includes("node")) {
+            for (const spec of filteredSpecs) {
+                for (const c of enumerateBinaries(spec)) {
+                    if (c.language === "js" && c.profile !== "speed") {
+                        continue;
+                    }
+                    for (const entry of spec.entries) {
+                        for (const sz of args.sizes) {
                             const common = [
                                 `--benchmark=${c.sourceBench}`,
                                 `--entry=${entry}`,
@@ -138,17 +151,86 @@ async function main() {
                                 `--out=${args.out}`,
                                 `--mode=${args.mode}`,
                             ];
-                            // JS: speed profile only (esbuild produces identical output for both).
-                            if (c.language === "js" && c.profile !== "speed") {
-                                continue;
-                            }
-                            if (env === "node") {
-                                await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
-                            } else {
-                                await run("tsx", ["apps/runner-web/src/driver.ts", ...common, `--browser=${env}`]);
-                            }
+                            await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
                         }
                     }
+                }
+            }
+        }
+
+        // ── Browser loops: long-lived session per env ───────────────────────
+        for (const env of args.envs) {
+            if (env === "node") {
+                continue;
+            }
+            const cases: CaseInput[] = [];
+            for (const spec of filteredSpecs) {
+                for (const c of enumerateBinaries(spec)) {
+                    if (c.language === "js" && c.profile !== "speed") {
+                        continue;
+                    }
+                    for (const entry of spec.entries) {
+                        for (const sz of args.sizes) {
+                            cases.push({
+                                benchmark: c.sourceBench,
+                                entry,
+                                language: c.language,
+                                toolchain: c.toolchain,
+                                profile: c.profile,
+                                size: sz,
+                                mode: args.mode,
+                            });
+                        }
+                    }
+                }
+            }
+            if (cases.length === 0) {
+                continue;
+            }
+
+            const create = (): Promise<DriverSession> => createDriverSession(env, { port: 5174 });
+            let session: DriverSession;
+            try {
+                session = await create();
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                console.error(`[env-skip] env=${env}: initial session create failed: ${msg}`);
+                accumulateFailures.push({ env, caseId: "(env-init)", error: msg });
+                ranOK = false;
+                continue;
+            }
+            const sessionRef = { current: session };
+            const envFailures: RetryFailure[] = [];
+            let consecutiveFailures = 0;
+
+            for (let i = 0; i < cases.length; i++) {
+                if (args.restartEvery > 0 && i > 0 && i % args.restartEvery === 0) {
+                    console.log(`[restart-every] env=${env}: restarting session at case ${i}`);
+                    await sessionRef.current.quit().catch(() => { /* best-effort */ });
+                    sessionRef.current = await create();
+                }
+                const result = await runCaseWithRetry(sessionRef, cases[i]!, envFailures, create);
+                if (result === null) {
+                    consecutiveFailures++;
+                    if (consecutiveFailures >= 3) {
+                        const remaining = cases.length - i - 1;
+                        console.error(`[abort] env=${env}: 3 consecutive failures, skipping ${remaining} remaining cases`);
+                        break;
+                    }
+                } else {
+                    consecutiveFailures = 0;
+                    const outPath = join(args.out, result.fileName);
+                    await writeFile(outPath, JSON.stringify(result.result, null, 2));
+                    console.log(`wrote ${outPath}`);
+                }
+            }
+
+            await sessionRef.current.quit().catch(() => { /* best-effort */ });
+
+            if (envFailures.length > 0) {
+                ranOK = false;
+                for (const f of envFailures) {
+                    accumulateFailures.push({ env, ...f });
                 }
             }
         }
@@ -171,6 +253,15 @@ async function main() {
                 await serverProc;
             } catch { /* expected on SIGTERM */ }
         }
+    }
+
+    if (accumulateFailures.length > 0) {
+        const summary = accumulateFailures
+            .map((f) => `[${f.env}] ${f.caseId}: ${f.error}`)
+            .join("\n");
+        await writeFile(join(args.out, "failures.txt"), summary + "\n");
+        console.error(`${accumulateFailures.length} case(s) failed; see ${args.out}/failures.txt`);
+        process.exit(1);
     }
 
     console.log(`results in ${args.out}${ranOK ? "" : " (partial — some cases failed)"}`);
