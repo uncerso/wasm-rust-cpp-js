@@ -94,15 +94,27 @@ Firefox S size sub-resolution: `performance.now()` precision в Firefox ~20µs (
 
 **Caveats:** Single-size observation — single-runtime tentative до cross-size confirmation (нужны увеличенные N для S чтобы преодолеть Firefox `performance.now()` precision floor, либо L-size data за пределами текущего eval budget). Mechanism uncertain: SpiderMonkey hashmap implementation, JIT inlining behavior, или string interning trade-offs differ от V8 — investigation backlog item. Pattern не следует слепо переносить на Safari (WebKit) без отдельных измерений.
 
-### Для hot, sub-µs JS↔Wasm functions предпочитай `rust/raw extern "C"` или `cpp/wasi-sdk` — `wasm-bindgen` стабильно добавляет ~10-40% per-call overhead
-**Status:** tentative
-**Evidence:** Phase 1.1.1, `results/raw/2026-05-22T21-06-13-615Z/interop_calls_*__rust-{raw,bindgen}-speed__M__node.json` + соответствующие chromium/firefox. M-size (1M calls/sample), node v22.22.3 V8:
-- `interop_calls_noop`: raw 1.67 ns/call vs bindgen 2.21 ns/call (**+33%**).
-- `interop_calls_add_i32`: raw 2.13 vs bindgen 2.31 (**+9%**).
-- `interop_calls_add_f64`: raw 2.99 vs bindgen 3.66 (**+22%**).
-Cross-runtime consistency: chromium noop M raw 1.78 vs bindgen 2.49 (+40%); firefox noop M raw 1.94 vs bindgen 2.40 (+24%). Δ persists через speed/size profile.
-**Phase:** introduced 1.1.1
-**Caveats:** Single workload class (тривиальные сигнатуры — `()->()`, `(i32,i32)->i32`, `(f64,f64)->f64`). Overhead absolute small (~0.2-0.7 ns/call) и тонет в шуме при wasm body > ~50 ns (e.g. `matmul` где gap внутри CV). Для product code с редкими crossings (DOM events, RAF callbacks) разница не важна; для горячих циклов с миллионами JS↔Wasm calls — preferable. Confirmation expected в Phase 1.1.2 (hashmap insert/lookup — multi-arg calls с возвратом структур).
+### Для hot, sub-µs JS↔Wasm functions предпочитай `rust/raw extern "C"` или `cpp/wasi-sdk` — `wasm-bindgen` добавляет per-call overhead в диапазоне +3% .. +94% (median ~+20%)
+**Status:** confirmed
+**Evidence:** Phase 1.1.2.1, `results/raw/2026-05-26-phase-1-1-2-1/interop_calls_*__rust-{raw,bindgen}-speed__M__{node,chromium,firefox}.json`. M-size (1M calls/sample), warm-median ns/call (eval mode):
+
+| env | entry | raw | bindgen | Δ |
+|---|---|---|---|---|
+| node | noop | 1.82 | 2.06 | +13% |
+| node | add_i32 | 1.86 | 2.27 | +22% |
+| node | add_f64 | 2.96 | 3.58 | +21% |
+| chromium | noop | 2.24 | 2.32 | +4% |
+| chromium | add_i32 | 2.49 | 4.83 | **+94%** |
+| chromium | add_f64 | 2.49 | 3.58 | +44% |
+| firefox | noop | 1.94 | 2.40 | +24% |
+| firefox | add_i32 | 3.90 | 4.00 | +3% |
+| firefox | add_f64 | 2.74 | 2.86 | +4% |
+
+Direction (raw < bindgen) consistent across 9/9 (env, entry) pairs. Magnitude varies широко — Chromium add_i32 +94% — outlier; medianный overhead ~+20%.
+
+**Phase:** introduced 1.1.1 / refined 1.1.2.1 (cross-runtime confirmation, magnitude range widened)
+
+**Caveats:** Single workload class (тривиальные сигнатуры — `()->()`, `(i32,i32)->i32`, `(f64,f64)->f64`). Overhead absolute small (~0.05-2.3 ns/call) и тонет в шуме при wasm body > ~50 ns (e.g. `matmul` где gap внутри CV). Для product code с редкими crossings (DOM events, RAF callbacks) разница не важна; для горячих циклов с миллионами JS↔Wasm calls — preferable. Magnitude variance high (especially Chromium add_i32 +94% outlier) — для product decision проверь на target signature shape.
 
 Mechanism: wasm-bindgen генерирует JS shim per export, который маршалит args/ret через shared memory + maintains FinalizationRegistry для GC-aware refcells. Для тривиальных primitive-only signatures shim просто forward'ит вызов, но добавляет typeof checks + arity adjust + (Rust-side) bindgen-instrumented entry. Raw `extern "C"` экспортирует через direct call ABI, no JS-side shim.
 
