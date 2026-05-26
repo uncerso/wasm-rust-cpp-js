@@ -312,7 +312,8 @@ Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.j
 │
 ├── docs/superpowers/
 │   ├── specs/  …design.md          # дизайн-спека (immutable)
-│   └── plans/  …phase-1-0.md       # план реализации Phase 1.0
+│   ├── plans/  …phase-1-0.md       # план реализации Phase 1.0
+│   └── bug-reports/                # root-cause notes для specific bugs с repro
 │
 ├── tool-versions.json              # пины внешних тулов
 ├── rust-toolchain.toml             # rust 1.95.0 + wasm32-unknown-unknown
