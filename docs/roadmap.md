@@ -26,7 +26,7 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 > close). Brainstorm + writing-plans — следующий шаг.
 
 ### Workloads
-- **shape-dispatch** — static (templates/generics) vs dynamic (virtual/dyn Trait/class hierarchy) dispatch ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
+- **shape-dispatch** — static (templates/generics, monomorphization) vs dynamic (virtual/dyn Trait/class hierarchy, vtable) dispatch. **Design direction (captured 2026-05-26):** workload measures trade-off bundle-size cost от monomorphization vs runtime cost от vtable indirection. Function body должна быть substantial enough чтобы compiler не inline'ил полностью (e.g. 10-20 FP ops over shape state, или несколько method calls per shape). Two binaries: static = template/generic processor применяется к homogeneous-per-type arrays (instantiated 3× per shape type, bundle растёт от monomorphization); dynamic = single virtual processor над mixed array (bundle compact, vtable indirection per call). JS path asymmetric — нет monomorphization concept, instead measures V8 IC state behavior (monomorphic/polymorphic/megamorphic). ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 
 ## Phase 1.2
 
