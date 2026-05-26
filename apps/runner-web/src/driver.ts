@@ -36,6 +36,19 @@ export interface CreateDriverSessionOptions {
     port?: number;
 }
 
+const QUIT_TIMEOUT_MS = 5_000;
+
+/** Exported for testing only. Races `quitFn` against a fixed timeout. */
+export async function quitWithTimeout(
+    quitFn: () => Promise<void>,
+    timeoutMs: number = QUIT_TIMEOUT_MS,
+): Promise<void> {
+    await Promise.race([
+        quitFn().catch(() => { /* swallowed by intent */ }),
+        new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
+}
+
 export async function createDriverSession(
     env: "chromium" | "firefox",
     options: CreateDriverSessionOptions = {},
@@ -142,11 +155,7 @@ export async function createDriverSession(
     }
 
     async function quit(): Promise<void> {
-        const QUIT_TIMEOUT_MS = 5_000;
-        await Promise.race([
-            driver.quit().catch(() => { /* swallowed by intent */ }),
-            new Promise<void>((resolve) => setTimeout(resolve, QUIT_TIMEOUT_MS)),
-        ]);
+        await quitWithTimeout(() => driver.quit());
     }
 
     return { runCase, quit };
@@ -254,6 +263,9 @@ async function main() {
     }
 }
 
-main().catch((e) => {
-    console.error(e); exit(1);
-});
+const __filename = fileURLToPath(import.meta.url);
+if (argv[1] === __filename) {
+    main().catch((e: unknown) => {
+        console.error(e); exit(1);
+    });
+}
