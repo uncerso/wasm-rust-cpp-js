@@ -41,7 +41,6 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 
 ### Browsers
 - **safari-implementation** — selenium-webdriver extension, macOS-only safaridriver ([→ web-pipeline-finalize spec § Future Safari](superpowers/specs/2026-05-12-web-pipeline-finalize-design.md))
-- **browser-driver-lifecycle-refactor** — single long-lived driver per browser env (chrome, firefox; parallel across envs) с навигацией по URL вместо driver-per-case spawn. Fixes session-loss accumulation на длинных bench runs. ([→ tech_debt/chromedriver-session-retry](tech_debt/chromedriver-session-retry.md))
 
 ### Workload expansion
 - **hashmap-stdlib-no-glue** — extend hashmap workload to rust/raw + cpp/wasi-sdk without bindgen/emscripten glue overhead. Bundle-size delta for std-only inclusion — investigation question. ([→ spec § Out of scope](superpowers/specs/2026-05-23-phase-1-1-2-hashmap-design.md))
