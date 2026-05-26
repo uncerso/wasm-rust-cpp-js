@@ -12,6 +12,39 @@ import { SpecSchema } from "@bench/result-schema";
 import type { WorkerInput } from "./worker.js";
 import { getBrowserPaths } from "./browser-paths.js";
 
+export interface CaseInput {
+    benchmark: string;
+    entry: string;
+    language: Language;
+    toolchain: Toolchain;
+    profile: Profile;
+    size: InputSize;
+    mode: "quick" | "eval";
+}
+
+export interface CaseResult {
+    result: import("@bench/result-schema").BenchResult;
+    fileName: string;
+}
+
+export interface DriverSession {
+    runCase(input: CaseInput): Promise<CaseResult>;
+    quit(): Promise<void>;
+}
+
+export interface CreateDriverSessionOptions {
+    port?: number;
+}
+
+export function createDriverSession(
+    env: "chromium" | "firefox",
+    options: CreateDriverSessionOptions = {},
+): Promise<DriverSession> {
+    return Promise.reject(new Error(
+        `createDriverSession: not yet implemented (Task 3) [env=${env}, port=${String(options.port ?? 5174)}]`,
+    ));
+}
+
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../../..");
 
