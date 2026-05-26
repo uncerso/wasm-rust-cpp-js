@@ -216,6 +216,10 @@ pnpm bench --envs=node,chromium,firefox --sizes=S,M --mode=quick --out=results/r
 - `--sizes=S,M,L` (любое подмножество; M ~50–100×S по нагрузке, L ~1000×).
 - `--mode=quick` (5–10 сэмплов) или `--mode=eval` (30–100 сэмплов с CV-стопом).
 - `--out=<dir>` (по умолчанию `results/raw/<ISO timestamp>`).
+- `--benchmarks=<id1,id2>` — фильтр по `spec.id` (по умолчанию все).
+- `--restart-every=N` — quit+relaunch browser session каждые N cases per env (default 0 = never; hedge на возможный V8 state drift в long runs).
+
+Для browser envs `run-matrix.ts` держит одну long-lived WebDriver session per env и навигирует по case URL'ам через `driver.get()` — намного устойчивее на full matrix (810 cases) чем driver-per-case spawn. Per-case error или session-crash триггерит retry-once-with-relaunch; cases что упали оба раза — собираются в `<out>/failures.txt`.
 
 Каждый кейс пишет `<entry>__<lang>-<toolchain>-<profile>__<size>__<env>.json`, где `<entry>` — benchmark ID (для single-entry binary типа matmul совпадает с `<benchmark>`; multi-entry binaries будут давать N файлов с разными `<entry>` на один (lang, toolchain, profile)).
 
