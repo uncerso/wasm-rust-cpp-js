@@ -70,6 +70,9 @@ export default tseslint.config(
         files: ["**/*.test.ts", "**/tests/**/*.ts"],
         rules: {
             "no-console": "off",
+            // Vitest mock access pattern (expect(mock.method).toHaveBeenCalled())
+            // тривиально tripит rule; в tests acceptable.
+            "@typescript-eslint/unbound-method": "off",
         },
     },
 );
