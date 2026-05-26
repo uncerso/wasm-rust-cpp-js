@@ -52,28 +52,47 @@ Skill `/finish-session` напоминает обновлять файл при 
 
 ## Toolchain choice
 
-### Для u64-keyed hashmap'ов выбирай `rust/bindgen` (std HashMap); для string-keyed выбирай `js Map` — кросс-toolchain профайл инвертируется на key type
+### На V8 runtimes (Node + Chromium) для u64-keyed hashmap'ов выбирай `rust/bindgen` (std HashMap); для string-keyed выбирай `js Map` — кросс-toolchain профайл инвертируется на key type
 **Status:** confirmed
-**Evidence:** Phase 1.1.2, `results/raw/2026-05-23T01-51-06Z/hashmap_{int,string}_lookup__*-speed__{S,M}__node.json`. Warm-median per `run(N)` call (lookup hot loop, N=1000 для S, N=10000 для M), Node v22.22.3 V8 12.4:
+**Evidence:** Phase 1.1.2.1, `results/raw/2026-05-26-phase-1-1-2-1/hashmap_{int,string}_lookup__*-speed__{S,M}__{node,chromium}.json`. Warm-median per `run(N)` call (lookup hot loop, N=1000 для S, N=10000 для M), eval mode:
 
-| key type | size | rust/bindgen | cpp/emscripten | js/idiomatic |
-|---|---|---|---|---|
-| u64 | S (N=1000) | **0.0042 ms** | 0.0062 ms | 0.0097 ms |
-| u64 | M (N=10000) | **0.044 ms** | 0.081 ms | 0.174 ms |
-| string | S (N=1000) | 0.017 ms | 0.016 ms | **0.0072 ms** |
-| string | M (N=10000) | 0.188 ms | 0.209 ms | **0.089 ms** |
+| key | env | size | rust/bindgen | cpp/emscripten | js/idiomatic |
+|---|---|---|---|---|---|
+| u64 | node | S | **0.0043** | 0.0077 | 0.0093 |
+| u64 | node | M | **0.044** | 0.107 | 0.181 |
+| u64 | chromium | S | **0.005** | 0.010 | 0.015 |
+| u64 | chromium | M | **0.060** | 0.165 | 0.200 |
+| str | node | S | 0.017 | 0.017 | **0.0077** |
+| str | node | M | 0.188 | 0.216 | **0.117** |
+| str | chromium | S | 0.015 | 0.015 | **0.010** |
+| str | chromium | M | 0.215 | 0.185 | **0.105** |
 
-Воспроизводимо через ≥2 sizes (S, M) × 2 key types. Pattern: Rust HashMap winning u64 by ~2× over C++ и ~4× over JS; JS Map winning strings by ~2× over Rust/C++.
+Воспроизводимо через 2 sizes (S, M) × 2 key types × 2 V8 runtimes. Pattern: Rust HashMap winning u64 by ~2× over C++ и ~3-4× over JS; JS Map winning strings by ~2× over Rust/C++.
 
-**Phase:** introduced 1.1.2
+**Phase:** introduced 1.1.2 (Node only) / refined 1.1.2.1 (V8 cross-runtime confirmation, +chromium)
 
-**Caveats:** Only lookup hot loop measured (insert/delete show similar но slightly compressed ratios — Rust string overhead is 2-4× vs u64, JS string overhead is <0.7× vs u64). Only Node V8 12.4 measured; browser-side numbers TBD (Phase 1.1.2 bench:all chromium part упал на SessionNotCreatedError mid-run). Fixture keys uniform random (no adversarial collision profile). Insert at size L for hashmap_int has ~0.6% collision rate due to 53-bit key space — affects checksum semantics, не runtime profile.
+**Caveats:** Only lookup hot loop measured (insert/delete показывают similar profile). На Firefox (SpiderMonkey) pattern инвертируется — см. отдельный claim ниже. Fixture keys uniform random (no adversarial collision profile). Insert at size L for hashmap_int has ~0.6% collision rate due to 53-bit key space — affects checksum semantics, не runtime profile.
 
 Mechanism (Rust on u64): std HashMap uses RandomState (SipHash) + Robin-Hood open addressing. u64 key path: hash via SipHash → probe via integer compare → branch-free hit path. Bindgen marshalling для primitive return f64 is zero-overhead (direct return).
 
 Mechanism (Rust on String): wasm-bindgen marshals JS strings → wasm-side `String` allocation + UTF-8 copy per `load_input` pair, then SipHash<String> for lookup. Allocation pressure + dynamic-length hash dominates the loop.
 
 Mechanism (JS on string): V8 Map<string, number> uses string interning + pointer equality for hash hits (fast string compare). Числовые keys в JS Map проходят through Number boxing + identity hashing — slower than V8's string fast path.
+
+### На Firefox (SpiderMonkey) hashmap toolchain choice инвертирован vs V8: для u64 предпочитай `js Map`, для string — `rust/bindgen` или `cpp/emscripten`
+**Status:** tentative
+**Evidence:** Phase 1.1.2.1, `results/raw/2026-05-26-phase-1-1-2-1/hashmap_{int,string}_lookup__*-speed__M__firefox.json`. Warm-median, Firefox stable (geckodriver):
+
+| key | size | rust/bindgen | cpp/emscripten | js/idiomatic |
+|---|---|---|---|---|
+| u64 | M | 0.080 | 0.120 | **0.060** |
+| str | M | **0.240** | **0.240** | 0.640 |
+
+Firefox S size sub-resolution: `performance.now()` precision в Firefox ~20µs (vs Node/Chromium ~1-5µs), lookup loops при S < 30µs → median rounds to 0. Только M informative.
+
+**Phase:** introduced 1.1.2.1
+
+**Caveats:** Single-size observation — single-runtime tentative до cross-size confirmation (нужны увеличенные N для S чтобы преодолеть Firefox `performance.now()` precision floor, либо L-size data за пределами текущего eval budget). Mechanism uncertain: SpiderMonkey hashmap implementation, JIT inlining behavior, или string interning trade-offs differ от V8 — investigation backlog item. Pattern не следует слепо переносить на Safari (WebKit) без отдельных измерений.
 
 ### Для hot, sub-µs JS↔Wasm functions предпочитай `rust/raw extern "C"` или `cpp/wasi-sdk` — `wasm-bindgen` стабильно добавляет ~10-40% per-call overhead
 **Status:** tentative
