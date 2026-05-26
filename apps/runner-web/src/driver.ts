@@ -36,13 +36,120 @@ export interface CreateDriverSessionOptions {
     port?: number;
 }
 
-export function createDriverSession(
+export async function createDriverSession(
     env: "chromium" | "firefox",
     options: CreateDriverSessionOptions = {},
 ): Promise<DriverSession> {
-    return Promise.reject(new Error(
-        `createDriverSession: not yet implemented (Task 3) [env=${env}, port=${String(options.port ?? 5174)}]`,
-    ));
+    const port = options.port ?? 5174;
+    const baseUrl = `http://localhost:${port}`;
+    const driver = await launchBrowser(env);
+
+    async function runCase(input: CaseInput): Promise<CaseResult> {
+        const baseMeasureConfig = input.mode === "quick"
+            ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 10, cvThreshold: 0.05 }
+            : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 100, cvThreshold: 0.05 };
+
+        const specPath = join(REPO_ROOT, `dist/${input.benchmark}/spec.json`);
+        const spec = SpecSchema.parse(JSON.parse(await readFile(specPath, "utf8")));
+        const sizeSpec = spec.inputSizes[input.size];
+        if (!sizeSpec) {
+            throw new Error(`spec missing inputSize ${input.size}`);
+        }
+        const perEntry = spec.expectedChecksums[input.entry];
+        if (!perEntry) {
+            throw new Error(`spec missing expectedChecksums for entry "${input.entry}"`);
+        }
+        const expectedChecksum = perEntry[input.size];
+        if (expectedChecksum === undefined) {
+            throw new Error(`spec missing expectedChecksum for entry "${input.entry}" size "${input.size}"`);
+        }
+
+        const measureConfig = sizeSpec.innerIterations !== undefined
+            ? { ...baseMeasureConfig, innerIterations: sizeSpec.innerIterations }
+            : baseMeasureConfig;
+
+        const workerInput: WorkerInput = {
+            benchmarkId: input.benchmark,
+            entry: input.entry,
+            language: input.language,
+            toolchain: input.toolchain,
+            profile: input.profile,
+            inputSize: input.size,
+            fixtureSha256: sizeSpec.fixtureSha256,
+            expectedChecksum,
+            measureConfig,
+            baseUrl,
+        };
+
+        const caseParam = btoa(JSON.stringify(workerInput));
+        const debug = process.env["BENCH_DEBUG_TIMINGS"] === "1" ? "&debug=1" : "";
+        const url = `${baseUrl}/?case=${encodeURIComponent(caseParam)}${debug}`;
+
+        console.log(`navigating to ${url}`);
+        await driver.get(url);
+
+        const timeoutMs = 5 * 60 * 1000;
+        try {
+            await driver.wait(async () => {
+                return await driver.executeScript<boolean>(
+                    "return (window).__BENCH_RESULT !== undefined;",
+                );
+            }, timeoutMs);
+        } catch {
+            const status = await driver.executeScript<string>(
+                "return document.getElementById('status')?.textContent || '(no status)';",
+            ).catch(() => "(eval failed)");
+            const logs = await driver.executeScript<unknown[]>(
+                "return (window).__BENCH_LOGS || [];",
+            ).catch(() => []);
+            for (const log of logs) {
+                console.error("[browser]", log);
+            }
+            throw new Error(`timed out waiting for result. Page status: ${status}`);
+        }
+
+        const raw = await driver.executeScript<unknown>("return (window).__BENCH_RESULT;");
+
+        const logs = await driver.executeScript<unknown[]>(
+            "return (window).__BENCH_LOGS || [];",
+        ).catch(() => []);
+        for (const log of logs) {
+            console.log("[browser]", log);
+        }
+
+        if (
+            raw !== null
+            && typeof raw === "object"
+            && "error" in raw
+            && typeof raw.error === "string"
+        ) {
+            throw new Error(`benchmark failed: ${raw.error}`);
+        }
+
+        const result = BenchResultSchema.parse(raw);
+        const machineCpu = process.env["MACHINE_CPU"] ?? "unknown";
+        const patched = BenchResultSchema.parse({
+            ...result,
+            machine: {
+                os: `${process.platform} ${process.arch}`,
+                cpu: machineCpu,
+                memoryGb: Math.max(1, Math.round(totalmem() / (1024 ** 3))),
+            },
+        });
+
+        const fileName = `${input.entry}__${input.language}-${input.toolchain}-${input.profile}__${input.size}__${env}.json`;
+        return { result: patched, fileName };
+    }
+
+    async function quit(): Promise<void> {
+        const QUIT_TIMEOUT_MS = 5_000;
+        await Promise.race([
+            driver.quit().catch(() => { /* swallowed by intent */ }),
+            new Promise<void>((resolve) => setTimeout(resolve, QUIT_TIMEOUT_MS)),
+        ]);
+    }
+
+    return { runCase, quit };
 }
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
@@ -124,122 +231,27 @@ async function launchBrowser(env: "chromium" | "firefox"): Promise<WebDriver> {
 
 async function main() {
     const a = parseCli(argv.slice(2));
-
-    const baseMeasureConfig = a.mode === "quick"
-        ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 10, cvThreshold: 0.05 }
-        : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 100, cvThreshold: 0.05 };
-
-    const specPath = join(REPO_ROOT, `dist/${a.benchmark}/spec.json`);
-    const spec = SpecSchema.parse(JSON.parse(await readFile(specPath, "utf8")));
-    const sizeSpec = spec.inputSizes[a.size];
-    if (!sizeSpec) {
-        throw new Error(`spec missing inputSize ${a.size}`);
-    }
-    const perEntry = spec.expectedChecksums[a.entry];
-    if (!perEntry) {
-        throw new Error(`spec missing expectedChecksums for entry "${a.entry}"`);
-    }
-    const expectedChecksum = perEntry[a.size];
-    if (expectedChecksum === undefined) {
-        throw new Error(`spec missing expectedChecksum for entry "${a.entry}" size "${a.size}"`);
-    }
-
-    // Spec may override innerIterations per (entry, size); see run-case.ts.
-    const measureConfig = sizeSpec.innerIterations !== undefined
-        ? { ...baseMeasureConfig, innerIterations: sizeSpec.innerIterations }
-        : baseMeasureConfig;
-
-    const baseUrl = `http://localhost:${a.port}`;
-
-    const workerInput: WorkerInput = {
-        benchmarkId: a.benchmark,
-        entry: a.entry,
-        language: a.language,
-        toolchain: a.toolchain,
-        profile: a.profile,
-        inputSize: a.size,
-        fixtureSha256: sizeSpec.fixtureSha256,
-        expectedChecksum,
-        measureConfig,
-        baseUrl,
-    };
-
-    const caseParam = btoa(JSON.stringify(workerInput));
-    const debug = process.env["BENCH_DEBUG_TIMINGS"] === "1" ? "&debug=1" : "";
-    const url = `${baseUrl}/?case=${encodeURIComponent(caseParam)}${debug}`;
-
-    let driver: WebDriver | undefined;
-    let raw: unknown;
+    const session = await createDriverSession(a.browser, { port: a.port });
     try {
-        driver = await launchBrowser(a.browser);
-        console.log(`navigating to ${url}`);
-        await driver.get(url);
-
-        const timeoutMs = 5 * 60 * 1000;
-        try {
-            await driver.wait(async () => {
-                return await driver!.executeScript<boolean>(
-                    "return (window).__BENCH_RESULT !== undefined;",
-                );
-            }, timeoutMs);
-        } catch {
-            const status = await driver.executeScript<string>(
-                "return document.getElementById('status')?.textContent || '(no status)';",
-            ).catch(() => "(eval failed)");
-            const logs = await driver.executeScript<unknown[]>(
-                "return (window).__BENCH_LOGS || [];",
-            ).catch(() => []);
-            for (const log of logs) {
-                console.error("[browser]", log);
-            }
-            throw new Error(`timed out waiting for result. Page status: ${status}`);
-        }
-
-        raw = await driver.executeScript<unknown>(
-            "return (window).__BENCH_RESULT;",
-        );
-
-        // Forward any captured logs even on success
-        const logs = await driver.executeScript<unknown[]>(
-            "return (window).__BENCH_LOGS || [];",
-        ).catch(() => []);
-        for (const log of logs) {
-            console.log("[browser]", log);
-        }
+        const { result, fileName } = await session.runCase({
+            benchmark: a.benchmark,
+            entry: a.entry,
+            language: a.language,
+            toolchain: a.toolchain,
+            profile: a.profile,
+            size: a.size,
+            mode: a.mode,
+        });
+        const resolvedOutDir = resolve(REPO_ROOT, a.outDir);
+        await mkdir(resolvedOutDir, { recursive: true });
+        const outPath = join(resolvedOutDir, fileName);
+        await writeFile(outPath, JSON.stringify(result, null, 2));
+        console.log(`wrote ${outPath}`);
+        console.log(`checksum: ${String(result.quality.checksum)}`);
+        console.log(`validated: ${String(result.quality.validated)}`);
     } finally {
-        await driver?.quit().catch(() => { /* best effort */ });
+        await session.quit();
     }
-
-    if (
-        raw !== null
-        && typeof raw === "object"
-        && "error" in raw
-        && typeof (raw).error === "string"
-    ) {
-        throw new Error(`benchmark failed: ${(raw as { error: string }).error}`);
-    }
-
-    const result = BenchResultSchema.parse(raw);
-
-    const machineCpu = process.env["MACHINE_CPU"] ?? "unknown";
-    const patched = {
-        ...result,
-        machine: {
-            os: `${process.platform} ${process.arch}`,
-            cpu: machineCpu,
-            memoryGb: Math.max(1, Math.round(totalmem() / (1024 ** 3))),
-        },
-    };
-    const final = BenchResultSchema.parse(patched);
-
-    const resolvedOutDir = resolve(REPO_ROOT, a.outDir);
-    await mkdir(resolvedOutDir, { recursive: true });
-    const fname = `${a.entry}__${a.language}-${a.toolchain}-${a.profile}__${a.size}__${a.browser}.json`;
-    const outPath = join(resolvedOutDir, fname);
-    await writeFile(outPath, JSON.stringify(final, null, 2));
-    console.log(`wrote ${outPath}`);
-    console.log(`checksum: ${String(final.quality.checksum)}`);
-    console.log(`validated: ${String(final.quality.validated)}`);
 }
 
 main().catch((e) => {
