@@ -169,7 +169,7 @@ pnpm build:cpp    # только C++ (требует emcc + wasi-sdk + wasm-opt)
 pnpm smoke
 ```
 
-~30 секунд: запускает quick-режим на S × все combos × только Node, генерит mini-отчёт. Полезно перед длинным прогоном.
+~30 секунд: quick-режим — S × все combos × Node (полная breadth) + matmul × все combos × S × chromium + firefox (sanity для long-lived browser session). Генерит mini-отчёт. Полезно перед длинным прогоном.
 
 ### Один кейс — Node
 

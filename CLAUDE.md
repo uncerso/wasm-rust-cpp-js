@@ -109,7 +109,7 @@ pnpm --filter @bench/harness typecheck                    # один typecheck
 ### Benchmark runs
 
 ```bash
-pnpm smoke                  # ~30s sanity, S × все combos × Node
+pnpm smoke                  # ~30s sanity, S × все combos × Node + matmul × chromium+firefox
 pnpm bench --envs=node,chromium,firefox --sizes=S,M --mode=quick --out=results/raw/<run>
 pnpm bench:all              # setup + build + bench (eval) + report — десятки минут
 pnpm report --in=results/raw/<run>     # → results/summarized/<ISO>/index.html
@@ -161,7 +161,9 @@ pnpm exec tsx apps/runner-node/src/main.ts \
 ## Spec & plan conventions
 
 **Pre-flight gate.** Перед тем как написать exit criteria в spec или plan — проверить
-что master зелёный по всем gates: `pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke`.
+что master зелёный по всем gates: `pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke`.
+`pnpm build:all` обязательно перед `pnpm smoke` — smoke зависит от `dist/` artefacts (rust-bindgen, cpp-emscripten, etc.);
+на fresh checkout или после `pnpm clear` без build smoke падает с ENOENT на `dist/*/meta.json`.
 Если не зелёный — это первая задача sub-phase или отдельный preamble commit. Без этой
 проверки exit criteria могут оказаться недостижимы из-за регрессий вне scope'а phase'ы.
 Пока CI нет — проверка manual; будет автоматизирована в Phase 1.2 (`ci-github-actions`).
@@ -192,10 +194,17 @@ per-entry dispatch в hot loops — там turbofan deopt'ы наиболее в
 **Committed scripts/docs — ephemeral-path audit.** Перед commit'ом scripts или docs,
 которые `import`/`read` external paths: audit, что каждый referenced path сам по себе
 committed (tracked) ИЛИ self-generated в самом script'е. Gitignored paths (`dist/`,
-`target/`, `.tools/`, `benches/*/fixtures/*.bin`) — red flags: на fresh checkout
+`target/`, `.tools/`, `benches/*/fixtures/*.bin`, `results/`) — red flags: на fresh checkout
 их нет, script ломается без шума. Quick check: `git check-ignore <path>` per
 referenced path. Симптом — ловушка для anyone running на fresh clone (см.
 `docs/pitfalls/2026-05-26-v8-deopt-investigation.md` § Ephemeral-path references).
+
+**Same rule applies to spec/plan exit-criteria + gate steps:** если plan reference'ит
+`results/raw/<old-run>/` для sanity-diff или `git add results/...` для commit step —
+verify `git check-ignore` перед writing plan. `results/` gitignored per repo convention
+(paths cited в `docs/guidelines.md` как evidence references без committing JSON).
+Plan exit-criteria writers должны не assume'ить, что previous-session local artefacts
+будут carry forward на next-session machine.
 
 ## Tech-debt capture
 
