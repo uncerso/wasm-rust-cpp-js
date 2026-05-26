@@ -16,6 +16,7 @@ interface CliArgs {
     sizes: Size[];
     mode: "quick" | "eval";
     out: string;
+    benchmarks: string[];
 }
 
 function parseList<T extends string>(raw: string, allowed: readonly T[], label: string): T[] {
@@ -37,11 +38,16 @@ function parseArgs(argv: string[]): CliArgs {
     if (mode !== "quick" && mode !== "eval") {
         throw new Error(`unknown mode: ${mode} (allowed: quick, eval)`);
     }
+    const benchmarksRaw = get("benchmarks", "");
+    const benchmarks = benchmarksRaw === ""
+        ? []
+        : benchmarksRaw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
     return {
         envs: parseList(get("envs", "node,chromium,firefox"), ALL_ENVS, "env"),
         sizes: parseList(get("sizes", "S,M"), ALL_SIZES, "size"),
         mode,
         out: get("out", `results/raw/${new Date().toISOString().replace(/[:.]/g, "-")}`),
+        benchmarks,
     };
 }
 
@@ -84,6 +90,15 @@ async function main() {
     await mkdir(args.out, { recursive: true });
     const specs = await loadSpecs();
 
+    const filteredSpecs = args.benchmarks.length === 0
+        ? specs
+        : specs.filter((s) => args.benchmarks.includes(s.id));
+    if (args.benchmarks.length > 0 && filteredSpecs.length !== args.benchmarks.length) {
+        const found = new Set(filteredSpecs.map((s) => s.id));
+        const missing = args.benchmarks.filter((b) => !found.has(b));
+        throw new Error(`--benchmarks: unknown benchmark id(s): ${missing.join(", ")}`);
+    }
+
     const needWebServer = args.envs.some((e) => e !== "node");
     let serverProc: ResultPromise | null = null;
     if (needWebServer) {
@@ -108,7 +123,7 @@ async function main() {
 
     let ranOK = true;
     try {
-        for (const spec of specs) {
+        for (const spec of filteredSpecs) {
             for (const c of enumerateBinaries(spec)) {
                 for (const entry of spec.entries) {
                     for (const sz of args.sizes) {
