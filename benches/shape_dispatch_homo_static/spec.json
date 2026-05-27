@@ -1,0 +1,28 @@
+{
+    "id": "shape_dispatch_homo_static",
+    "version": 2,
+    "description": "Static dispatch (generics/templates) over 3 homogeneous typed arrays. 3× monomorphized processor per shape type — measures monomorphization bundle premium + per-type cache locality. No Vec/std::vector — raw heap arrays.",
+    "entries": ["shape_dispatch_homo_static"],
+    "inputSizes": {
+        "S": { "fixtureBytes": 24000,    "fixtureSha256": "REPLACE_AFTER_FIXTURES", "innerIterations": 1000 },
+        "M": { "fixtureBytes": 240000,   "fixtureSha256": "REPLACE_AFTER_FIXTURES", "innerIterations": 10000 },
+        "L": { "fixtureBytes": 2400000,  "fixtureSha256": "REPLACE_AFTER_FIXTURES", "innerIterations": 100000 }
+    },
+    "expectedChecksums": {
+        "shape_dispatch_homo_static": { "S": 0, "M": 0, "L": 0 }
+    },
+    "supported": {
+        "languages": ["rust", "cpp"],
+        "toolchains": {
+            "rust": ["raw", "bindgen"],
+            "cpp": ["emscripten", "wasi-sdk"]
+        },
+        "profiles": ["speed", "size"]
+    },
+    "ioContract": {
+        "fixtureLayout": "N shapes × 24 B packed LE: [tag_u8, padding × 7, p1_f64, p2_f64]. tag ∈ {0=Circle, 1=Square, 2=Triangle}; p1 ∈ [0.5, 5.0); p2 ∈ [0.5, 5.0) for Triangle, else ignored.",
+        "iterSemantics": "Iter-dependent. expectedChecksum валиден только для N = innerIterations[size].",
+        "stateModel": "Read-only after loadInput. No reset companion needed.",
+        "outputLayout": "Single u64 checksum: floor(score · 1e6 + 0.5) sum mod 2^64; identical across 4 binaries для same shape data."
+    }
+}
