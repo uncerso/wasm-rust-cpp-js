@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { mulberry32, genF64Array, genAsciiHexKeys, genIntPairs53 } from "./fixtures.js";
+import { mulberry32, genF64Array, genAsciiHexKeys, genIntPairs53, genShapes } from "./fixtures.js";
 
 describe("mulberry32", () => {
     it("produces deterministic sequence for given seed", () => {
@@ -85,5 +85,37 @@ describe("genIntPairs53", () => {
     it("SHA256 snapshot for (n=4, seed=0xBEEF_0001)", () => {
         const sha = createHash("sha256").update(genIntPairs53(4, 0xBEEF_0001)).digest("hex");
         expect(sha).toBe("7f1f20dd560fec44203f2391da5a234ab165b312e65d8609a801db0ccc79d9e3");
+    });
+});
+
+describe("genShapes", () => {
+    it("produces 24 bytes per shape", () => {
+        const buf = genShapes(10, 0xFACE_0001);
+        expect(buf.length).toBe(240);
+    });
+
+    it("tag values ∈ {0, 1, 2}", () => {
+        const buf = genShapes(100, 0xFACE_0001);
+        const tags = new Set<number>();
+        for (let i = 0; i < 100; i++) {
+            tags.add(buf[i * 24]);
+        }
+        expect([...tags].sort()).toEqual([0, 1, 2]);
+    });
+
+    it("p1 ∈ [0.5, 5.0) — DataView read", () => {
+        const buf = genShapes(100, 0xFACE_0001);
+        const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+        for (let i = 0; i < 100; i++) {
+            const p1 = view.getFloat64(i * 24 + 8, true);
+            expect(p1).toBeGreaterThanOrEqual(0.5);
+            expect(p1).toBeLessThan(5.0);
+        }
+    });
+
+    it("deterministic SHA256 snapshot (n=4, seed=0xFACE_0001)", () => {
+        const buf = genShapes(4, 0xFACE_0001);
+        const sha = createHash("sha256").update(buf).digest("hex");
+        expect(sha).toBe("252c59f12314dc439289493f2ca30a3057c2a8316e2a125c45e3b9b56ef39e50");
     });
 });

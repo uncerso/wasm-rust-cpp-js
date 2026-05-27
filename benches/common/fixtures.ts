@@ -57,3 +57,20 @@ export function genIntPairs53(n: number, seed: number): Uint8Array {
     }
     return out;
 }
+
+export function genShapes(n: number, seed: number): Uint8Array {
+    const buf = new Uint8Array(n * 24);
+    const view = new DataView(buf.buffer);
+    const rand = mulberry32(seed);
+    for (let i = 0; i < n; i++) {
+        const off = i * 24;
+        const tag = Math.floor(rand() * 3);  // 0, 1, or 2
+        buf[off] = tag;
+        // padding bytes [off+1 .. off+8) already zero
+        const p1 = 0.5 + rand() * 4.5;
+        view.setFloat64(off + 8, p1, true);
+        const p2 = tag === 2 ? 0.5 + rand() * 4.5 : 0;  // Triangle uses p2; others ignored
+        view.setFloat64(off + 16, p2, true);
+    }
+    return buf;
+}
