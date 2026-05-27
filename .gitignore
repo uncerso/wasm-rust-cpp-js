@@ -7,4 +7,4 @@ benches/matmul/rust/*/Cargo.lock
 .cache/
 *.tsbuildinfo
 .DS_Store
-benches/matmul/fixtures/*.bin
+benches/*/fixtures/*.bin
