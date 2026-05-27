@@ -4,9 +4,9 @@
     "description": "Dynamic dispatch (virtual / dyn Trait) over 1 mixed-shape array (heap-allocated polymorphic objects). Polymorphic-3 call site — measures vtable indirection + BTB miss + cache pointer chasing. No Vec/std::vector — raw heap arrays.",
     "entries": ["shape_dispatch_mixed_dyn"],
     "inputSizes": {
-        "S": { "fixtureBytes": 24000,    "fixtureSha256": "REPLACE_AFTER_FIXTURES", "innerIterations": 1000 },
-        "M": { "fixtureBytes": 240000,   "fixtureSha256": "REPLACE_AFTER_FIXTURES", "innerIterations": 10000 },
-        "L": { "fixtureBytes": 2400000,  "fixtureSha256": "REPLACE_AFTER_FIXTURES", "innerIterations": 100000 }
+        "S": { "fixtureBytes": 24000,    "fixtureSha256": "f6474f80d03c5c28d90331b1f01218179bed4c87db5d021437c169f41f69dbe9", "innerIterations": 1000 },
+        "M": { "fixtureBytes": 240000,   "fixtureSha256": "55ac48631fcb358c3554ec106ded6c6b945602d302d32e8f76cb6cb9c69d7bc2", "innerIterations": 10000 },
+        "L": { "fixtureBytes": 2400000,  "fixtureSha256": "c82c97b9535adff2b5324a5ea9e1808fdff7b37b5feed436827c07f1545773cb", "innerIterations": 100000 }
     },
     "expectedChecksums": {
         "shape_dispatch_mixed_dyn": { "S": 0, "M": 0, "L": 0 }
