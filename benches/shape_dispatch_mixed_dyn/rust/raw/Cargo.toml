@@ -1,0 +1,11 @@
+[package]
+name = "shape-dispatch-mixed-dyn-rust-raw"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[lints]
+workspace = true

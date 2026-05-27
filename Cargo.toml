@@ -8,6 +8,7 @@ members = [
     "benches/interop_calls/rust/bindgen",
     "benches/hashmap_string/rust/bindgen",
     "benches/hashmap_int/rust/bindgen",
+    "benches/shape_dispatch_mixed_dyn/rust/raw",
 ]
 
 [workspace.package]
