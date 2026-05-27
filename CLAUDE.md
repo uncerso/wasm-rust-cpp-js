@@ -206,6 +206,16 @@ verify `git check-ignore` перед writing plan. `results/` gitignored per rep
 Plan exit-criteria writers должны не assume'ить, что previous-session local artefacts
 будут carry forward на next-session machine.
 
+**Mitigation alternatives mechanism-check.** При написании spec § Open risks с 2-3
+mitigation alternatives per risk — **для каждого candidate explicitly articulate the
+mechanism by which it addresses the named risk**. Risk class (memory ordering, type
+analysis, lifetime erasure, IC state, etc.) varies; mitigation must address exactly the
+risk's mechanism, не superficially-relevant tool. Если cannot articulate mechanism в
+одном sentence — candidate suspect, verify or drop. Симптом — Phase 1.1.3 spec
+изначально listed `std::atomic_signal_fence(seq_cst)` as fallback против R1
+(devirtualization) — но fence — memory-ordering barrier, не type-escape; inadequate
+для type-analysis optimization removal. См. `docs/pitfalls/2026-05-28-phase-1-1-3-brainstorm.md`.
+
 ## Tech-debt capture
 
 Когда во время работы замечаешь: process gap, latent bug, open review ticket,
