@@ -50,12 +50,12 @@ Reframe: цель проекта не «сравнить три языка», а
 
 Workspace — pnpm + cargo. Три типа packages:
 
-- **`benches/<workload>/`** — benchmark sources. Один workload на каталог; обнаруживаются `scripts/build-all.ts` через `glob("benches/*/spec.json")`. На текущий момент: `matmul`, `interop_calls`, `hashmap_string`, `hashmap_int`. Coverage по toolchain'ам **варьируется per workload** — определяется `spec.json.supported` (matmul / interop_calls = full 10 combos; hashmap_* = 5 combos: js-idiomatic + rust-bindgen × {speed,size} + cpp-emscripten × {speed,size}):
+- **`benches/<workload>/`** — benchmark sources. Один workload на каталог; обнаруживаются `scripts/build-all.ts` через `glob("benches/*/spec.json")`. На текущий момент: `matmul`, `interop_calls`, `hashmap_string`, `hashmap_int`, `shape_dispatch_{homo,mixed}_{static,dyn}` (4 binaries — 2×2 factorial dispatch × layout). Coverage по toolchain'ам **варьируется per workload** — определяется `spec.json.supported` (matmul / interop_calls = full 10 combos; hashmap_* = 5 combos: js-idiomatic + rust-bindgen × {speed,size} + cpp-emscripten × {speed,size}; shape_dispatch_* = 9 combos each — rust {raw,bindgen} + cpp {emscripten,wasi-sdk} × {speed,size} + js-idiomatic speed — кроме `shape_dispatch_homo_static` = 8 (no js: collapses к homo_dyn via monomorphic IC)):
   - `js/{idiomatic,typed-array}` — TS implementations (ESM, bundled через esbuild).
   - `rust/{raw,bindgen}` — cargo crates (matmul также имеет `shared` pure-Rust core). `raw` — no_std + manual exports, `bindgen` — wasm-bindgen. Каждый crate × {speed, size} profile.
   - `cpp/` — общий `.cpp` + per-bench `build-{emscripten,wasi-sdk}.sh`. Emscripten выдаёт `glue.mjs`+`glue.wasm`, wasi-sdk freestanding — `module.wasm`. × {speed, size}.
   - `validate/` — reference TS, computes ожидаемые checksums per (entry, size). Фикстуры под `fixtures/` (`.gitignore` на `*.bin`); interop_calls fixture-less (0 байт sentinel-файлы).
-  - Multi-entry binaries: `spec.json` v2 имеет `entries: string[]` + `expectedChecksums[entry][size]`. matmul = 1 entry; interop_calls = 3 (noop / add_i32 / add_f64); hashmap_string / hashmap_int = 3 each (insert / lookup / delete).
+  - Multi-entry binaries: `spec.json` v2 имеет `entries: string[]` + `expectedChecksums[entry][size]`. matmul = 1 entry; interop_calls = 3 (noop / add_i32 / add_f64); hashmap_string / hashmap_int = 3 each (insert / lookup / delete); shape_dispatch_* = 1 entry each (entry name = binary id; cross-binary checksum identical via order-independent quantization).
 
 - **`benches/common/`** — shared fixture-generation utilities (`fixtures.ts`): `mulberry32` PRNG + `genF64Array` (byte-preserving для matmul) + `genAsciiHexKeys` (hashmap_string) + `genIntPairs53` (hashmap_int). Lifted в Phase 1.1.2 rule-of-three refactor; добавляй новые generators сюда, когда ≥2 workloads нужно одно и то же.
 
@@ -157,6 +157,14 @@ pnpm exec tsx apps/runner-node/src/main.ts \
   silent pop failures, working tree оставляется в inconsistent state. Предпочитай
   `git diff <commit> -- <file>` или `git show <commit>:<file>` для inspection без
   модификации working tree; либо копируй файлы в `$TMPDIR/` (sandbox-writable).
+- **Перед откатом «дивергенции» субагента — проверь, не load-bearing ли она.** Если
+  subagent оставил файл, отклоняющийся от peer-конвенции, не откатывай «ради
+  консистентности» вслепую: прогони gate, который дивергенция может удовлетворять
+  (lint/typecheck/test) на ОБОИХ версиях. Если «консистентная» версия валит gate, который
+  divergent проходил — дивергенция намеренная (e.g. strict `noUncheckedIndexedAccess`
+  coupled с необходимым `as`-cast при парсинге enum-tagged input), keep + документируй
+  почему. Симптом — revert «ради конвенции» ломает зелёный lint (см.
+  `docs/pitfalls/2026-06-02-phase-1-1-3-closed.md`).
 
 ## Spec & plan conventions
 
