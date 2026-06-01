@@ -89,8 +89,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
+name = "shape-dispatch-homo-dyn-rust-bindgen"
+version = "0.0.0"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "shape-dispatch-homo-dyn-rust-raw"
 version = "0.0.0"
+
+[[package]]
+name = "shape-dispatch-homo-static-rust-bindgen"
+version = "0.0.0"
+dependencies = [
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "shape-dispatch-homo-static-rust-raw"
@@ -106,6 +120,13 @@ dependencies = [
 [[package]]
 name = "shape-dispatch-mixed-dyn-rust-raw"
 version = "0.0.0"
+
+[[package]]
+name = "shape-dispatch-mixed-static-rust-bindgen"
+version = "0.0.0"
+dependencies = [
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "shape-dispatch-mixed-static-rust-raw"
