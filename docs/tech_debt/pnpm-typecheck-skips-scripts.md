@@ -6,7 +6,7 @@ source: session 2026-05-13/14 (Phase 1.0.6 Task 7-8 implementation)
 category: process-gap
 status: open
 priority: medium
-roadmap: phase-1.1-candidate
+roadmap: phase-1.2-candidate
 ---
 
 ## What

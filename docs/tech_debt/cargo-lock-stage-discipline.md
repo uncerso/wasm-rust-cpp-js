@@ -6,7 +6,7 @@ source: docs/superpowers/session-state-2026-05-05-wave-3.md
 category: process-gap
 status: open
 priority: low
-roadmap: phase-1.1-candidate
+roadmap: phase-1.2-candidate
 ---
 
 ## What
