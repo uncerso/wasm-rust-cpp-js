@@ -60,7 +60,10 @@ export default function create(entry: string): BenchModule {
             shapes = next;
         },
 
-        run(_iterations: number): { checksum: number } {
+        run(iterations: number): { checksum: number } {
+            // See homo_dyn / mixed_dyn siblings: iterations == shapes.length per
+            // spec ioContract invariant; we iterate the full array.
+            void iterations;
             let acc = 0n;
             const mask = (1n << 64n) - 1n;
             for (const s of shapes) {

@@ -70,7 +70,13 @@ export default function create(entry: string): BenchModule {
             shapes = next;
         },
 
-        run(_iterations: number): { checksum: number } {
+        run(iterations: number): { checksum: number } {
+            // Per spec ioContract: expectedChecksum valid only when
+            // shapes.length == iterations (== innerIterations[size]); see Rust/C++
+            // siblings which both loop `for i in 0..iters`. We iterate the full
+            // shapes array — equivalent under the spec invariant — and `void`
+            // the param to keep the polymorphic IC the only thing under test.
+            void iterations;
             let acc = 0n;
             const mask = (1n << 64n) - 1n;
             for (const s of shapes) {

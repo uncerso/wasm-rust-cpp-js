@@ -73,7 +73,12 @@ export default function create(entry: string): BenchModule {
             triangles = ts;
         },
 
-        run(_iterations: number): { checksum: number } {
+        run(iterations: number): { checksum: number } {
+            // Total shapes across 3 typed arrays == iterations (== N, per spec
+            // ioContract: expectedChecksum valid only when N == innerIterations).
+            // We iterate each typed array fully — one type per loop is the
+            // monomorphic IC condition the benchmark measures.
+            void iterations;
             let acc = 0n;
             const mask = (1n << 64n) - 1n;
             for (const c of circles) {
