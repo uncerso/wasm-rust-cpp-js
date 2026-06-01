@@ -37,6 +37,9 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 ### Workload expansion
 - **hashmap-stdlib-no-glue** — extend hashmap workload to rust/raw + cpp/wasi-sdk without bindgen/emscripten glue overhead. Bundle-size delta for std-only inclusion — investigation question. ([→ spec § Out of scope](superpowers/specs/2026-05-23-phase-1-1-2-hashmap-design.md))
 
+### Bug fixes
+- **hashmap-int-emscripten-L-correctness** — hashmap_int cpp-emscripten lookup+delete produce wrong checksum at L size (pre-existing since 1.1.2.1, deterministic, emscripten-only) ([→ tech_debt/hashmap-int-emscripten-L-correctness](tech_debt/hashmap-int-emscripten-L-correctness.md))
+
 ## Phase 2+
 
 > Definitely-later. Включает explicit Phase 2+ items из specs.

@@ -6,6 +6,7 @@ source: session 2026-06-02 phase-1.1.3 Wave 3 bench (results/raw/2026-06-02-phas
 category: latent-bug
 status: open
 priority: high
+roadmap: phase-1.2-candidate
 ---
 
 ## What
