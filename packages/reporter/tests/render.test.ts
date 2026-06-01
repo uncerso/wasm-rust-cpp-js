@@ -3,7 +3,10 @@ import { aggregate } from "../src/aggregate.js";
 import { renderHtml } from "../src/render.js";
 import type { BenchResult } from "@bench/result-schema";
 
-function fakeResult(): BenchResult {
+function fakeResult(
+    over: Partial<BenchResult["benchmark"]> = {},
+    warmMedian = 1.234,
+): BenchResult {
     return {
         schemaVersion: 1,
         timestamp: "2026-05-01T00:00:00.000Z",
@@ -12,6 +15,7 @@ function fakeResult(): BenchResult {
         benchmark: {
             id: "matmul", inputSize: "S", fixtureBytes: 0, fixtureSha256: "x".repeat(64),
             language: "js", toolchain: "idiomatic", profile: "speed", postprocess: [],
+            ...over,
         },
         artifacts: {
             wasmRawBytes: 0, wasmGzipBytes: 0, wasmBrotliBytes: 0,
@@ -20,8 +24,8 @@ function fakeResult(): BenchResult {
         },
         timingsMs: {
             fetch: 0, compile: 0, instantiate: 0, initTotal: 0, firstCall: 0,
-            warmMedian: 1.234, warmP95: 1.5, warmP99: 1.7, warmStddev: 0.05,
-            warmMin: 1.1, warmMax: 1.7, endToEndMedian: 1.234,
+            warmMedian, warmP95: 1.5, warmP99: 1.7, warmStddev: 0.05,
+            warmMin: 1.1, warmMax: 1.7, endToEndMedian: warmMedian,
         },
         memory: { wasmMemoryBytesPeak: 0, wasmMemoryDeltaBytes: 0, jsHeapUsedAfter: null },
         stats: { nSamples: 30, cv: 0.01, noisy: false },
@@ -58,5 +62,52 @@ describe("renderHtml", () => {
         expect(html).toContain("<th>warm p95 (ms)</th>");
         expect(html).toContain("<th>cv</th>");
         expect(html).toContain("<th>ok</th>");
+    });
+});
+
+describe("renderHtml shape_dispatch 2×2 factorial grid", () => {
+    const pinned = { env: { kind: "node", name: "node", version: "v22.0.0", engine: "V8" } } as const;
+
+    function shapeCase(id: string, warmMedian: number): BenchResult {
+        const r = fakeResult(
+            { id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" },
+            warmMedian,
+        );
+        r.env = { ...pinned.env };
+        return r;
+    }
+
+    it("emits a 2×2 factorial super-section with the 4 pinned warm-medians", () => {
+        const results = [
+            shapeCase("shape_dispatch_homo_static", 11.111),
+            shapeCase("shape_dispatch_homo_dyn", 22.222),
+            shapeCase("shape_dispatch_mixed_static", 33.333),
+            shapeCase("shape_dispatch_mixed_dyn", 44.444),
+            fakeResult(), // a normal matmul flat section
+        ];
+        const html = renderHtml(aggregate(results));
+        expect(html).toContain("shape_dispatch (2×2 factorial)");
+        // the 4 grid cell values
+        expect(html).toContain("11.111");
+        expect(html).toContain("22.222");
+        expect(html).toContain("33.333");
+        expect(html).toContain("44.444");
+        // non-shape_dispatch flat section still rendered
+        expect(html).toContain("<h2>matmul</h2>");
+        // the 4 detail tables still appear (reusing renderBenchmark)
+        expect(html).toContain("<h2>shape_dispatch_homo_static</h2>");
+        expect(html).toContain("<h2>shape_dispatch_mixed_dyn</h2>");
+    });
+
+    it("renders — for a missing pinned cell", () => {
+        const results = [
+            shapeCase("shape_dispatch_homo_static", 11.111),
+            // homo_dyn missing
+            shapeCase("shape_dispatch_mixed_static", 33.333),
+            shapeCase("shape_dispatch_mixed_dyn", 44.444),
+        ];
+        const html = renderHtml(aggregate(results));
+        expect(html).toContain("shape_dispatch (2×2 factorial)");
+        expect(html).toContain("—");
     });
 });

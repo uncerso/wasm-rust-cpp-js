@@ -49,8 +49,61 @@ function renderBenchmark(b: AggregatedBenchmark): string {
   </section>`;
 }
 
+// shape_dispatch 2×2 factorial: layout {homo, mixed} × dispatch {static, dynamic}.
+// The grid headlines ONE pinned combo per cell, not an aggregate.
+const SHAPE_DISPATCH_PINNED_KEY = "node|rust|raw|speed|L";
+const SHAPE_DISPATCH_GRID: { layout: string; dispatch: string; id: string }[] = [
+    { layout: "homo", dispatch: "static", id: "shape_dispatch_homo_static" },
+    { layout: "homo", dispatch: "dynamic", id: "shape_dispatch_homo_dyn" },
+    { layout: "mixed", dispatch: "static", id: "shape_dispatch_mixed_static" },
+    { layout: "mixed", dispatch: "dynamic", id: "shape_dispatch_mixed_dyn" },
+];
+const SHAPE_DISPATCH_IDS = new Set(SHAPE_DISPATCH_GRID.map((g) => g.id));
+
+function pinnedCell(agg: Aggregated, id: string): string {
+    const b = agg.benchmarks[id];
+    const hit = b?.cases.find((c) => c.key === SHAPE_DISPATCH_PINNED_KEY);
+    return hit ? hit.result.timingsMs.warmMedian.toFixed(3) : "—";
+}
+
+function renderShapeDispatchSection(agg: Aggregated): string {
+    const cell = (layout: string, dispatch: string): string => {
+        const entry = SHAPE_DISPATCH_GRID.find(
+            (g) => g.layout === layout && g.dispatch === dispatch,
+        );
+        return entry ? pinnedCell(agg, entry.id) : "—";
+    };
+    const grid = `<table class="grid">
+      <thead><tr><th></th><th>static</th><th>dynamic</th></tr></thead>
+      <tbody>
+        <tr><th>homo</th><td>${cell("homo", "static")}</td><td>${cell("homo", "dynamic")}</td></tr>
+        <tr><th>mixed</th><td>${cell("mixed", "static")}</td><td>${cell("mixed", "dynamic")}</td></tr>
+      </tbody>
+    </table>`;
+    const details = SHAPE_DISPATCH_GRID
+        .map((g) => agg.benchmarks[g.id])
+        .filter((b): b is AggregatedBenchmark => Boolean(b))
+        .map(renderBenchmark)
+        .join("\n");
+    return `<section class="shape-dispatch">
+    <h2>shape_dispatch (2×2 factorial)</h2>
+    <p class="grid-label">headline: rust/raw speed L node — warm-median (ms)</p>
+    ${grid}
+    ${details}
+  </section>`;
+}
+
 export function renderHtml(agg: Aggregated): string {
-    const sections = Object.values(agg.benchmarks).map(renderBenchmark).join("\n");
+    const flat = Object.values(agg.benchmarks)
+        .filter((b) => !SHAPE_DISPATCH_IDS.has(b.id))
+        .map(renderBenchmark)
+        .join("\n");
+    const hasShapeDispatch = Object.values(agg.benchmarks).some((b) =>
+        SHAPE_DISPATCH_IDS.has(b.id),
+    );
+    const sections = hasShapeDispatch
+        ? `${flat}\n${renderShapeDispatchSection(agg)}`
+        : flat;
     return `<!doctype html>
 <html><head><meta charset="utf-8"><title>bench results</title>
 <style>
@@ -61,6 +114,10 @@ export function renderHtml(agg: Aggregated): string {
   tr.noisy { background: #fff8d0; }
   tr.fail  { background: #ffd0d0; }
   td:first-child, td:nth-child(2), td:nth-child(3) { text-align: left; }
+  table.grid { width: auto; margin: 0.5em 0 1em; }
+  table.grid th { text-align: left; }
+  table.grid td { text-align: right; min-width: 6em; }
+  p.grid-label { font-size: 12px; color: #555; margin: 0.25em 0; }
 </style></head>
 <body>
 <h1>wasm-rust-cpp-js results</h1>
