@@ -164,3 +164,67 @@ Mechanism: `thread_local!` разворачивается в `LocalKey<T>` с la
 **Caveats:** `tentative` до Phase 1.1.1+ workload'ов для cross-workload подтверждения. Effect масштабируется от complexity export'а (alloc + marshalling glue).
 
 Mechanism: `#[wasm_bindgen]` export keeps его call chain alive — `Vec<u8>` тянет global allocator + growth/drop machinery, `slice::to_vec()` — wasm-side allocation + memcpy, wasm-bindgen glue marshal'ит `Vec<u8>` → JS `Uint8Array` через shared memory. LLVM DCE не может убрать code reachable from exported symbol.
+
+### В hot dispatch loops предпочитай static dispatch (generics/templates, enum `match`, `switch(tag)`) над dynamic (vtable / `dyn Trait` / virtual) — на native wasm overhead зависит от monomorphic-ности call site: +8…29% когда один тип на цикл, +50…130% когда типы interleaved
+**Status:** confirmed
+**Evidence:** Phase 1.1.3, `results/raw/2026-06-02-phase-1-1-3/shape_dispatch_{homo,mixed}_{static,dyn}__*-speed__{M,L}__{node,chromium,firefox}.json`. Warm-median per `run(N)` call (N = innerIterations: M=10000, L=100000 shapes), eval mode. Headline — env=node, size=L (наиболее reliable; sub-ms medians на S и на Firefox тонут в timer-quantization):
+
+| toolchain | layout | static (ms) | dynamic (ms) | Δ% |
+|---|---|---|---|---|
+| cpp-emscripten | homo | 0.350 | 0.447 | +28% |
+| cpp-wasi-sdk | homo | 0.389 | 0.496 | +27% |
+| rust-raw | homo | 0.580 | 0.699 | +20% |
+| rust-bindgen | homo | 0.542 | 0.655 | +21% |
+| cpp-emscripten | mixed | 0.607 | 1.194 | **+97%** |
+| cpp-wasi-sdk | mixed | 0.562 | 1.154 | **+105%** |
+| rust-raw | mixed | 0.878 | 1.323 | +51% |
+| rust-bindgen | mixed | 0.827 | 1.261 | +53% |
+
+Direction (static < dynamic) consistent across 4 native toolchains × {M, L} sizes × {node, chromium, firefox}. M-size corroborates (homo +15…43%, mixed +56…235%). Chromium/Firefox L corroborate direction (mixed +63…127%); единственные инверсии — Chromium homo M/L где значения квантуются в один 5µs bin (e.g. 0.05 vs 0.04).
+
+**Phase:** introduced 1.1.3
+
+**Caveats:** Single workload (`shape_dispatch`). Per-shape body — ~12 FP ops + sqrt + ln (~3.5–13 ns/shape native). Для тяжелее тел relative overhead падает (dispatch тонет в работе); для тривиальных тел — растёт. **Mixed-dynamic penalty confounded**: mixed_dyn платит ОДНОВРЕМЕННО за (a) непредсказуемый indirect-call/vtable (BTB miss на interleaved типах) и (b) pointer-chasing по heap-allocated объектам (cache misses), тогда как homo_dyn — monomorphic per-loop (BTB predicts) + per-type contiguous storage. Поэтому mixed-dynamic — самый дорогой угол suite (~13 ns/shape vs ~3.5–8.8 для static). Не translate'ится на JS — см. отдельный claim ниже. C++ показывает больший mixed-dispatch penalty чем Rust на L (~+100% vs ~+51%), вероятно из-за разницы в codegen vtable thunks.
+
+Mechanism: static dispatch резолвится на compile-time — call inlines, no indirection. `homo_dyn` сохраняет vtable (`call_indirect` в wasm, verified > 0 во всех `*_dyn` артефактах), но call site monomorphic (один concrete тип на цикл) → BTB предсказывает target, cache locality сохранена. `mixed_dyn` — polymorphic-3 call site над interleaved heap objects: indirect-call target меняется per-iteration (BTB misses) + objects разбросаны по heap (worst-case Triangle-stride slots + pointer array → cache-line waste). Anti-devirt friction (`core::hint::black_box` / volatile sink) preventing compiler от devirtualizing обратно в static.
+
+### Monomorphization (N специализированных циклов под N типов) vs single tag-`switch`/enum-`match` loop — это size-за-locality trade: +440…540 B (cpp + rust/raw) .. +1.0–1.6 KB (rust/bindgen) на raw wasm
+**Status:** confirmed
+**Evidence:** Phase 1.1.3, `dist/shape_dispatch_{homo,mixed}_static/*/` meta (artifact size env/size-invariant). `homo_static` эмитит 3 мономорфизированных копии loop body (по одной на Circle/Square/Triangle); `mixed_static` — один `switch(tag)`/`match` loop. Raw wasm bytes:
+
+| toolchain | profile | homo_static | mixed_static | Δraw | Δ% |
+|---|---|---|---|---|---|
+| cpp-emscripten | speed | 6246 | 5802 | +444 | +7.7% |
+| cpp-emscripten | size | 1659 | 1178 | +481 | +41% |
+| cpp-wasi-sdk | speed | 6155 | 5661 | +494 | +8.7% |
+| cpp-wasi-sdk | size | 6024 | 5491 | +533 | +9.7% |
+| rust-raw | speed | 1839 | 1401 | +438 | +31% |
+| rust-raw | size | 1522 | 1057 | +465 | +44% |
+| rust-bindgen | speed | 15027 | 13458 | +1569 | +12% |
+| rust-bindgen | size | 12449 | 11392 | +1057 | +9.3% |
+
+Direction (monomorphized > switch) consistent across 4 toolchains × 2 profiles. Absolute Δraw стабилен (~440–540 B для cpp + rust/raw; bindgen +1.0–1.6 KB на своём большем baseline). `homo_dyn` vs `mixed_dyn` показывает тот же паттерн.
+
+**Phase:** introduced 1.1.3
+
+**Caveats:** Single workload, K=3 типа. Δ% наибольший на малых baselines (rust/raw size +44%, cpp-emscripten size +41%) — fixed monomorphization cost доминирует tiny binaries; на больших baselines +7…12%. gzip/brotli premium меньше raw (компрессор folds duplicated loop bodies → для transfer-size бюджета эффект слабее). Trade важен когда K растёт ИЛИ per-type body большой; для K=2–3 малых тел дешевле один switch. Runtime homo_static vs mixed_static **не** clean A/B (отличаются и layout, и dispatch — см. dispatch claim выше); этот claim строго про artifact size.
+
+Mechanism: generic `process<S>` (Rust) / `template process<S,FN>` (C++) монорфизируется в отдельную функцию per type — N копий identical-shaped loop с разными inlined score-телами. Single `switch(tag)` loop — один code path с branch per iteration. Compile-time дешевле в байтах при тех же типах; ценой per-iteration branch (который и есть mixed_static's slight runtime cost vs monomorphized).
+
+### В JS dynamic dispatch почти бесплатен (polymorphic-3 IC vs monomorphic: +0.6…9% на L) — в отличие от native wasm (+50…130%); не реструктурируй JS object models ради IC monomorphism
+**Status:** tentative
+**Evidence:** Phase 1.1.3, `results/raw/2026-06-02-phase-1-1-3/shape_dispatch_{mixed_static,mixed_dyn,homo_dyn}__js-idiomatic-speed__L__{node,chromium,firefox}.json`. Warm-median, L (N=100000):
+
+| env | mixed_static (mono IC) | mixed_dyn (poly-3 IC) | Δ% | homo_dyn (3 mono loops) |
+|---|---|---|---|---|
+| node | 4.500 | 4.674 | +3.9% | **4.132** |
+| chromium | 3.118 | 3.135 | +0.6% | **3.025** |
+| firefox | 2.180 | 2.380 | +9.2% | **1.840** |
+
+mixed_static = единый `TaggedShape` class (один hidden class → monomorphic property access + top-level `switch(kind)`); mixed_dyn = 3 classes в одном массиве (polymorphic-3 megamorphic-ish call site). Gap всего +0.6…9.2% — на порядок меньше native dynamic-dispatch penalty (+50…130% те же binaries). `homo_dyn` (3 monomorphic per-class loops) consistently самый быстрый JS вариант.
+
+**Phase:** introduced 1.1.3
+
+**Caveats:** `tentative` — single workload, single JS toolchain (idiomatic), и effect местами у timer-quantization floor (Chromium +0.6% — в пределах 5µs bin). JS absolute ~5–7× slower native static (node L 4.5 ms vs 0.58–0.88 ms) — IC-tuning не закрывает этот gap. Top-level `score()` function (не closure-const switch в hot loop) обязателен независимо — см. V8-deopt claim выше. Не переносить на не-V8/SpiderMonkey движки без проверки.
+
+Mechanism: V8/SpiderMonkey хранят inline-cache state per call site; polymorphic IC (≤4 hidden classes) резолвится через small dispatch table — cheap relative к wasm `call_indirect` (нет cross-table bounds check + indirect branch misprediction той же стоимости). Object-graph indirection присутствует в JS в обоих вариантах (всё heap-allocated boxed), поэтому mixed-vs-homo layout difference washed out — в противоположность native, где inline enum array (contiguous) vs boxed pointers (chase) даёт +50…105% (тот же layout-эффект, что доминирует native suite, в JS ≈ 0).
