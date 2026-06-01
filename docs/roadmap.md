@@ -20,18 +20,10 @@ Live index отложенной работы — что в скоупе теку
 
 Source of truth для conventions — этот файл. `/backlog-review` верифицирует format compliance первым шагом каждого триажа.
 
-## Phase 1.1
-
-> Текущий target. Scope зафиксирован 2026-05-15 (scope-decision сессия после Phase 1.0.6
-> close). Brainstorm + writing-plans — следующий шаг.
-
-### Workloads
-- **shape-dispatch** — static (templates/generics, monomorphization) vs dynamic (virtual/dyn Trait/class hierarchy, vtable) dispatch. **Design direction (captured 2026-05-26):** workload measures trade-off bundle-size cost от monomorphization vs runtime cost от vtable indirection. Function body должна быть substantial enough чтобы compiler не inline'ил полностью (e.g. 10-20 FP ops over shape state, или несколько method calls per shape). Two binaries: static = template/generic processor применяется к homogeneous-per-type arrays (instantiated 3× per shape type, bundle растёт от monomorphization); dynamic = single virtual processor над mixed array (bundle compact, vtable indirection per call). JS path asymmetric — нет monomorphization concept, instead measures V8 IC state behavior (monomorphic/polymorphic/megamorphic). ([→ design spec § Phase 1.1](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
-
 ## Phase 1.2
 
-> Plausible targets после Phase 1.1. Не committed; перетасуется при `/backlog-review` перед
-> Phase 1.1 close.
+> Текущий target (Phase 1.1 закрыта 2026-06-02 — 4 workloads + reporter v2 + guidelines).
+> Не committed; перетасуется при `/backlog-review`.
 
 ### CI & supporting infra
 - **ci-github-actions** — GitHub Actions integration для размер/perf baseline tracking. Требует cross-platform installer'а.
