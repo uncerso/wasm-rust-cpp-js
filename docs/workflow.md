@@ -36,6 +36,15 @@ Every plan written via `/writing-plans` MUST contain an "Execution Protocol" sec
 | product guidelines | `docs/guidelines.md` |
 | execution pitfalls | `docs/pitfalls/` |
 
+## Spec & plan discipline
+
+Phase-local rules for the spec → plan → execute loop (forensics → the linked pitfalls in `docs/pitfalls/`):
+- **Pre-flight gate** — before writing exit criteria, verify master is green on all gates (`pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke`). Red → fix first.
+- **Wave-0 baseline** — every execution session re-runs the baseline gate before touching code. Red → STOP, surface to the user; NEVER mask it with an out-of-scope fix.
+- **Wave-2 eval gate** — `pnpm smoke` (quick, size S) does NOT close an implementation wave; JIT tier-up bugs surface only in eval mode. Run ≥1 representative case per workload in `--mode=eval` first.
+- **Ephemeral-path audit** — before committing scripts/docs that read external paths, confirm each path is tracked or self-generated (`git check-ignore`). `dist/`, `target/`, `.tools/`, `results/`, `fixtures/*.bin` are gitignored — red flags on a fresh checkout.
+- **Mechanism-check** — for each mitigation in a spec's risk section, state in one sentence the mechanism by which it addresses that exact risk. Can't → drop or verify the candidate.
+
 ## Break thresholds
 
 - `< ~1/4` window — continue; do not break.
