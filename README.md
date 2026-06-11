@@ -342,7 +342,7 @@ Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.j
 
 ## Известные ограничения
 
-Рабочий backlog не-критичных tech-debt items — `docs/tech_debt/` (триаж через skill `/tech-debt-review`).
+Рабочий backlog не-критичных tech-debt items — `docs/tech_debt/` (триаж через skill `/backlog-review`).
 
 - **`navigator.platform` в Firefox.** Firefox 110+ выдаёт пустой `navigator.platform`; runner стампит `machine.os` со стороны Node host'а, чтобы не получать пустоту в результате.
 - **Таймеры `performance.now()` в браузере.** Без cross-origin isolation Chromium квантует до 100 µs, Firefox — до 1 ms (Spectre mitigation). Phase 1.0.5 Wave 4 включил COI (COOP+COEP headers в Vite dev/preview servers), что подняло precision до ~5 µs (Chromium) и ~20 µs (Firefox). На S-размере без COI samples были 0/1 ms binary — теперь видны реальные fractional values.
