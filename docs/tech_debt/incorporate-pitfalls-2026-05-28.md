@@ -12,7 +12,7 @@ priority: low
 
 Bulk-defer бакет для pitfall items из /finish-session 2026-05-28 (Phase 1.1.3
 brainstorm/planning session), которые не были задиспатчены inline. Каждый item —
-отдельный suggestion для дальнейшего dispatch через `/tech-debt-review`.
+отдельный suggestion для дальнейшего dispatch через `/backlog-review`.
 
 ### Item 1: After introducing invariant in spec, audit subsequent paragraphs for inadvertent contradictions
 
@@ -47,11 +47,11 @@ durable rule change. Pattern review at next spec writing — promote if recurs.
 ## Why it matters
 
 См. pitfall `docs/pitfalls/2026-05-28-phase-1-1-3-brainstorm.md` для full context.
-Без review во время следующего `/tech-debt-review` items тихо застревают в backlog'е.
+Без review во время следующего `/backlog-review` items тихо застревают в backlog'е.
 
 ## Suggested workflow для review
 
-Run `/tech-debt-review`; для item:
+Run `/backlog-review`; для item:
 - Если решено «extend memory» или «add CLAUDE.md bullet» — открыть target file
   и применить change inline, закрыть item.
 - Если решено «skip» — пометить отдельным `status: wontfix` rationale (или закрыть

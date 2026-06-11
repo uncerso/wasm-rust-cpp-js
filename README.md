@@ -249,9 +249,9 @@ BENCH_DEBUG_TIMINGS=1 pnpm --filter @bench-app/runner-web drive ...
 - `[bench-debug] performance.now() resolution: <ms>` — измеренное разрешение high-resolution clock (Node ~ 1µs, Chromium ~ 5µs с COOP+COEP, Firefox ~ 20µs).
 - `[bench-debug] sample N: <duration>` — длительность каждого warm sample'а.
 
-Browser-side флаг прокидывается из Node через query param `?debug=1` на page → worker scope. Source: `apps/runner-web/src/driver.ts:127` (Node→URL), `apps/runner-web/src/page.ts:68-69` (page→worker forward), `apps/runner-web/src/worker.ts:49,83` (worker scope setup), `packages/harness/src/measure.ts:22-31` (consumer).
+Browser-side флаг прокидывается из Node в page → worker scope через query param `?debug=1`.
 
-Полезно для investigations типа «почему в Firefox все samples 0 ms» — pivot Wave 4 (см. `docs/superpowers/notes/2026-05-05-perf-now-precision.md`).
+Полезно для investigations типа «почему в Firefox все samples 0 ms» (фон — § Известные ограничения, таймеры `performance.now()`).
 
 ---
 
@@ -336,13 +336,13 @@ Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.j
 
 ## Guidelines
 
-[`docs/guidelines.md`](./docs/guidelines.md) — actionable рекомендации для продуктовых команд, извлекаемые из накопленных измерений: build-флаги (e.g. `-Oz` для C++ size-sensitive cases), toolchain trade-off'ы, code-паттерны под wasm. Каждая рекомендация привязана к evidence-пути в `results/` или `dist/` и phase'у, в котором появилась. На момент создания файл seedless — заполняется по мере появления confirmed выводов из phases.
+[`docs/guidelines.md`](./docs/guidelines.md) — actionable рекомендации для продуктовых команд, извлекаемые из накопленных измерений: build-флаги (e.g. `-Oz` для C++ size-sensitive cases), toolchain trade-off'ы, code-паттерны под wasm. Каждая рекомендация привязана к evidence-пути в `results/` или `dist/` и phase'у, в котором появилась. Файл наполняется по мере появления confirmed-выводов из phases (на текущий момент — claims из Phase 1.1.x).
 
 ---
 
 ## Известные ограничения
 
-Рабочий backlog не-критичных tech-debt items — `docs/tech_debt/` (триаж через skill `/tech-debt-review`).
+Рабочий backlog не-критичных tech-debt items — `docs/tech_debt/` (триаж через skill `/backlog-review`).
 
 - **`navigator.platform` в Firefox.** Firefox 110+ выдаёт пустой `navigator.platform`; runner стампит `machine.os` со стороны Node host'а, чтобы не получать пустоту в результате.
 - **Таймеры `performance.now()` в браузере.** Без cross-origin isolation Chromium квантует до 100 µs, Firefox — до 1 ms (Spectre mitigation). Phase 1.0.5 Wave 4 включил COI (COOP+COEP headers в Vite dev/preview servers), что подняло precision до ~5 µs (Chromium) и ~20 µs (Firefox). На S-размере без COI samples были 0/1 ms binary — теперь видны реальные fractional values.

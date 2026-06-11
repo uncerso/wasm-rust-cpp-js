@@ -492,7 +492,7 @@ Phase 1.1.3 workload design (per user input 2026-05-26):
 - Umbrella Phase 1.1 spec: [`2026-05-20-phase-1-1-design.md`](2026-05-20-phase-1-1-design.md)
 - Tech-debt origin: [`../../tech_debt/chromedriver-session-retry.md`](../../tech_debt/chromedriver-session-retry.md)
 - Roadmap entry: [`../../roadmap.md § Phase 1.2 > Browsers`](../../roadmap.md)
-- V8 deopt investigation (predecessor session): [`../session-state-2026-05-26-v8-deopt-rootcause.md`](../session-state-2026-05-26-v8-deopt-rootcause.md)
+- V8 deopt investigation (predecessor session): [`../session-states/session-state-2026-05-26-v8-deopt-rootcause.md`](../session-states/session-state-2026-05-26-v8-deopt-rootcause.md)
 - Pitfall §Tooling (smoke-at-S insufficient): [`../../pitfalls/2026-05-23-phase-1-1-2-execution.md`](../../pitfalls/2026-05-23-phase-1-1-2-execution.md)
 - Guidelines (under review): [`../../guidelines.md`](../../guidelines.md)
 - Current driver.ts: `apps/runner-web/src/driver.ts`

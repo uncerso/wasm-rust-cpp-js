@@ -74,7 +74,7 @@ docs.
 
 1. **Прочитать в порядке:**
    - `CLAUDE.md` (auto-loaded).
-   - `docs/superpowers/session-state-2026-05-23-phase-1-1-1-closed.md` (предыдущий handoff, особенно для Phase 1.1.1 closing context).
+   - `docs/superpowers/session-states/session-state-2026-05-23-phase-1-1-1-closed.md` (предыдущий handoff, особенно для Phase 1.1.1 closing context).
    - Этот файл (handoff для 1.1.2).
    - `docs/superpowers/specs/2026-05-23-phase-1-1-2-hashmap-design.md` — execution spec.
    - `docs/superpowers/plans/2026-05-23-phase-1-1-2-hashmap.md` — 27 tasks, start с Task 0.

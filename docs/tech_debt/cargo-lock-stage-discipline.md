@@ -2,7 +2,7 @@
 id: cargo-lock-stage-discipline
 title: Cargo.lock иногда забывают staged при изменении [dependencies]
 created: 2026-05-14
-source: docs/superpowers/session-state-2026-05-05-wave-3.md
+source: docs/superpowers/session-states/session-state-2026-05-05-wave-3.md
 category: process-gap
 status: open
 priority: low
@@ -28,7 +28,7 @@ discipline.
 
 ## References
 
-- `docs/superpowers/session-state-2026-05-05-wave-3.md` (carry-over note)
+- `docs/superpowers/session-states/session-state-2026-05-05-wave-3.md` (carry-over note)
 - `benches/matmul/rust/*/Cargo.lock` paths
 
 ## Roadmap

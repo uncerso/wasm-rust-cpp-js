@@ -605,4 +605,4 @@ pnpm bench:all
 
 - Phase 1.0 design: `docs/superpowers/specs/2026-05-01-wasm-benchmarks-design.md`
 - Phase 1.0 plan: `docs/superpowers/plans/2026-05-01-wasm-benchmarks-phase-1-0.md`
-- Phase 1.0 session state: `docs/superpowers/session-state-2026-05-02.md`
+- Phase 1.0 session state: `docs/superpowers/session-states/session-state-2026-05-02.md`

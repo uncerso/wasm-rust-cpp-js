@@ -24,7 +24,7 @@
 | tag `phase-1-0` | `25eed91 feat(scripts): add smoke target ...` (на коммит ниже HEAD; tagged-коммит = «end of plan», README прилетел отдельной правкой пользователя) |
 | `origin/master` | ~49 коммитов отстаёт |
 | Untracked | `Какие есть существующие бенчмарки wasm под браузер.md` (input от пользователя, **не коммитить**) |
-| Untracked | `docs/superpowers/session-state-2026-05-02.md` (этот файл — пользователь сам решит, коммитить ли) |
+| Untracked | `docs/superpowers/session-states/session-state-2026-05-02.md` (этот файл — пользователь сам решит, коммитить ли) |
 
 `origin`: `git@github.com:uncerso/wasm-rust-cpp-js.git`. Никаких feature-веток на origin нет.
 
@@ -39,7 +39,7 @@
    - `hashmap_workload` — `std::unordered_map` / `HashMap` / `Map`. Главный сигнал — размер артефакта (libc++ vs rust-std vs JS).
    - `shape_dispatch` — обход коллекции shape'ов с подсчётом площади (circle/square/triangle). Static dispatch (templates/generics) vs dynamic (`virtual` / `dyn Trait`); JS как dynamic baseline.
 4. **Этот файл** (handoff).
-5. *(по желанию, для истории)* `docs/superpowers/session-state-2026-05-01.md` — снапшот мида Phase 1.0 (16/29). И `docs/superpowers/plans/2026-05-01-wasm-benchmarks-phase-1-0.md` — пошаговый план Phase 1.0.
+5. *(по желанию, для истории)* `docs/superpowers/session-states/session-state-2026-05-01.md` — снапшот мида Phase 1.0 (16/29). И `docs/superpowers/plans/2026-05-01-wasm-benchmarks-phase-1-0.md` — пошаговый план Phase 1.0.
 
 ---
 

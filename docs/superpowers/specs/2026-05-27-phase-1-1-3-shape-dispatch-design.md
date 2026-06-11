@@ -829,6 +829,6 @@ committing к full implementation.
 - Pitfall §P1 (iter-dependent checksum protocol): [`../../pitfalls/2026-05-23-phase-1-1-1-execution.md`](../../pitfalls/2026-05-23-phase-1-1-1-execution.md)
 - Pitfall §P1 (byte-preserve refactor invariant): [`../../pitfalls/2026-05-22-phase-1-1-1-w1.md`](../../pitfalls/2026-05-22-phase-1-1-1-w1.md)
 - V8 deopt bug report (closure-const switch / factory-time dispatch): [`../bug-reports/2026-05-23-v8-deopt-switch-over-closure-const.md`](../bug-reports/2026-05-23-v8-deopt-switch-over-closure-const.md)
-- Phase 1.1.2.1 session state: [`../session-state-2026-05-26-phase-1-1-2-1-closed.md`](../session-state-2026-05-26-phase-1-1-2-1-closed.md)
+- Phase 1.1.2.1 session state: [`../session-states/session-state-2026-05-26-phase-1-1-2-1-closed.md`](../session-states/session-state-2026-05-26-phase-1-1-2-1-closed.md)
 - Roadmap: [`../../roadmap.md § Phase 1.1`](../../roadmap.md)
 - Guidelines: [`../../guidelines.md`](../../guidelines.md)

@@ -12,7 +12,7 @@ priority: medium
 
 Bulk-defer бакет для pitfall items из /finish-session 2026-05-27 (Phase 1.1.2.1
 execution session), которые не были задиспатчены inline. Каждый item — отдельный
-suggestion для дальнейшего dispatch через `/tech-debt-review`.
+suggestion для дальнейшего dispatch через `/backlog-review`.
 
 ### Item 1: Plan code-blocks should pre-pass project lint
 
@@ -85,11 +85,11 @@ methodology shifts" — but it's not explicit policy.
 ## Why it matters
 
 См. pitfall `docs/pitfalls/2026-05-27-phase-1-1-2-1-execution.md` для full context.
-Без review во время следующего `/tech-debt-review` items тихо застревают в backlog'е.
+Без review во время следующего `/backlog-review` items тихо застревают в backlog'е.
 
 ## Suggested workflow для review
 
-Run `/tech-debt-review`; для каждого item:
+Run `/backlog-review`; для каждого item:
 - Если решено «update writing-plans skill» — открыть skill file и применить change inline,
   закрыть этот item.
 - Если решено «skip» — пометить отдельным `status: wontfix` rationale (или закрыть весь

@@ -457,6 +457,6 @@ Plus:
 - BenchModule contract + Checksum-семантика: [`2026-05-01-wasm-benchmarks-design.md § Контракт BenchModule`](2026-05-01-wasm-benchmarks-design.md)
 - Pitfall §P1 (iter-dependent checksum protocol): [`../pitfalls/2026-05-23-phase-1-1-1-execution.md`](../../pitfalls/2026-05-23-phase-1-1-1-execution.md)
 - Pitfall §P1 (byte-preserve refactor): [`../pitfalls/2026-05-22-phase-1-1-1-w1.md`](../../pitfalls/2026-05-22-phase-1-1-1-w1.md)
-- Phase 1.1.1 session state: [`../session-state-2026-05-23-phase-1-1-1-closed.md`](../session-state-2026-05-23-phase-1-1-1-closed.md)
+- Phase 1.1.1 session state: [`../session-states/session-state-2026-05-23-phase-1-1-1-closed.md`](../session-states/session-state-2026-05-23-phase-1-1-1-closed.md)
 - Roadmap: [`../../roadmap.md § Phase 1.1`](../../roadmap.md)
 - Guidelines: [`../../guidelines.md`](../../guidelines.md)
