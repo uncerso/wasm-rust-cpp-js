@@ -44,6 +44,7 @@ Phase-local rules for the spec → plan → execute loop (forensics → the link
 - **Wave-2 eval gate** — `pnpm smoke` (quick, size S) does NOT close an implementation wave; JIT tier-up bugs surface only in eval mode. Run ≥1 representative case per workload in `--mode=eval` first.
 - **Ephemeral-path audit** — before committing scripts/docs that read external paths, confirm each path is tracked or self-generated (`git check-ignore`). `dist/`, `target/`, `.tools/`, `results/`, `fixtures/*.bin` are gitignored — red flags on a fresh checkout.
 - **Mechanism-check** — for each mitigation in a spec's risk section, state in one sentence the mechanism by which it addresses that exact risk. Can't → drop or verify the candidate.
+- **Portable commands** — shell snippets in a plan MUST use flags that work on the repo's toolchain (macOS/BSD + this git): `git grep -lz` (not GNU `-Z`), a `for`-loop over matches instead of `grep -lZ | xargs -0`. A non-portable flag fails silently (no-op transform). Verify before committing the plan.
 
 ## Break thresholds
 
