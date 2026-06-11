@@ -27,7 +27,7 @@
 | tag `wave-1-done` | `3384aba` (без изменений) |
 | `master` | `c9a00c3` (без изменений с Phase 1.0) |
 | Untracked | `Какие есть существующие бенчмарки wasm под браузер.md` (input от пользователя, **не коммитить**) |
-| Untracked | `docs/superpowers/session-state-2026-05-05-wave-3.md` (этот файл — пользователь решит коммитить) |
+| Untracked | `docs/superpowers/session-states/session-state-2026-05-05-wave-3.md` (этот файл — пользователь решит коммитить) |
 
 ---
 

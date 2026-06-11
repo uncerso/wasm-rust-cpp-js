@@ -214,7 +214,7 @@ pnpm --filter @bench/loaders test
 
 1. **`docs/superpowers/specs/2026-05-01-wasm-benchmarks-design.md`** — дизайн-спека (одобрена, неизменяемая основа)
 2. **`docs/superpowers/plans/2026-05-01-wasm-benchmarks-phase-1-0.md`** — план (актуализированный с патчами)
-3. **`docs/superpowers/session-state-2026-05-01.md`** ← этот файл
+3. **`docs/superpowers/session-states/session-state-2026-05-01.md`** ← этот файл
 4. **`git log --oneline phase-1-0 ^master`** — список коммитов
 
 Затем мы продолжим с Task 17 (scripts/lib helpers) inline.

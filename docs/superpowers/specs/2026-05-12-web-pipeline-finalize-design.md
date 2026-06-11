@@ -524,7 +524,7 @@ Open (на момент написания, не блокирует start):
 ## Чтение перед стартом сессии (порядок)
 
 1. **Этот файл** — primary design.
-2. `docs/superpowers/session-state-2026-05-06-wave-4.md` — context, открытые задачи на момент Wave 4 closeout.
+2. `docs/superpowers/session-states/session-state-2026-05-06-wave-4.md` — context, открытые задачи на момент Wave 4 closeout.
 3. `docs/superpowers/notes/2026-05-05-perf-now-precision.md` — root cause analysis FF artifact'а (главное для понимания, почему делаем real-engine migration).
 4. `docs/superpowers/specs/2026-05-04-housekeeping-design.md` — общий housekeeping spec для Phase 1.0.5 (контекст всего проекта).
 5. `tool-versions.json` — текущая schema для tools, к которой добавится `browsers` секция.

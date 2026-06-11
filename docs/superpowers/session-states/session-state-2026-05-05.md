@@ -25,7 +25,7 @@
 | tag `wave-1-done` | `3384aba` |
 | `master` | `c9a00c3 Added session-state after "Phase 1.0"` (1 коммит ahead of `origin/master`, как и было в Phase 1.0 handoff) |
 | Untracked | `Какие есть существующие бенчмарки wasm под браузер.md` (input от пользователя, **не коммитить**) |
-| Untracked | `docs/superpowers/session-state-2026-05-05.md` (этот файл — пользователь решит коммитить или нет) |
+| Untracked | `docs/superpowers/session-states/session-state-2026-05-05.md` (этот файл — пользователь решит коммитить или нет) |
 
 ---
 

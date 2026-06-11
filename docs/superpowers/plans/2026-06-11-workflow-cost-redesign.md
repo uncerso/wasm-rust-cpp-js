@@ -121,28 +121,28 @@ Expected: `feature/workflow-cost-redesign`. All commits land here; master change
 ### Task 1: Move 23 session-state files into `session-states/` and fix path references
 
 **Files:**
-- Move: `docs/superpowers/session-state-*.md` (23 files) → `docs/superpowers/session-states/`
-- Modify (path transform): every repo file containing the substring `superpowers/session-state-` or `../session-state-`, plus memory files under `~/.claude/projects/-Users-uncerso-src-wasm-rust-cpp-js/memory/`.
+- Move: `docs/superpowers/session-states/session-state-*.md` (23 files) → `docs/superpowers/session-states/`
+- Modify (path transform): every repo file containing the substring `superpowers/session-states/session-state-` or `../session-states/session-state-`, plus memory files under `~/.claude/projects/-Users-uncerso-src-wasm-rust-cpp-js/memory/`.
 
 **Transform rule (the entire judgment, pre-decided):**
-- Path-prefixed refs `superpowers/session-state-` → `superpowers/session-states/session-state-`. This catches absolute paths (`docs/superpowers/session-state-X.md`) AND globs (`docs/superpowers/session-state-*.md`). It is idempotent: `session-states/` does **not** contain the substring `session-state-` (after `session-state` comes `s`, not `-`), so already-correct refs (e.g. in the 2026-06-11 spec) are untouched.
-- Relative refs `../session-state-` → `../session-states/session-state-` (cross-links in `docs/superpowers/specs/*.md`).
+- Path-prefixed refs `superpowers/session-states/session-state-` → `superpowers/session-states/session-state-`. This catches absolute paths (`docs/superpowers/session-states/session-state-X.md`) AND globs (`docs/superpowers/session-states/session-state-*.md`). It is idempotent: `session-states/` does **not** contain the substring `session-state-` (after `session-state` comes `s`, not `-`), so already-correct refs (e.g. in the 2026-06-11 spec) are untouched.
+- Relative refs `../session-states/session-state-` → `../session-states/session-state-` (cross-links in `docs/superpowers/specs/*.md`).
 - **Leave alone:** bare-filename refs with no path prefix (`session-state-X.md` inside prose, or co-located sibling refs between two session-state files) — these self-heal because both files end up in the same `session-states/` dir; and narrative mentions of the phrase "session-state" with no `.md` path.
 
 > Subagent dispatch prompt (paste verbatim into the [S] task):
 >
 > "In /Users/uncerso/src/wasm-rust-cpp-js perform a mechanical file move + reference transform. Do NOT exercise judgment beyond the rule; report a grep contract at the end.
 > 1. `mkdir -p docs/superpowers/session-states`
-> 2. `git mv` each `docs/superpowers/session-state-*.md` into `docs/superpowers/session-states/` (preserve history; 23 files).
-> 3. Repo-wide, in every tracked text file, replace substring `superpowers/session-state-` → `superpowers/session-states/session-state-` and `../session-state-` → `../session-states/session-state-`. Apply to `.md`, `CLAUDE.md`, and `.claude/skills/**/SKILL.md`. Do NOT alter bare filenames lacking a path prefix.
+> 2. `git mv` each `docs/superpowers/session-states/session-state-*.md` into `docs/superpowers/session-states/` (preserve history; 23 files).
+> 3. Repo-wide, in every tracked text file, replace substring `superpowers/session-states/session-state-` → `superpowers/session-states/session-state-` and `../session-states/session-state-` → `../session-states/session-state-`. Apply to `.md`, `CLAUDE.md`, and `.claude/skills/**/SKILL.md`. Do NOT alter bare filenames lacking a path prefix.
 > 4. Also apply the same two substring replacements to the user's memory files at `/Users/uncerso/.claude/projects/-Users-uncerso-src-wasm-rust-cpp-js/memory/*.md` (path-prefix only — do NOT rewrite convention prose there; that is a separate later task).
-> 5. Report: output of `ls docs/superpowers/session-state-*.md` (must be empty/no-match), `ls docs/superpowers/session-states/ | wc -l` (must be 23), `git grep -n 'superpowers/session-state-'` (must be 0 matches), `git grep -n '\.\./session-state-'` (must be 0 matches), and `git status --short`."
+> 5. Report: output of `ls docs/superpowers/session-states/session-state-*.md` (must be empty/no-match), `ls docs/superpowers/session-states/ | wc -l` (must be 23), `git grep -n 'superpowers/session-states/session-state-'` (must be 0 matches), `git grep -n '\.\./session-state-'` (must be 0 matches), and `git status --short`."
 
 - [ ] **Step 1: Create the directory and move the files**
 
 ```bash
 mkdir -p docs/superpowers/session-states
-git mv docs/superpowers/session-state-*.md docs/superpowers/session-states/
+git mv docs/superpowers/session-states/session-state-*.md docs/superpowers/session-states/
 ```
 Expected: 23 files staged as renames.
 
@@ -150,9 +150,9 @@ Expected: 23 files staged as renames.
 
 ```bash
 # tracked files containing a path-prefixed session-state reference:
-git grep -lZ -e 'superpowers/session-state-' -e '\.\./session-state-' \
+git grep -lZ -e 'superpowers/session-states/session-state-' -e '\.\./session-state-' \
   | xargs -0 sed -i '' \
-      -e 's#superpowers/session-state-#superpowers/session-states/session-state-#g' \
+      -e 's#superpowers/session-states/session-state-#superpowers/session-states/session-state-#g' \
       -e 's#\.\./session-state-#../session-states/session-state-#g'
 ```
 (macOS `sed -i ''`. The moved files themselves are now under `session-states/`; their internal self-refs get fixed by the same transform — intended, per spec "immutable specs — правки чисто механические".)
@@ -161,17 +161,17 @@ git grep -lZ -e 'superpowers/session-state-' -e '\.\./session-state-' \
 
 ```bash
 MEM=/Users/uncerso/.claude/projects/-Users-uncerso-src-wasm-rust-cpp-js/memory
-grep -lZ -e 'superpowers/session-state-' "$MEM"/*.md \
-  | xargs -0 sed -i '' -e 's#superpowers/session-state-#superpowers/session-states/session-state-#g'
+grep -lZ -e 'superpowers/session-states/session-state-' "$MEM"/*.md \
+  | xargs -0 sed -i '' -e 's#superpowers/session-states/session-state-#superpowers/session-states/session-state-#g'
 ```
 Leave convention prose (HHMM naming, lean shape) for Task 11.
 
 - [ ] **Step 4: Verify the grep contract**
 
 ```bash
-ls docs/superpowers/session-state-*.md 2>&1            # expect: no matches
+ls docs/superpowers/session-states/session-state-*.md 2>&1            # expect: no matches
 ls docs/superpowers/session-states/*.md | wc -l         # expect: 23
-git grep -n 'superpowers/session-state-'                # expect: (no output)
+git grep -n 'superpowers/session-states/session-state-'                # expect: (no output)
 git grep -n '\.\./session-state-'                       # expect: (no output)
 ```
 All four must hold. If `git grep` finds a straggler, it is a path-prefixed ref the transform missed — inspect and fix.
@@ -288,7 +288,7 @@ State this is the default inline writing standard for all prose humans read in t
 
 **Keep in CLAUDE.md (per-turn load-bearing):**
 - Project overview (≤ 6 lines) + north-star (3 goals incl. PG3 agent best-practices).
-- Canonical context sources (the bulleted list of where to read what) — but update `docs/superpowers/session-state-*.md` → `session-states/...` (already done by Task 1) and add `docs/capture-protocol.md`, `docs/workflow.md`, `docs/writing-standard.md`.
+- Canonical context sources (the bulleted list of where to read what) — but update `docs/superpowers/session-states/session-state-*.md` → `session-states/...` (already done by Task 1) and add `docs/capture-protocol.md`, `docs/workflow.md`, `docs/writing-standard.md`.
 - A **3-line workflow pointer** → `docs/workflow.md` (phases 0–8; Execution-Protocol convention is mandatory in every plan).
 - Conventions (TS style, Rust style) — relevant on every edit. Keep.
 - A **capture trigger stub** (~8 lines): the trigger sentence ("when you notice X, stop once and offer to capture") + the marker line format `› capture: <type> — <slug>: <note>` + a pointer to `docs/capture-protocol.md` for the full protocol, types, and phrase lists. Do NOT keep the full phrase lists or the "what NOT to capture" lists here.
@@ -546,7 +546,7 @@ Expected: `exit=0`. (Docs/skills changes shouldn't affect TS/Rust; this proves t
 
 - [ ] **Step 2: Final reference sweep** — confirm no dangling refs to moved/retired things:
 ```bash
-git grep -n 'superpowers/session-state-'            # 0
+git grep -n 'superpowers/session-states/session-state-'            # 0
 git grep -n '\.\./session-state-'                   # 0
 git grep -n '/tech-debt-review' -- ':!docs/superpowers/specs' ':!docs/superpowers/plans' ':!docs/pitfalls'   # 0 live
 ls docs/superpowers/session-states/*.md | wc -l     # 23

@@ -1472,11 +1472,11 @@ git commit --no-gpg-sign -m "docs(roadmap): capture 1.1.3 shape-dispatch design 
 ### Task 20: Phase tag + close
 
 **Files:**
-- Modify: `docs/superpowers/session-state-2026-XX-XX-phase-1-1-2-1-closed.md` (create)
+- Modify: `docs/superpowers/session-states/session-state-2026-XX-XX-phase-1-1-2-1-closed.md` (create)
 
 - [ ] **Step 1: Write session-state**
 
-Create `docs/superpowers/session-state-2026-XX-XX-phase-1-1-2-1-closed.md` with:
+Create `docs/superpowers/session-states/session-state-2026-XX-XX-phase-1-1-2-1-closed.md` with:
 
 ```markdown
 # Session state — 2026-XX-XX Phase 1.1.2.1 closed
@@ -1507,7 +1507,7 @@ Phase 1.1.2.1 (bench-infra hardening) merged. Next: Phase 1.1.3 brainstorm.
 - [ ] **Step 2: Commit session-state**
 
 ```bash
-git add docs/superpowers/session-state-2026-XX-XX-phase-1-1-2-1-closed.md
+git add docs/superpowers/session-states/session-state-2026-XX-XX-phase-1-1-2-1-closed.md
 git commit --no-gpg-sign -m "docs(session-close): Phase 1.1.2.1 closed"
 ```
 

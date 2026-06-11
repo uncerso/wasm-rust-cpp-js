@@ -532,7 +532,7 @@ Used для measuring W5 deltas.
 
 - [ ] **Step 3: Note historical pre-Wave-3 baseline**
 
-Read context: `docs/superpowers/session-state-2026-05-05-wave-3.md` (если присутствует — найди cited bindgen sizes до Wave 3, e.g. «pre-Wave-3 baseline = X.X KB»).
+Read context: `docs/superpowers/session-states/session-state-2026-05-05-wave-3.md` (если присутствует — найди cited bindgen sizes до Wave 3, e.g. «pre-Wave-3 baseline = X.X KB»).
 
 Если session-state файл не нашёлся — fallback: записать «historical baseline unknown — investigation outcome будет 'document current as new baseline'» в W5.5 commit.
 
@@ -996,7 +996,7 @@ Compare:
 - Raw/gzip/brotli sizes из `/tmp/bindgen-pre.txt` против `/tmp/bindgen-post-w5.3.txt` (cumulative W5.2+W5.3 effect).
 - Bench results (warmMedian, init phases) если доступны в historical session-state.
 
-Documented baseline reference: `docs/superpowers/session-state-2026-05-05-wave-3.md` § Wave 3 sizes (если содержит). Если в session-state указаны конкретные KB numbers — use them. Иначе fall back на «document current as new baseline».
+Documented baseline reference: `docs/superpowers/session-states/session-state-2026-05-05-wave-3.md` § Wave 3 sizes (если содержит). Если в session-state указаны конкретные KB numbers — use them. Иначе fall back на «document current as new baseline».
 
 - [ ] **Step 3: Decide outcome**
 

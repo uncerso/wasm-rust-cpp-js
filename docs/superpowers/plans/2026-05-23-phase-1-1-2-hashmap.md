@@ -1995,7 +1995,7 @@ Phase merge style precedent (1.0.5/1.0.6/1.1.1): merge locally, push only with u
 **Files:**
 - Create/modify: `docs/pitfalls/2026-05-??-phase-1-1-2-execution.md` (if any pitfalls captured)
 - Modify: `/Users/uncerso/.claude/projects/-Users-uncerso-src-wasm-rust-cpp-js/memory/project_wasm_benchmarks.md`
-- Create: `docs/superpowers/session-state-2026-05-??-phase-1-1-2-closed.md`
+- Create: `docs/superpowers/session-states/session-state-2026-05-??-phase-1-1-2-closed.md`
 
 - [ ] **Step 1: Capture pitfalls if any**
 
@@ -2010,7 +2010,7 @@ Edit `~/.claude/projects/-Users-uncerso-src-wasm-rust-cpp-js/memory/project_wasm
 
 - [ ] **Step 3: Write session-state snapshot**
 
-Create `docs/superpowers/session-state-2026-05-??-phase-1-1-2-closed.md` (mirror structure of `session-state-2026-05-23-phase-1-1-1-closed.md`):
+Create `docs/superpowers/session-states/session-state-2026-05-??-phase-1-1-2-closed.md` (mirror structure of `session-state-2026-05-23-phase-1-1-1-closed.md`):
 - TL;DR (where we are).
 - Done in this session.
 - Findings / claims.
@@ -2022,7 +2022,7 @@ Create `docs/superpowers/session-state-2026-05-??-phase-1-1-2-closed.md` (mirror
 - [ ] **Step 4: Commit all closure artifacts**
 
 ```bash
-git add docs/pitfalls/2026-05-??-phase-1-1-2-execution.md docs/superpowers/session-state-2026-05-??-phase-1-1-2-closed.md
+git add docs/pitfalls/2026-05-??-phase-1-1-2-execution.md docs/superpowers/session-states/session-state-2026-05-??-phase-1-1-2-closed.md
 git commit --no-gpg-sign -m "docs(session): close Phase 1.1.2 — session-state + pitfalls (if any)"
 ```
 

@@ -18,7 +18,7 @@ executor читает перед большим объёмом работы чт
   когда наблюдение reproducible across ≥2 контекстов.
 - `docs/superpowers/notes/` — investigation results, measurements (например,
   `2026-05-05-perf-now-precision.md`).
-- `docs/superpowers/session-state-*.md` — handoff snapshots, эфемерные.
+- `docs/superpowers/session-states/session-state-*.md` — handoff snapshots, эфемерные.
 
 ## Naming
 

@@ -144,7 +144,7 @@ user-data-dir пропустили). Defer к architectural refactor.
      ephemeral-path audit как sanity rule.
    - `README.md` (auto-loaded если нужен пользовательский context).
    - `docs/superpowers/specs/2026-05-20-phase-1-1-design.md` § Phase 1.1.3.
-   - `docs/superpowers/session-state-2026-05-23-phase-1-1-2-closed.md` — handoff от
+   - `docs/superpowers/session-states/session-state-2026-05-23-phase-1-1-2-closed.md` — handoff от
      закрытия Phase 1.1.2 (что сделано, decisions, conventions).
 
 2. **Sanity check master gates:**
