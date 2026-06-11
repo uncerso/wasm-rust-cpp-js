@@ -45,6 +45,7 @@ Phase-local rules for the spec → plan → execute loop (forensics → the link
 - **Ephemeral-path audit** — before committing scripts/docs that read external paths, confirm each path is tracked or self-generated (`git check-ignore`). `dist/`, `target/`, `.tools/`, `results/`, `fixtures/*.bin` are gitignored — red flags on a fresh checkout.
 - **Mechanism-check** — for each mitigation in a spec's risk section, state in one sentence the mechanism by which it addresses that exact risk. Can't → drop or verify the candidate.
 - **Portable commands** — shell snippets in a plan MUST use flags that work on the repo's toolchain (macOS/BSD + this git): `git grep -lz` (not GNU `-Z`), a `for`-loop over matches instead of `grep -lZ | xargs -0`. A non-portable flag fails silently (no-op transform). Verify before committing the plan.
+- **Verify a plan's factual assertions before acting** — a plan that asserts a file location, a failure mechanism, or a config knob may be wrong. Check it cheaply first (`ls`/`find` the path; reproduce the error and read the actual errno/syscall) before a task acts on it. A one-command check turns a silent no-op into a correct fix. Forensics: `docs/pitfalls/2026-06-11-workflow-cost-redesign-execution.md`.
 
 ## Break thresholds
 

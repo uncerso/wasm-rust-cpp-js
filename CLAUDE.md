@@ -79,3 +79,5 @@ When you notice tech-debt, a roadmap-scale idea, a confirmed guideline, an agent
 ## Commits
 
 Agent commits use `--no-gpg-sign` (authorized by the user).
+
+**Push / PR — user action.** The agent commits + prepares the PR body; **the user** runs `git push` and opens the PR. Origin SSH is Yubikey-backed (a physical touch a non-interactive shell can't give) and `gh` is not installed → the agent cannot push. Hand off via `! git push -u origin <branch>` + the GitHub compare link. Forensics: `docs/pitfalls/2026-06-11-workflow-cost-redesign-execution.md`.
