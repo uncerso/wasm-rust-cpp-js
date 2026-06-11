@@ -24,5 +24,10 @@
       "Bash(pnpm lint:rust)",
       "Bash(pnpm lint:all)"
     ]
+  },
+  "sandbox": {
+    "allowUnixSockets": [
+      "/tmp/claude-*/tsx-*/*.pipe"
+    ]
   }
 }
