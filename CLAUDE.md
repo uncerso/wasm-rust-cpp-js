@@ -1,293 +1,81 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-Repo-local guidance для AI assistants, работающих в этом проекте.
+Repo-local guidance for AI assistants working in this project. Keep this file to what is needed almost every turn; situational content lives in on-demand docs linked below.
 
 ## Project overview
 
-Бенчмарк-suite сравнивающий C++, Rust и JS под wasm по двум осям: **размер артефакта** (raw/gzip/brotli) и **runtime-перформанс** (init phases, first call, warm samples). Прогоняется одним кодом нагрузки в Node и в браузерах (Chromium, Firefox) через одну и ту же `BenchModule`-абстракцию.
+A benchmark suite comparing C++, Rust, and JS on wasm along two axes: **artifact size** (raw/gzip/brotli) and **runtime performance** (init phases, first call, warm samples). One workload runs in Node and in browsers (Chromium, Firefox) through one `BenchModule` abstraction.
 
-Каноничные источники контекста:
-- `README.md` — user-facing manual (системные требования, install, build, run, отчёт, ограничения). Читать когда нужна команда или объяснение для пользователя.
-- `docs/superpowers/specs/2026-05-01-wasm-benchmarks-design.md` — design spec, контракты `BenchModule` / `Loader`, формат `BenchResult`, обоснование выбранного workload. Читать перед изменением core abstractions.
-- `docs/superpowers/plans/` — phase plans. Имена файлов dated; latest = closest к current focus.
-- `docs/roadmap.md` — live index отложенной работы.
-- `docs/tech_debt/` — backlog мелких items, один файл — один debt.
-- `docs/pitfalls/` — lessons-learned документы из исполнения phase'ов; формат и назначение — в `docs/pitfalls/README.md`.
-- `docs/superpowers/bug-reports/` — root-cause investigation notes для specific bugs с deterministic repro (e.g. V8 12.4 deopt в `2026-05-23-v8-deopt-switch-over-closure-const.md`).
-- `docs/superpowers/session-states/session-state-*.md` — снимки прогресса для длинных multi-session задач.
-- `docs/guidelines.md` — actionable рекомендации для продуктовых команд (build-флаги, toolchain trade-off'ы, code patterns). First-class output проекта наравне с raw numbers.
+North star — three goals:
+1. Accumulate an **evidence base** comparing the toolchains under product-realistic wasm use.
+2. Extract **product guidelines** from it (`docs/guidelines.md`) — a first-class output, not a byproduct of the numbers.
+3. Improve **how we work with the agent** itself — capture, workflow, writing discipline (`docs/workflow.md`).
 
-Reframe: цель проекта не «сравнить три языка», а **накопить evidence-base + извлечь guidelines** под продуктовое использование wasm. Каждая phase обязана производить не только числа, но и обновления `docs/guidelines.md`, если появились confirmed выводы.
+Every phase produces numbers AND, when a finding is confirmed, updates `docs/guidelines.md`.
 
-## Guidelines artifact
+## Canonical context sources
 
-`docs/guidelines.md` — единственный канонический дом для actionable рекомендаций. Сейчас flat-doc (формат B-1); миграция на per-claim файлы возможна позже, когда наберётся >30 claim'ов или файл перевалит за ~500 строк.
+- `README.md` — user-facing manual (requirements, install, build, run, report, limits). **Commands live here.**
+- `docs/superpowers/specs/2026-05-01-wasm-benchmarks-design.md` — design spec: `BenchModule` / `Loader` contracts, `BenchResult` format, workload rationale. Read before changing core abstractions.
+- `docs/superpowers/plans/` — phase plans (dated; latest = current focus).
+- `docs/roadmap.md` — live index of deferred work.
+- `docs/tech_debt/` — small-item backlog (one file per debt).
+- `docs/pitfalls/` — execution lessons (format in `docs/pitfalls/README.md`).
+- `docs/superpowers/bug-reports/` — root-cause notes with deterministic repro.
+- `docs/superpowers/session-states/session-state-*.md` — progress snapshots for long multi-session work.
+- `docs/guidelines.md` — actionable recommendations for product teams; format convention in the file header (consult when editing guidelines).
+- `docs/capture-protocol.md` — how to capture tech-debt / roadmap / guideline / pitfall / agent-lesson findings.
+- `docs/workflow.md` — the iteration pipeline (phases 0–7), the Execution-Protocol convention, and spec/plan discipline.
+- `docs/writing-standard.md` — anti-fluff standard for all prose.
 
-**Format convention** для каждой рекомендации (subsection под бакетом):
+## Workflow
 
-```markdown
-### <Imperative claim — одна строка>
-**Status:** confirmed | tentative | needs-more-data
-**Evidence:** <path-to-result-or-dist-artifact>
-**Phase:** introduced 1.X / refined 1.Y
-**Caveats:** <когда не применять>
-```
-
-Бакеты верхнего уровня (`##`): `Build flags`, `Toolchain choice`, `Code patterns`. Добавляй новые бакеты только когда ни один claim не вписывается в существующие.
-
-**Когда добавлять claim:**
-- Confirmed reproducible measurement через ≥2 size'а или ≥2 workload'а (когда workload'ов станет >1).
-- Tentative — single-workload или single-size observation; помечать как `tentative`, чтобы reader не закладывался.
-- Single-run anecdote — НЕ claim. Не добавлять.
-
-**Не добавлять:**
-- Generic best practices без evidence из этого репо («prefer SoA over AoS») — для этого есть literature.
-- Claim'ы которые потенциально invalidate-ятся следующей phase'ой — лучше дождаться следующей phase и обновить с status `confirmed` или удалить.
+The iteration pipeline (phases 0–7), break thresholds, and spec/plan discipline (pre-flight gate, Wave-0/Wave-2 gates, ephemeral-path audit, mechanism-check) live in `docs/workflow.md`. Every plan written via `/writing-plans` MUST embed an "Execution Protocol" section (hybrid inline/subagent routing + static break-points + per-task break-check) — NEVER skip it.
 
 ## High-level architecture
 
-Workspace — pnpm + cargo. Три типа packages:
+Workspace = pnpm + cargo. Everything flows through `BenchResult`: each run of one (binary × entry × size × env) emits JSON that `BenchResultSchema.parse` validates; the reporter aggregates these. Reference checksums per (entry, size) are pinned in `benches/<workload>/spec.json` (v2: `entries: string[]` + `expectedChecksums`); a correctness failure halts the case immediately.
 
-- **`benches/<workload>/`** — benchmark sources. Один workload на каталог; обнаруживаются `scripts/build-all.ts` через `glob("benches/*/spec.json")`. На текущий момент: `matmul`, `interop_calls`, `hashmap_string`, `hashmap_int`, `shape_dispatch_{homo,mixed}_{static,dyn}` (4 binaries — 2×2 factorial dispatch × layout). Coverage по toolchain'ам **варьируется per workload** — определяется `spec.json.supported` (matmul / interop_calls = full 10 combos; hashmap_* = 5 combos: js-idiomatic + rust-bindgen × {speed,size} + cpp-emscripten × {speed,size}; shape_dispatch_* = 9 combos each — rust {raw,bindgen} + cpp {emscripten,wasi-sdk} × {speed,size} + js-idiomatic speed — кроме `shape_dispatch_homo_static` = 8 (no js: collapses к homo_dyn via monomorphic IC)):
-  - `js/{idiomatic,typed-array}` — TS implementations (ESM, bundled через esbuild).
-  - `rust/{raw,bindgen}` — cargo crates (matmul также имеет `shared` pure-Rust core). `raw` — no_std + manual exports, `bindgen` — wasm-bindgen. Каждый crate × {speed, size} profile.
-  - `cpp/` — общий `.cpp` + per-bench `build-{emscripten,wasi-sdk}.sh`. Emscripten выдаёт `glue.mjs`+`glue.wasm`, wasi-sdk freestanding — `module.wasm`. × {speed, size}.
-  - `validate/` — reference TS, computes ожидаемые checksums per (entry, size). Фикстуры под `fixtures/` (`.gitignore` на `*.bin`); interop_calls fixture-less (0 байт sentinel-файлы).
-  - Multi-entry binaries: `spec.json` v2 имеет `entries: string[]` + `expectedChecksums[entry][size]`. matmul = 1 entry; interop_calls = 3 (noop / add_i32 / add_f64); hashmap_string / hashmap_int = 3 each (insert / lookup / delete); shape_dispatch_* = 1 entry each (entry name = binary id; cross-binary checksum identical via order-independent quantization).
+- **`benches/<workload>/`** — one workload per dir, discovered by `scripts/build-all.ts` via `glob("benches/*/spec.json")`. Current: `matmul`, `interop_calls`, `hashmap_string`, `hashmap_int`, `shape_dispatch_{homo,mixed}_{static,dyn}`. Per-workload toolchain coverage varies — defined by `spec.json.supported`.
+  - `js/{idiomatic,typed-array}` — TS (ESM, bundled via esbuild).
+  - `rust/{raw,bindgen}` — cargo crates × {speed,size}. `raw` = no_std + manual exports; `bindgen` = wasm-bindgen.
+  - `cpp/` — shared `.cpp` + per-bench `build-{emscripten,wasi-sdk}.sh` × {speed,size}.
+  - `validate/` — reference TS computing expected checksums per (entry, size); fixtures under `fixtures/` (gitignored `*.bin`).
+- **`benches/common/`** — shared fixture generators (`fixtures.ts`): `mulberry32`, `genF64Array`, `genAsciiHexKeys`, `genIntPairs53`. Add a generator here when ≥2 workloads need it.
+- **`packages/`** — host libs: `result-schema` (zod `BenchResultSchema`, single source of truth — **any schema change goes through this file**), `harness` (measure loop + stats + validation), `loaders` (`plain-js` / `raw-wasm` / `rust-bindgen` / `emscripten`, each returning a unified `BenchModule`; per-entry reset via `bind-reset.ts`), `reporter` (aggregate JSON → static HTML).
+- **`apps/`** — `runner-node` (one case in Node) and `runner-web` (Vite + Worker + selenium-webdriver; dev server on port 5174; COOP+COEP for cross-origin isolation).
+- **`scripts/`** — tsx orchestrators; `lib/` has `matrix.ts`, `exec.ts`, `meta.ts`, `tool-paths.ts`, `tool-versions.ts`.
 
-- **`benches/common/`** — shared fixture-generation utilities (`fixtures.ts`): `mulberry32` PRNG + `genF64Array` (byte-preserving для matmul) + `genAsciiHexKeys` (hashmap_string) + `genIntPairs53` (hashmap_int). Lifted в Phase 1.1.2 rule-of-three refactor; добавляй новые generators сюда, когда ≥2 workloads нужно одно и то же.
+## Commands
 
-- **`packages/`** — host libraries (workspace внутренний):
-  - `result-schema` — zod `BenchResultSchema` (single source of truth для формата результата; **любое изменение схемы обязано пройти через этот файл**).
-  - `harness` — measure loop (warm samples + CV-stop), stats, correctness validation против reference checksum.
-  - `loaders` — четыре loader'а (`plain-js`, `raw-wasm`, `rust-bindgen`, `emscripten`), каждый возвращает унифицированную `BenchModule`. Per-entry reset резолвится через DRY helper `bind-reset.ts` (lookup order: `exports[<entry>_reset]` → `exports.reset` → undefined; emscripten loader reshapes keys из-за `_`-prefix C-style exports).
-  - `reporter` — aggregate JSON → static HTML.
-
-- **`apps/`** — CLI-драйверы:
-  - `runner-node` — один кейс в Node.
-  - `runner-web` — Vite (dev/preview) + Worker + selenium-webdriver. Vite дев-сервер слушает порт 5174; `run-matrix.ts` сам поднимает и сносит его при `--envs=chromium,firefox`. COOP+COEP headers включены (cross-origin isolation) → `performance.now()` precision ~5 µs Chromium, ~20 µs Firefox.
-
-- **`scripts/`** — orchestrators (tsx-исполняемые TS). `lib/` содержит общую infra: `matrix.ts` (combo enumeration), `exec.ts` (process spawning), `meta.ts` (write `meta.json` per artifact), `tool-paths.ts` + `tool-versions.ts` (резолв `.tools/`-installed binaries).
-
-Всё связано через `BenchResult` — каждый прогон одной (binary × entry × size × env) выдаёт JSON, который `BenchResultSchema.parse` валидирует. Reporter ест эти JSON'ы агрегатом. Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.json` (v2 schema: `entries: string[]` + `expectedChecksums: { entry: { S, M, L } }`); correctness failure останавливает кейс сразу.
-
-## Common commands
-
-### Build
-
-```bash
-pnpm build:all              # auto-discover benches/*/spec.json → dist/<id>/ (combos + fixtures + spec)
-pnpm build:js               # только JS bundles
-pnpm build:rust             # только Rust (требует wasm-pack + wasm-opt)
-pnpm build:cpp              # только C++ (требует emcc + wasi-sdk + wasm-opt)
-pnpm setup-tools            # одноразовая установка тулчейнов в .tools/ (macOS arm64 only)
-pnpm fixtures               # (re)generate per-bench fixtures в benches/*/fixtures/ (gitignored *.bin)
-pnpm clear                  # удалить dist/
-pnpm clear:all              # удалить dist/ + .tools/ + Rust target/
-```
-
-### Test, typecheck, lint
-
-```bash
-pnpm typecheck              # tsc -r --noEmit во всех workspace packages
-pnpm test                   # vitest run во всех packages (parallel)
-pnpm lint:ts                # ESLint .ts/.tsx/.mts
-pnpm lint:ts:fix            # autofix
-pnpm lint:rust              # cargo clippy с -D warnings (wasm32 + native shared)
-pnpm lint:all               # ts + rust
-```
-
-Один пакет / один файл:
-
-```bash
-pnpm --filter @bench/harness test                         # один package
-pnpm --filter @bench/harness exec vitest run path/to.test.ts -t "case name"   # один файл / one case
-pnpm --filter @bench/harness typecheck                    # один typecheck
-```
-
-### Benchmark runs
-
-```bash
-pnpm smoke                  # ~30s sanity, S × все combos × Node + matmul × chromium+firefox
-pnpm bench --envs=node,chromium,firefox --sizes=S,M --mode=quick --out=results/raw/<run>
-pnpm bench:all              # setup + build + bench (eval) + report — десятки минут
-pnpm report --in=results/raw/<run>     # → results/summarized/<ISO>/index.html
-```
-
-Один кейс в Node:
-
-```bash
-pnpm exec tsx apps/runner-node/src/main.ts \
-  --benchmark=matmul --entry=matmul --language=rust --toolchain=raw --profile=speed \
-  --size=S --out=results/raw/single --mode=quick
-```
-
-Один кейс в браузере (двух-терминальный flow): `pnpm --filter @bench-app/runner-web dev` + `pnpm --filter @bench-app/runner-web drive --browser=chromium ...`.
+Build, test, typecheck, lint, bench, and report commands live in `README.md` (§ Сборка, § Запуск бенчмарков, § Отчёт). The all-gates pre-flight is `pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke`.
 
 ## Conventions
 
-- **TS style** — 4-space indent, double quotes, semis, trailing comma multiline, `curly: all`. Enforced ESLint flat config (`eslint.config.js`). `verbatimModuleSyntax` + strict TS.
-- **Rust** — edition 2024, `warnings = "deny"`, `clippy::all = "deny"`, `pedantic`+`nursery` warn. `unsafe_code` warn (используется только в `raw` crate для wasm exports). См. `Cargo.toml` workspace lints.
-- **Не редактируй** auto-generated файлы: `**/glue.mjs`, `**/glue.js` (Emscripten output) — игнорируются ESLint.
-- **Tool versions** — все pin'ы (sha256+URL) в `tool-versions.json`. Изменение версии должно обновлять и `meta.json` writer и downstream documentation. `wasm-opt` зовётся с `--enable-bulk-memory --enable-nontrapping-float-to-int` — без этих флагов современный rustc/emcc output не парсится.
-- **Изменение `BenchResult` schema** — только через `packages/result-schema`. Старые JSON'ы в `results/raw/` могут перестать парситься; это ОК для phase boundary, но требует bump'а в `meta.schemaVersion` если phase живая.
+- **TS** — 4-space indent, double quotes, semicolons, trailing comma (multiline), `curly: all`; `verbatimModuleSyntax` + strict. Enforced by ESLint flat config (`eslint.config.js`).
+- **Rust** — edition 2024, `warnings = "deny"`, `clippy::all = "deny"`, pedantic + nursery warn, `unsafe_code` warn (only in the `raw` crate for wasm exports). See workspace `Cargo.toml` lints.
+- **Never edit** auto-generated files: `**/glue.mjs`, `**/glue.js` (Emscripten output; ESLint-ignored).
+- **Tool versions** — all pins (sha256 + URL) in `tool-versions.json`. `wasm-opt` MUST run with `--enable-bulk-memory --enable-nontrapping-float-to-int` (modern rustc/emcc output won't parse otherwise). A version change updates the `meta.json` writer + downstream docs.
+- **`BenchResult` schema** — change only via `packages/result-schema`. Old `results/raw/` JSON may stop parsing at a phase boundary (bump `meta.schemaVersion` if the phase is live).
 
-## Tooling environment
+## Capture
 
-- **Cargo workspace target.** Когда build scripts оркестрируют `cargo build` per crate
-  (e.g. `scripts/build-rust.ts`), артефакты надо читать из **workspace-root** `target/`,
-  не из `<crateDir>/target/`. Workspace cargo пишет только в root; per-crate `target/`
-  может содержать stale binaries от pre-workspace эры и копироваться silently.
-  Симптом «byte-preserving refactor компилируется, но не доезжает до dist» — этот
-  баг (см. `docs/pitfalls/2026-05-22-phase-1-1-1-w1.md` § 1).
-- **tsx + sandbox.** Pure `pnpm typecheck`/`test`/`lint:*` работают в sandbox. Любые
-  invocations через `tsx` subprocess (`pnpm smoke`, `pnpm build:*`, `pnpm fixtures`,
-  `pnpm exec tsx -e '...'`) — требуют `dangerouslyDisableSandbox: true`: tsx создаёт
-  Unix IPC socket в `/tmp/claude-501/tsx-501/*.pipe`, который sandbox блокирует.
-- **Pipe exit codes для gate commands.** При chain'ировании gates типа
-  `pnpm typecheck && pnpm lint:all && pnpm test 2>&1 | tail -10` — exit code pipeline'а
-  это exit code `tail` (rightmost), а не failed `pnpm` step. Реальный failure скрывается.
-  Используй `set -o pipefail` или захватывай `${PIPESTATUS[0]}` явно. Безопасный pattern:
-  `pnpm X 2>&1 | tee /tmp/out; rc=$?; [ "$rc" = 0 ] || exit $rc`. Симптом — «gates green»
-  reported когда реально что-то failed; см. `docs/pitfalls/2026-05-23-phase-1-1-2-execution.md`
-  § Process > "Subagent task-completion verification used `| tail`".
-- **`git stash` под sandbox restrictions.** На этой машине `git stash` интерактирует
-  непредсказуемо с `.claude/settings.local.json` (denyWithinAllow) — partial stash,
-  silent pop failures, working tree оставляется в inconsistent state. Предпочитай
-  `git diff <commit> -- <file>` или `git show <commit>:<file>` для inspection без
-  модификации working tree; либо копируй файлы в `$TMPDIR/` (sandbox-writable).
-- **Перед откатом «дивергенции» субагента — проверь, не load-bearing ли она.** Если
-  subagent оставил файл, отклоняющийся от peer-конвенции, не откатывай «ради
-  консистентности» вслепую: прогони gate, который дивергенция может удовлетворять
-  (lint/typecheck/test) на ОБОИХ версиях. Если «консистентная» версия валит gate, который
-  divergent проходил — дивергенция намеренная (e.g. strict `noUncheckedIndexedAccess`
-  coupled с необходимым `as`-cast при парсинге enum-tagged input), keep + документируй
-  почему. Симптом — revert «ради конвенции» ломает зелёный lint (см.
-  `docs/pitfalls/2026-06-02-phase-1-1-3-closed.md`).
+When you notice tech-debt, a roadmap-scale idea, a confirmed guideline, an agent-lesson, or a pitfall — stop once and emit one inline marker, then keep working. This is NOT a round-trip:
 
-## Spec & plan conventions
-
-**Pre-flight gate.** Перед тем как написать exit criteria в spec или plan — проверить
-что master зелёный по всем gates: `pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke`.
-`pnpm build:all` обязательно перед `pnpm smoke` — smoke зависит от `dist/` artefacts (rust-bindgen, cpp-emscripten, etc.);
-на fresh checkout или после `pnpm clear` без build smoke падает с ENOENT на `dist/*/meta.json`.
-Если не зелёный — это первая задача sub-phase или отдельный preamble commit. Без этой
-проверки exit criteria могут оказаться недостижимы из-за регрессий вне scope'а phase'ы.
-Пока CI нет — проверка manual; будет автоматизирована в Phase 1.2 (`ci-github-actions`).
-
-**Plan executor protocol.** Wave 0 ≡ baseline check на момент начала execution
-(тот же набор gates). Если падает — STOP, surface к user, не маскировать через
-out-of-scope lint:fix commit.
-
-**Wave 2 close — eval-mode validation gate.** Standard `pnpm smoke` (quick mode, size S
-только) недостаточно для closing Wave 2 импементационной волны: V8 turbofan / JIT
-tier-up boundaries triggered только в eval mode (warmup=10, samples=30-100). Phase 1.1.2
-Wave 2 close report'нул «smoke OK» при наличии bug, который surface'нулся только в
-Wave 3 bench:all (см. `docs/pitfalls/2026-05-23-phase-1-1-2-execution.md` § Planning
-> "Smoke at S only — eval-mode bugs survive Wave 2 close" + bug branch
-`feature/phase-1.1.2-bug`). **Перед declaring Wave 2 closed** прогони хотя бы 1
-representative case per workload в eval mode:
-
-```bash
-pnpm exec tsx apps/runner-node/src/main.ts \
-  --benchmark=<workload> --entry=<entry> --language=js \
-  --toolchain=idiomatic --profile=speed --size=S \
-  --out=/tmp/eval-check --mode=eval
+```
+› capture: <type> — <slug>: <one-line note>
 ```
 
-Все 3-9 cases должны exit 0 без correctness failures. Особенно для JS workloads с
-per-entry dispatch в hot loops — там turbofan deopt'ы наиболее вероятны.
+`<type>` ∈ `{tech-debt, roadmap, guideline-candidate, agent-lesson, pitfall}`. Markers are collected and triaged at `/finish-session`. Full protocol — types, trigger phrases, what-NOT-to-capture: `docs/capture-protocol.md`. Periodic backlog triage: `/backlog-review`.
 
-**Committed scripts/docs — ephemeral-path audit.** Перед commit'ом scripts или docs,
-которые `import`/`read` external paths: audit, что каждый referenced path сам по себе
-committed (tracked) ИЛИ self-generated в самом script'е. Gitignored paths (`dist/`,
-`target/`, `.tools/`, `benches/*/fixtures/*.bin`, `results/`) — red flags: на fresh checkout
-их нет, script ломается без шума. Quick check: `git check-ignore <path>` per
-referenced path. Симптом — ловушка для anyone running на fresh clone (см.
-`docs/pitfalls/2026-05-26-v8-deopt-investigation.md` § Ephemeral-path references).
+## Tooling gotchas
 
-**Same rule applies to spec/plan exit-criteria + gate steps:** если plan reference'ит
-`results/raw/<old-run>/` для sanity-diff или `git add results/...` для commit step —
-verify `git check-ignore` перед writing plan. `results/` gitignored per repo convention
-(paths cited в `docs/guidelines.md` как evidence references без committing JSON).
-Plan exit-criteria writers должны не assume'ить, что previous-session local artefacts
-будут carry forward на next-session machine.
-
-**Mitigation alternatives mechanism-check.** При написании spec § Open risks с 2-3
-mitigation alternatives per risk — **для каждого candidate explicitly articulate the
-mechanism by which it addresses the named risk**. Risk class (memory ordering, type
-analysis, lifetime erasure, IC state, etc.) varies; mitigation must address exactly the
-risk's mechanism, не superficially-relevant tool. Если cannot articulate mechanism в
-одном sentence — candidate suspect, verify or drop. Симптом — Phase 1.1.3 spec
-изначально listed `std::atomic_signal_fence(seq_cst)` as fallback против R1
-(devirtualization) — но fence — memory-ordering barrier, не type-escape; inadequate
-для type-analysis optimization removal. См. `docs/pitfalls/2026-05-28-phase-1-1-3-brainstorm.md`.
-
-## Tech-debt capture
-
-Когда во время работы замечаешь: process gap, latent bug, open review ticket,
-investigation без owner'а, ergonomics improvement opportunity, «should fix later» —
-**останови работу один раз и предложи зафиксировать**:
-
-> «Заметил <X> в <file:line> — выглядит как tech-debt (category: <Y>). Оформить в `docs/tech_debt/`?»
-
-Если user соглашается:
-1. Создать `docs/tech_debt/<kebab-slug>.md` (формат → `docs/tech_debt/README.md`).
-2. Использовать observation из контекста, не повторное расследование.
-3. Не блокировать основную задачу.
-
-Если user говорит «later» / «нет» — продолжай, **не повторяй предложение в этой сессии**.
-
-**Что НЕ предлагать к фиксации:**
-- Items уже в `docs/tech_debt/`, `docs/roadmap.md`, или `docs/superpowers/specs/`/`plans/`.
-- Принятые trade-offs в README «Известные ограничения».
-- Style nitpicks без impact.
-- Items feature-уровня (новые workloads, runtime axes, infra epics) — это другой capture
-  protocol, см. секцию «Roadmap capture» ниже.
-
-**Trigger phrases в собственных рассуждениях** — если эти слова возникают в твоём
-ответе, остановись и спроси: process gap, latent bug, should fix later, open review
-ticket, investigation needed, не блокирующее, TODO, follow-up, skipped for now,
-нужно разобраться позже.
-
-Periodic triage: skill `/tech-debt-review` (см. `.claude/skills/tech-debt-review/`).
-
-## Roadmap capture
-
-Когда во время работы замечаешь крупную future-work возможность (новый workload, runtime
-axis, browser support, инфраструктурный epic, фичу требующую spec'а) — **останови
-работу один раз и предложи добавить в `docs/roadmap.md`**:
-
-> «Заметил <X> — это feature-level work, кандидат в Phase X.Y (или TBD, если phase неясна). Добавить в `docs/roadmap.md`?»
-
-Если user соглашается:
-1. Добавить одну строку в подходящий bucket (или `## TBD`, если phase неясна):
-   `- **<kebab-name>** — <one-line описание> ([→ <source>](path))` если есть spec
-   section / tech-debt slug, иначе без ссылки.
-2. Использовать observation из контекста.
-3. **Не пытаться писать spec в этот момент** — это просто capture одной строкой.
-
-Если user говорит «later» / «нет» — не предлагай снова в этой сессии.
-
-**Граница tech-debt vs roadmap:**
-- Tech-debt → мелкое, fix < 1 дня, single file/function impact. Идёт в `docs/tech_debt/`.
-- Roadmap → новая фича / runtime axis / infra epic, требует brainstorm + spec.
-  Одна строка в `docs/roadmap.md`.
-
-**Что НЕ предлагать к roadmap capture:**
-- Items уже в `docs/roadmap.md`, `docs/superpowers/specs/`, или `plans/`.
-- Tech-debt scale items — используй tech-debt capture выше.
-- Accepted trade-offs в README «Известные ограничения».
-
-**Trigger phrases в собственных рассуждениях:** new workload, new axis, browser support,
-runtime profile, future phase, big feature, requires spec, after Phase X.Y, separate
-effort needed, отдельная фаза, требует дизайна.
-
-Periodic triage: skill `/backlog-review` (см. `.claude/skills/backlog-review/`).
+- **Cargo workspace target** — when build scripts orchestrate per-crate `cargo build`, read artifacts from the **workspace-root** `target/`, not `<crateDir>/target/` (stale pre-workspace binaries can copy silently). See `docs/pitfalls/2026-05-22-phase-1-1-1-w1.md`.
+- **tsx + sandbox** — `pnpm smoke` / `build:*` / `fixtures` / `tsx -e` open a Unix IPC pipe the sandbox blocks → run them with `dangerouslyDisableSandbox: true`. Pure `pnpm typecheck` / `test` / `lint:*` work in the sandbox.
+- **Pipe exit codes** — a pipeline's `$?` is the rightmost command's, hiding an earlier failure. Use `set -o pipefail` (bash + zsh), or read the producer's status: `${pipestatus[1]}` in zsh (the repo's shell), `${PIPESTATUS[0]}` in bash. Write logs to `$TMPDIR`, not `/tmp` (sandbox-blocked).
+- **`git stash`** — unreliable under sandbox here (partial stash, silent pop failures). Prefer `git diff <commit> -- <file>` / `git show <commit>:<file>`, or copy files to `$TMPDIR/`.
+- **Subagent-divergence check** — before reverting a subagent's divergence "for consistency," run the gate it might satisfy (lint/typecheck/test) on both versions; if the "consistent" version fails a gate the divergent one passed, keep + document why.
 
 ## Commits
 
-Используй `--no-gpg-sign` для агентских коммитов в этом репо (GPG bypass
-авторизован user'ом).
+Agent commits use `--no-gpg-sign` (authorized by the user).

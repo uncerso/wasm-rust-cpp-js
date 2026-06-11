@@ -8,7 +8,7 @@ Actionable рекомендации для продуктовых команд, 
 **Этот файл seedless** — наполнение начнётся когда у фазы появится первый
 confirmed вывод. До этого момента документ существует только как контракт формата.
 
-Source of truth для convention — этот файл + `CLAUDE.md` § «Guidelines artifact».
+Source of truth для convention — этот файл (формат ниже).
 Skill `/finish-session` напоминает обновлять файл при закрытии сессий, в которых
 появилось что-то confirmed.
 
