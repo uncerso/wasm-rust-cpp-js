@@ -252,19 +252,39 @@ git commit --no-gpg-sign -m "feat(hashmap_int): rust/raw std-HashMap cdylib (no 
 ```cpp
 // Trap-based shims: keep the wasi-sdk hashmap module free of WASI imports.
 //
-// wasi-libc's abort()/_Exit() call __wasi_proc_exit (a WASI import). The
-// raw-wasm loader instantiates with an empty import object {}, so ANY import
-// fails instantiation. Defining these here makes the linker resolve them from
-// this object file and never pull wasi-libc's versions → zero non-memory imports.
+// wasi-libc's abort()/_Exit() call __wasi_proc_exit; libc++abi's abort_message
+// and libc++'s std::__libcpp_verbose_abort (the __throw_* sink under
+// -fno-exceptions) fprintf(stderr,...), which drags in stdio (fd_write/fd_seek/
+// fd_close WASI imports). The raw-wasm loader instantiates with an empty import
+// object {}, so ANY import fails instantiation. Strong overrides here keep the
+// linker from pulling the wasi-libc / fprintf-based versions → zero non-memory
+// imports (and ~half the binary size: 34.5KB → 17.3KB).
+//
+// No explicit [[noreturn]] on abort/_Exit: <cstdlib> already declares them
+// non-returning and __builtin_trap() is itself noreturn — adding the C++
+// attribute on this (non-first) declaration trips -Werror.
 #include <cstdlib>
 
-extern "C" [[noreturn]] void abort() {
+extern "C" void abort() {
     __builtin_trap();
 }
 
-extern "C" [[noreturn]] void _Exit(int /*status*/) {
+extern "C" void _Exit(int /*status*/) {
     __builtin_trap();
 }
+
+extern "C" void abort_message(const char* /*fmt*/, ...) {
+    __builtin_trap();
+}
+
+// Matches the std::__2 mangled symbol _ZNSt3__222__libcpp_verbose_abortEPKcz.
+namespace std {
+inline namespace __2 {
+[[noreturn]] void __libcpp_verbose_abort(const char* /*fmt*/, ...) {
+    __builtin_trap();
+}
+} // namespace __2
+} // namespace std
 ```
 
 - [ ] **Step 2: Write the build script** (model: `benches/shape_dispatch_homo_dyn/cpp/build-wasi-sdk.sh`, extended with libc++ + heap + shims; `--allow-undefined` deliberately dropped so any missing symbol is a hard link error, not a silent import)
@@ -317,18 +337,16 @@ WASI_BUILTINS="$WASI_SDK_PATH/lib/clang/19/lib/wasi/libclang_rt.builtins-wasm32.
   -mbulk-memory \
   "$HERE/src/hashmap_int.cpp" \
   "$HERE/src/wasi-shims.cpp" \
-  -Wl,--start-group \
   "$SYSROOT_LIB/libc++.a" \
   "$SYSROOT_LIB/libc++abi.a" \
   "$SYSROOT_LIB/libc.a" \
   "$WASI_BUILTINS" \
-  -Wl,--end-group \
   -Wl,--no-entry \
   -Wl,--export=alloc -Wl,--export=load_input \
   -Wl,--export=hashmap_int_insert -Wl,--export=hashmap_int_insert_reset \
   -Wl,--export=hashmap_int_lookup -Wl,--export=hashmap_int_lookup_reset \
   -Wl,--export=hashmap_int_delete -Wl,--export=hashmap_int_delete_reset \
-  -Wl,--export=memory \
+  -Wl,--export-memory \
   -Wl,--strip-all \
   -o "$OUT_DIR/module.wasm"
 
@@ -605,19 +623,39 @@ git commit --no-gpg-sign -m "feat(hashmap_string): rust/raw std-HashMap cdylib (
 ```cpp
 // Trap-based shims: keep the wasi-sdk hashmap module free of WASI imports.
 //
-// wasi-libc's abort()/_Exit() call __wasi_proc_exit (a WASI import). The
-// raw-wasm loader instantiates with an empty import object {}, so ANY import
-// fails instantiation. Defining these here makes the linker resolve them from
-// this object file and never pull wasi-libc's versions → zero non-memory imports.
+// wasi-libc's abort()/_Exit() call __wasi_proc_exit; libc++abi's abort_message
+// and libc++'s std::__libcpp_verbose_abort (the __throw_* sink under
+// -fno-exceptions) fprintf(stderr,...), which drags in stdio (fd_write/fd_seek/
+// fd_close WASI imports). The raw-wasm loader instantiates with an empty import
+// object {}, so ANY import fails instantiation. Strong overrides here keep the
+// linker from pulling the wasi-libc / fprintf-based versions → zero non-memory
+// imports (and ~half the binary size: 34.5KB → 17.3KB).
+//
+// No explicit [[noreturn]] on abort/_Exit: <cstdlib> already declares them
+// non-returning and __builtin_trap() is itself noreturn — adding the C++
+// attribute on this (non-first) declaration trips -Werror.
 #include <cstdlib>
 
-extern "C" [[noreturn]] void abort() {
+extern "C" void abort() {
     __builtin_trap();
 }
 
-extern "C" [[noreturn]] void _Exit(int /*status*/) {
+extern "C" void _Exit(int /*status*/) {
     __builtin_trap();
 }
+
+extern "C" void abort_message(const char* /*fmt*/, ...) {
+    __builtin_trap();
+}
+
+// Matches the std::__2 mangled symbol _ZNSt3__222__libcpp_verbose_abortEPKcz.
+namespace std {
+inline namespace __2 {
+[[noreturn]] void __libcpp_verbose_abort(const char* /*fmt*/, ...) {
+    __builtin_trap();
+}
+} // namespace __2
+} // namespace std
 ```
 
 - [ ] **Step 2: Build script** — same as int's, with `hashmap_string.cpp` source + `hashmap_string_*` exports:
@@ -667,18 +705,16 @@ WASI_BUILTINS="$WASI_SDK_PATH/lib/clang/19/lib/wasi/libclang_rt.builtins-wasm32.
   -mbulk-memory \
   "$HERE/src/hashmap_string.cpp" \
   "$HERE/src/wasi-shims.cpp" \
-  -Wl,--start-group \
   "$SYSROOT_LIB/libc++.a" \
   "$SYSROOT_LIB/libc++abi.a" \
   "$SYSROOT_LIB/libc.a" \
   "$WASI_BUILTINS" \
-  -Wl,--end-group \
   -Wl,--no-entry \
   -Wl,--export=alloc -Wl,--export=load_input \
   -Wl,--export=hashmap_string_insert -Wl,--export=hashmap_string_insert_reset \
   -Wl,--export=hashmap_string_lookup -Wl,--export=hashmap_string_lookup_reset \
   -Wl,--export=hashmap_string_delete -Wl,--export=hashmap_string_delete_reset \
-  -Wl,--export=memory \
+  -Wl,--export-memory \
   -Wl,--strip-all \
   -o "$OUT_DIR/module.wasm"
 
