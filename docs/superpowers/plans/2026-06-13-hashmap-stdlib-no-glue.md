@@ -105,6 +105,20 @@ static STATE: LazyLock<SyncCell<State>> =
 
 const PAIR_BYTES: usize = 16;
 
+// Private helper: keeps the panic (`.unwrap()`) out of the public FFI surface
+// so clippy::missing_panics_doc does not fire (mirrors rust/bindgen structure).
+fn parse_pairs(buf: &[u8]) -> Vec<(u64, u64)> {
+    let n = buf.len() / PAIR_BYTES;
+    let mut pairs = Vec::with_capacity(n);
+    for i in 0..n {
+        let base = i * PAIR_BYTES;
+        let key = u64::from_le_bytes(buf[base..base + 8].try_into().unwrap());
+        let value = u64::from_le_bytes(buf[base + 8..base + 16].try_into().unwrap());
+        pairs.push((key, value));
+    }
+    pairs
+}
+
 #[unsafe(no_mangle)]
 #[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
 pub extern "C" fn alloc(sz: u32) -> u32 {
@@ -118,15 +132,8 @@ pub extern "C" fn alloc(sz: u32) -> u32 {
 pub extern "C" fn load_input(ptr: u32, len: u32) {
     // SAFETY: host wrote `len` bytes starting at `ptr` (returned by a prior alloc) before this call.
     let buf = unsafe { core::slice::from_raw_parts(ptr as *const u8, len as usize) };
-    let n = buf.len() / PAIR_BYTES;
-    let mut pairs = Vec::with_capacity(n);
-    for i in 0..n {
-        let base = i * PAIR_BYTES;
-        let key = u64::from_le_bytes(buf[base..base + 8].try_into().unwrap());
-        let value = u64::from_le_bytes(buf[base + 8..base + 16].try_into().unwrap());
-        pairs.push((key, value));
-    }
-    let mut map = HashMap::with_capacity(n);
+    let pairs = parse_pairs(buf);
+    let mut map = HashMap::with_capacity(pairs.len());
     for (k, v) in &pairs {
         map.insert(*k, *v);
     }
@@ -463,6 +470,22 @@ static STATE: LazyLock<SyncCell<State>> =
 
 const PAIR_BYTES: usize = 24;
 
+// Private helper: keeps the panic out of the public FFI surface so
+// clippy::missing_panics_doc does not fire (mirrors rust/bindgen structure).
+fn parse_pairs(buf: &[u8]) -> Vec<(String, u64)> {
+    let n = buf.len() / PAIR_BYTES;
+    let mut pairs = Vec::with_capacity(n);
+    for i in 0..n {
+        let base = i * PAIR_BYTES;
+        let key = std::str::from_utf8(&buf[base..base + 16])
+            .expect("hashmap_string fixture must be ASCII")
+            .to_string();
+        let value = u64::from_le_bytes(buf[base + 16..base + 24].try_into().unwrap());
+        pairs.push((key, value));
+    }
+    pairs
+}
+
 #[unsafe(no_mangle)]
 #[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
 pub extern "C" fn alloc(sz: u32) -> u32 {
@@ -476,17 +499,8 @@ pub extern "C" fn alloc(sz: u32) -> u32 {
 pub extern "C" fn load_input(ptr: u32, len: u32) {
     // SAFETY: host wrote `len` bytes starting at `ptr` (returned by a prior alloc) before this call.
     let buf = unsafe { core::slice::from_raw_parts(ptr as *const u8, len as usize) };
-    let n = buf.len() / PAIR_BYTES;
-    let mut pairs = Vec::with_capacity(n);
-    for i in 0..n {
-        let base = i * PAIR_BYTES;
-        let key = std::str::from_utf8(&buf[base..base + 16])
-            .expect("hashmap_string fixture must be ASCII")
-            .to_string();
-        let value = u64::from_le_bytes(buf[base + 16..base + 24].try_into().unwrap());
-        pairs.push((key, value));
-    }
-    let mut map = HashMap::with_capacity(n);
+    let pairs = parse_pairs(buf);
+    let mut map = HashMap::with_capacity(pairs.len());
     for (k, v) in &pairs {
         map.insert(k.clone(), *v);
     }
