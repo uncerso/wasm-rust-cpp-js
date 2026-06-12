@@ -1,10 +1,10 @@
 ---
 id: claude-md-tsx-sandbox-gotcha
-title: tsx sandbox — allowUnixSockets can't grant socket bind (#41817); allowAllUnixSockets pending fresh-session verify
+title: tsx sandbox — no sandbox knob grants the socket bind (#41817); wontfix, bypass remains
 created: 2026-06-11
-source: e196a07 config(sandbox); root-caused 2026-06-12 (spec 2026-06-12-workflow-trigger-landing § H3)
+source: e196a07 config(sandbox); root-caused 2026-06-12 (spec 2026-06-12-workflow-trigger-landing § H3); fresh-session verify 2026-06-13
 category: known-limitation
-status: open
+status: wontfix
 priority: low
 ---
 
@@ -18,16 +18,13 @@ tsx's `createIpcServer` binds a Unix-domain socket at `/tmp/claude-<uid>/tsx-<ui
 
 ## Why it matters
 
-While unverified, tsx-spawning commands (`pnpm smoke` / `build:*` / `fixtures` / `tsx -e`) still need `dangerouslyDisableSandbox: true` — each bypass is a permission prompt plus a loss of sandbox protection. The CLAUDE.md gotcha now states this true state.
+tsx-spawning commands (`pnpm smoke` / `build:*` / `fixtures` / `tsx -e`) need `dangerouslyDisableSandbox: true` — each bypass is a permission prompt plus a loss of sandbox protection. Confirmed unavoidable (see § Decision). The CLAUDE.md gotcha states this true state.
 
-## Possible fix
+## Decision
 
-**Blocked on fresh-session verification** (the sandbox profile loads at session start, so a mid-session settings edit doesn't apply). In a new session run `pnpm exec tsx -e "console.log(1)"` with NO bypass:
-
-1. **PASS** → `allowAllUnixSockets` works; rewrite the CLAUDE.md "tsx + sandbox" line to drop the bypass advice, then **resolve** this item (delete the file).
-2. **FAIL** → it's the [#16076](https://github.com/anthropics/claude-code/issues/16076) "settings ignored" behaviour; keep the bypass and switch this item to `wontfix` with that rationale.
+**wontfix (2026-06-13).** Fresh-session verify run with `allowAllUnixSockets: true` live in `.claude/settings.local.json` and NO bypass: `pnpm exec tsx -e "console.log('tsx-ok')"` still fails `listen EPERM ... /tmp/claude-501/tsx-501/<pid>.pipe`. Disambiguation in the same session: a regular-file write into that exact dir **succeeds**, so it is specifically the unix-socket bind that `allowAllUnixSockets: true` does not lift (whether the setting is silently ignored — [#16076](https://github.com/anthropics/claude-code/issues/16076) — or genuinely doesn't cover bind, the empirical outcome is identical). No sandbox knob makes tsx run in-sandbox; the `dangerouslyDisableSandbox: true` bypass remains the working path. The CLAUDE.md gotcha now states this confirmed reality. Item stays in backlog per the wontfix convention (not duplicated in roadmap.md); reopen if a future Claude Code release implements unix-socket bind allow.
 
 ## References
 
 - Spec: `docs/superpowers/specs/2026-06-12-workflow-trigger-landing-design.md` § Hole-audit (H3, H7).
-- Deferred verify: next-session open-loop (run `/iterate` → Phase 0 surfaces it).
+- Verify: fresh-session run 2026-06-13 (this open-loop, surfaced by `/iterate` Phase 0).
