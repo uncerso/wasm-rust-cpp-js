@@ -112,6 +112,7 @@ For each target cross-check against this session's changes:
 - File paths mentioned that were moved / renamed / deleted.
 - Commands whose shape changed (flags, scripts, package names).
 - Conventions this session altered; architectural notes new code contradicts.
+- **Landing audit** — for any decision made or changed this session, confirm it landed on a firing surface (global/project CLAUDE.md, a skill, or a hook). A decision living only in an on-demand doc or in memory will not reliably fire — flag it (`docs/workflow.md` § Spec & plan discipline → Landing audit).
 - README only: commands that no longer work, resolved/accepted limitations,
   broken links.
 - Memory only: entries pointing at renamed/deleted files or invalidated claims.
@@ -202,6 +203,8 @@ unchanged). **Lean shape — these sections only:**
 - **Resume** — the exact commands to pick up.
 - **Stop point.**
 
+**Open-loops MUST close or be explicitly re-deferred.** Before recommending close, every open-loop is either resolved this session or recorded in *Deferred / open-loops* with a reason. A deferred verification (e.g. a sandbox check that can't run in this session) MUST NOT be silently treated as done — that is how the tsx fix shipped broken (forensics: `docs/superpowers/specs/2026-06-12-workflow-trigger-landing-design.md` § Hole-audit H7).
+
 **Drop:** a detailed Done list (git log has it), result numbers (the reporter has
 them), brainstorm dialogue (the spec has it), and drift/pitfall/memory recaps.
 When citing a regression, name the commit as `<short-sha>: <subject>`, never a
@@ -256,4 +259,6 @@ Before the step 6 summary, confirm:
 - □ Only project-scope targets audited (no user-level config)?
 - □ No phase-status updates proposed for CLAUDE.md / README.md?
 - □ Each accepted pitfall routed through exactly one taxonomy branch?
+- □ Decisions this session each landed on a firing surface (or flagged otherwise)?
+- □ Every open-loop closed or explicitly re-deferred with a reason (no silent "done")?
 - □ Pitfall / session-state files written only if the user accepted them?
