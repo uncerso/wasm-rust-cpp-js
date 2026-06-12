@@ -13,7 +13,7 @@ executor читает перед большим объёмом работы чт
   породить tech-debt entry («починить X»), но сам pitfall — это lesson, не задача.
   Bulk-deferred pitfall'ы автоматически roll в
   `docs/tech_debt/incorporate-pitfalls-YYYY-MM-DD.md` — handle через который
-  `/tech-debt-review` подхватывает items.
+  `/backlog-review` подхватывает items.
 - `docs/guidelines.md` — confirmed product-engineer advice. Pitfall становится guideline'ом
   когда наблюдение reproducible across ≥2 контекстов.
 - `docs/superpowers/notes/` — investigation results, measurements (например,
@@ -46,7 +46,7 @@ Pitfall-файл — immutable historical record после создания. Н
 per-pitfall {inline-apply сейчас / bulk в tech-debt}. Inline → AI делает Edit
 в target file (обычно CLAUDE.md, spec template, guidelines.md). Bulk → items
 накапливаются в `docs/tech_debt/incorporate-pitfalls-YYYY-MM-DD.md`, который
-попадает в стандартный `/tech-debt-review` cadence.
+попадает в стандартный `/backlog-review` cadence.
 
 Pitfall-файл остаётся как evidence trail даже после full incorporation —
 служит свидетельством pattern'а.
