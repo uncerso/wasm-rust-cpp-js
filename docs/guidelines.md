@@ -71,7 +71,7 @@ Skill `/finish-session` напоминает обновлять файл при 
 
 **Phase:** introduced 1.1.2 (Node only) / refined 1.1.2.1 (V8 cross-runtime confirmation, +chromium)
 
-**Caveats:** Only lookup hot loop measured (insert/delete показывают similar profile). На Firefox (SpiderMonkey) pattern инвертируется — см. отдельный claim ниже. Fixture keys uniform random (no adversarial collision profile). Insert at size L for hashmap_int has ~0.6% collision rate due to 53-bit key space — affects checksum semantics, не runtime profile.
+**Caveats:** Only lookup hot loop measured (insert/delete показывают similar profile). На Firefox (SpiderMonkey) pattern инвертируется — см. отдельный claim ниже. Fixture keys uniform random (no adversarial collision profile). Insert at size L for hashmap_int has 4 duplicate keys (0.004%, checksum 99996<100000) из-за 53-bit key space — affects checksum semantics (dup-key value policy, теперь last-wins; fixed Phase 1.2 `8cf09e3`), не runtime profile.
 
 Mechanism (Rust on u64): std HashMap uses RandomState (SipHash) + Robin-Hood open addressing. u64 key path: hash via SipHash → probe via integer compare → branch-free hit path. Bindgen marshalling для primitive return f64 is zero-overhead (direct return).
 
@@ -148,6 +148,14 @@ export default function create(entry: string): BenchModule {
 **Caveats:** Bug строго **V8 12.4-only** (Node 22.x). Verified clean на Node 20.19.5 (V8 11.3) и Node 24.14.1 (V8 13.6) — то есть исправлено upstream между V8 minor releases. Workaround сохраняем permanent: Node 22 — current LTS до 2027-04, и pattern-class общий (любой closure-const switch с default-branch template-literal в hot loop потенциально fragile через JIT codegen bugs аналогичного класса). Repro требует ОБА триггера: (1) tsx CLI invocation (`pnpm exec tsx` ⇔ `node --require preflight.cjs --import loader.mjs`) — bare `node script.mjs` без preflight НЕ воспроизводит; (2) full harness "competing work" volume — изолированный minimal repro под тем же tsx invocation тоже НЕ воспроизводит. Preflight.cjs + Zod parses + multi-module import graph совместно сдвигают turbofan tier-up timing в момент пустого feedback slot [67]. См. bug-report § Heisenbug attribution.
 
 Mechanism (confirmed, V8 12.4 deopt-eager codegen bug): turbofan компилирует `run` ("hot and stable"). Default branch содержит template literal `` `...${entry}` `` — его string-concat `Add` instruction (bytecode offset 427) имеет пустой feedback slot [67], т.к. default never executed. Turbofan ставит deopt-eager guard, но deopt continuation point miscomputed — interpreter резюмит выполнение с bytecode offset 427 (`Add r10 [67]` → `Construct Error` → `Throw`) вместо корректного location в lookup-ветке. Trace: `[bailout deopt-eager, reason: Insufficient type feedback for binary operation, bytecode offset 427]`. Bug class — недостаточная feedback в never-executed branch заставляет turbofan deopt'ить, но resume-point вычислен неправильно.
+
+### При портировании hashmap/словаря между языками явно фиксируй duplicate-key policy — last-wins (`operator[]=`/`Map.set`/`HashMap::insert`), не first-wins (`emplace`/`entry().or_insert()`)
+**Status:** confirmed
+**Evidence:** Phase 1.2, `docs/superpowers/bug-reports/2026-06-13-hashmap-int-emplace-dupkey.md`; fix `benches/hashmap_int/cpp/src/hashmap_int.cpp` (commit `8cf09e3`); reference `benches/hashmap_int/validate/reference.ts`. C++ `unordered_map::emplace` тихо расходился с JS `Map.set` / Rust `HashMap::insert` на 4 дубль-ключах L-fixture → lookup checksum `213953188581571` вместо `213944096178963`.
+**Phase:** introduced 1.2
+**Caveats:** Проявляется только когда ключ повторяется во входе — на uniform/малых fixtures дубликатов может не быть (hashmap_int: дубли только на L, N=100k; S/M чисты). first-wins контейнеры: C++ `emplace`/`insert`, Rust `entry().or_insert()`. last-wins: C++ `operator[]=`/`insert_or_assign`, Rust `HashMap::insert`, JS `Map.set`. Расхождение тихое (нет ошибки) — результат отличается лишь на дубль-ключах, потому всплывает только на больших N.
+
+Mechanism: `std::unordered_map::emplace` по стандарту НЕ перезаписывает существующий ключ (no-op, если ключ уже есть) — остаётся первое вставленное значение. Reference-контейнеры (last-wins) перезаписывают. Отсюда тихое расхождение значений строго на повторяющихся ключах; на L каждый дубль-ключ читается дважды при lookup, но удаляется один раз при delete (lookup-diff = 2× delete-diff).
 
 ### Не используй `thread_local!` для глобального состояния в wasm32 cdylib — бери `static SyncCell<T>` с vacuous `Sync` impl
 **Status:** tentative

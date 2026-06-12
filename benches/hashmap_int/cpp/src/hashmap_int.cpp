@@ -30,8 +30,10 @@ void parse_pairs(const uint8_t* buf, size_t len) {
     }
     g_state.map.clear();
     g_state.map.reserve(n);
+    // operator[]=, not emplace: on duplicate keys the LAST value must win, to match
+    // the reference (JS Map.set / Rust HashMap::insert). emplace keeps the first value.
     for (const auto& [k, v] : g_state.pairs) {
-        g_state.map.emplace(k, v);
+        g_state.map[k] = v;
     }
 }
 
@@ -86,7 +88,8 @@ extern "C" double hashmap_int_delete(uint32_t iters) {
 extern "C" void hashmap_int_delete_reset() {
     g_state.map.clear();
     g_state.map.reserve(g_state.pairs.size());
+    // operator[]=, not emplace: last-value-wins on duplicate keys (see parse_pairs).
     for (const auto& [k, v] : g_state.pairs) {
-        g_state.map.emplace(k, v);
+        g_state.map[k] = v;
     }
 }
