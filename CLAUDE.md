@@ -30,7 +30,7 @@ Every phase produces numbers AND, when a finding is confirmed, updates `docs/gui
 
 ## Workflow
 
-The iteration pipeline (phases 0–7), break thresholds, and spec/plan discipline (pre-flight gate, Wave-0/Wave-2 gates, ephemeral-path audit, mechanism-check) live in `docs/workflow.md`. Every plan written via `/writing-plans` MUST embed an "Execution Protocol" section (hybrid inline/subagent routing + static break-points + per-task break-check) — NEVER skip it.
+**To start or continue an iteration/phase, invoke the `/iterate` skill** — it Orients from the newest session-state + in-flight plan and routes between resuming and starting fresh. The pipeline (phases 0–7), break thresholds, and spec/plan discipline (pre-flight gate, Wave-0/Wave-2 gates, ephemeral-path audit, mechanism-check, landing audit) live in `docs/workflow.md`. Every plan written via `/writing-plans` MUST embed an "Execution Protocol" section (hybrid inline/subagent routing + static break-points + per-task break-check) — NEVER skip it.
 
 ## High-level architecture
 
@@ -58,6 +58,12 @@ Build, test, typecheck, lint, bench, and report commands live in `README.md` (§
 - **Tool versions** — all pins (sha256 + URL) in `tool-versions.json`. `wasm-opt` MUST run with `--enable-bulk-memory --enable-nontrapping-float-to-int` (modern rustc/emcc output won't parse otherwise). A version change updates the `meta.json` writer + downstream docs.
 - **`BenchResult` schema** — change only via `packages/result-schema`. Old `results/raw/` JSON may stop parsing at a phase boundary (bump `meta.schemaVersion` if the phase is live).
 
+## Cost discipline
+
+- **Retry budget** — ≤2 attempts at the same approach; then STOP and rethink, don't keep hammering.
+- **Subagent fan-out is not free** — dispatch a subagent only for heavy/large work, NOT "subagent everything".
+- **Read before edit / grep callers** — keep edit:read close to ~4:1; understand before changing.
+
 ## Capture
 
 When you notice tech-debt, a roadmap-scale idea, a confirmed guideline, an agent-lesson, or a pitfall — stop once and emit one inline marker, then keep working. This is NOT a round-trip:
@@ -71,7 +77,7 @@ When you notice tech-debt, a roadmap-scale idea, a confirmed guideline, an agent
 ## Tooling gotchas
 
 - **Cargo workspace target** — when build scripts orchestrate per-crate `cargo build`, read artifacts from the **workspace-root** `target/`, not `<crateDir>/target/` (stale pre-workspace binaries can copy silently). See `docs/pitfalls/2026-05-22-phase-1-1-1-w1.md`.
-- **tsx + sandbox** — `pnpm smoke` / `build:*` / `fixtures` / `tsx -e` open a Unix IPC pipe the sandbox blocks → run them with `dangerouslyDisableSandbox: true`. Pure `pnpm typecheck` / `test` / `lint:*` work in the sandbox.
+- **tsx + sandbox** — `pnpm smoke` / `build:*` / `fixtures` / `tsx -e` bind a Unix IPC pipe; the sandbox blocks the bind, and `allowUnixSockets` can't grant it (connect-only; upstream [#41817](https://github.com/anthropics/claude-code/issues/41817)). `allowAllUnixSockets: true` is set in gitignored `settings.local.json` but **unverified in-session** (sandbox profile is fixed at session start) → until a fresh session confirms it works, run these with `dangerouslyDisableSandbox: true`. Pure `pnpm typecheck` / `test` / `lint:*` work in the sandbox.
 - **Pipe exit codes** — a pipeline's `$?` is the rightmost command's, hiding an earlier failure. Use `set -o pipefail` (bash + zsh), or read the producer's status: `${pipestatus[1]}` in zsh (the repo's shell), `${PIPESTATUS[0]}` in bash. Write logs to `$TMPDIR`, not `/tmp` (sandbox-blocked).
 - **`git stash`** — unreliable under sandbox here (partial stash, silent pop failures). Prefer `git diff <commit> -- <file>` / `git show <commit>:<file>`, or copy files to `$TMPDIR/`.
 - **Subagent-divergence check** — before reverting a subagent's divergence "for consistency," run the gate it might satisfy (lint/typecheck/test) on both versions; if the "consistent" version fails a gate the divergent one passed, keep + document why.
