@@ -40,6 +40,9 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 ### Bug fixes
 - **hashmap-int-emscripten-L-correctness** — hashmap_int cpp-emscripten lookup+delete produce wrong checksum at L size (pre-existing since 1.1.2.1, deterministic, emscripten-only) ([→ tech_debt/hashmap-int-emscripten-L-correctness](tech_debt/hashmap-int-emscripten-L-correctness.md))
 
+### Agent workflow
+- **sessionstart-hook-insurance** — deterministic SessionStart hook that bootstraps `/iterate`; add only if `/iterate`-invocation drift recurs (deferred 2026-06-12, [→ spec § D2](superpowers/specs/2026-06-12-workflow-trigger-landing-design.md))
+
 ## Phase 2+
 
 > Definitely-later. Включает explicit Phase 2+ items из specs.
