@@ -59,7 +59,8 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 > Freshly captured items без assigned phase. Capture extension добавляет сюда, если phase
 > не уверен. `/backlog-review` периодически перетасовывает в Phase X.Y или Won't do.
 
-<!-- empty -->
+- **benchmark-cv-stabilization** — почти все ячейки отчётов жёлтые (coefficient of variation выше порога): разобраться в источниках дисперсии и стабилизировать измерения; одна известная под-причина — нет CPU-throttling lock на macOS ([→ tech_debt/cpu-throttling-lock-macos](tech_debt/cpu-throttling-lock-macos.md)).
+- **rust-vs-cpp-wasm-size** — rust wasm-модули стабильно крупнее cpp на одинаковых workload'ах: понять причину (std / allocator / panic machinery?) и, если подтвердится, вытащить guideline в `docs/guidelines.md`; смежная узкая гипотеза — `rust-raw-drop-staging-buffer` (Phase 1.2).
 
 ## Won't do
 
