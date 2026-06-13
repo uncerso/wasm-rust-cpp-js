@@ -48,7 +48,7 @@
 ## Инструментарий
 
 - **`wasm-tools`** (уже установлен, `/opt/homebrew/bin`) — `objdump` (section-байты), `print` (data-контент). Работает на production-артефактах.
-- **`twiggy`** — symbol-level атрибуция code-секции. **Global analysis-only**: `cargo install twiggy` → бинарь в `~/.cargo/bin`, **ноль следов в репо** (не трогает workspace `Cargo.toml`/`Cargo.lock` ни `tool-versions.json`). Для запуска бенчмарков вне этой итерации не нужен. Бежит на name-bearing analysis-build. Версия фиксируется в этой спеке при установке (W0).
+- **`twiggy`** — symbol-level атрибуция code-секции. **Global analysis-only**: `cargo install twiggy` → бинарь в `~/.cargo/bin`, **ноль следов в репо** (не трогает workspace `Cargo.toml`/`Cargo.lock` ни `tool-versions.json`). Для запуска бенчмарков вне этой итерации не нужен. Бежит на name-bearing analysis-build. Версия: `twiggy 0.8.0` (установлена W0, 2026-06-13).
 - **`.tools/wasi-sdk-*/bin/llvm-objdump`** — fallback для дизассемблирования (если twiggy/имена недоступны на cpp-стороне).
 
 ## Метод — атрибуция (W1)
