@@ -613,8 +613,37 @@ git commit --no-gpg-sign -m "feat(hashmap_string): rust/raw std-HashMap cdylib (
 ### Task 5: hashmap_string cpp/wasi-sdk build + shims `[I]`
 
 **Files:**
+- Modify: `benches/hashmap_string/cpp/src/hashmap_string.cpp` (construct-on-first-use)
 - Create: `benches/hashmap_string/cpp/src/wasi-shims.cpp`
 - Create: `benches/hashmap_string/cpp/build-wasi-sdk.sh`
+
+- [ ] **Step 0: construct-on-first-use in `hashmap_string.cpp`** (W0 finding — the raw-wasm loader never runs `__wasm_call_ctors`, so a plain `static State g_state;` is left unconstructed and traps/corrupts at scale under wasi-sdk). Mirror the int fix exactly:
+  1. Add `#include <new>` to the includes (after `<cstring>`).
+  2. Replace `State g_state;` with the placement-new accessor:
+
+```cpp
+// Construct-on-first-use (mirrors the rust/raw + rust/bindgen LazyLock model).
+// The wasi-sdk no-glue build is instantiated by the raw-wasm loader without a
+// runtime that runs __wasm_call_ctors, so a plain `static State g_state;` would
+// be left unconstructed and trap/corrupt on use. Placement-new into static
+// storage on first access, guarded by a plain BSS bool — the same pattern the
+// shape_dispatch wasi-sdk workloads use. Avoids both global ctors and
+// __cxa_guard. emscripten behaves identically (lazy vs eager; same checksums).
+alignas(State) unsigned char g_storage[sizeof(State)];
+bool g_inited = false;
+
+State& state() {
+    if (!g_inited) {
+        new (g_storage) State();
+        g_inited = true;
+    }
+    return *reinterpret_cast<State*>(g_storage);
+}
+```
+
+  3. Replace every `g_state.` with `state().` (replace-all).
+
+  NOTE: a `__cxa_guard`-backed Meyers singleton (`static State instance;`) was tried for int and produced GARBAGE under `-nostdlib` — use placement-new + BSS bool, not a function-local static.
 
 - [ ] **Step 1: Trap-shim TU** — identical content to the int one (file isolated per workload):
 
