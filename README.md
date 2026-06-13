@@ -154,9 +154,9 @@ pnpm build:all
 ### Только одна цепочка
 
 ```bash
-pnpm build:js     # только JS
-pnpm build:rust   # только Rust (требует rustc + wasm-pack + wasm-opt)
-pnpm build:cpp    # только C++ (требует emcc + wasi-sdk + wasm-opt)
+pnpm build:js   <bench-id>…   # только JS-цепочка для указанных workload'ов
+pnpm build:rust <bench-id>…   # только Rust (требует rustc + wasm-pack + wasm-opt)
+pnpm build:cpp  <bench-id>…   # только C++ (требует emcc + wasi-sdk + wasm-opt)
 ```
 
 ---
