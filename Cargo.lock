@@ -22,11 +22,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashmap-int-rust-raw"
+version = "0.0.0"
+
+[[package]]
 name = "hashmap-string-rust-bindgen"
 version = "0.0.0"
 dependencies = [
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "hashmap-string-rust-raw"
+version = "0.0.0"
 
 [[package]]
 name = "interop-calls-rust-bindgen"

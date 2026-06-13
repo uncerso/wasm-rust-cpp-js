@@ -146,7 +146,7 @@ pnpm build:all
 1. Генерирует фикстуры (`benches/matmul/fixtures/{s,m,l}.bin`).
 2. Копирует фикстуры и `spec.json` в `dist/matmul/` (для browser-фетчинга через Vite publicDir).
 3. Бандлит JS — esbuild ESM, минификация, ES2022 → `dist/matmul/js-{idiomatic,typed-array}-speed/module.js`.
-4. Собирает Rust raw (no_std) и wasm-bindgen в обоих профилях, прогоняет `wasm-opt -Oz` на size → `dist/matmul/rust-{raw,bindgen}-{speed,size}/`.
+4. Собирает Rust raw и wasm-bindgen в обоих профилях, прогоняет `wasm-opt -Oz` на size → `dist/matmul/rust-{raw,bindgen}-{speed,size}/`.
 5. Собирает C++ через Emscripten (`glue.mjs` + `glue.wasm`) и через wasi-sdk freestanding (`module.wasm`), оба × {speed, size} → `dist/matmul/cpp-{emscripten,wasi-sdk}-{speed,size}/`.
 
 После успешного прогона в `dist/<workload>/` будет 10 combo-папок + `fixtures/` + `spec.json` под каждый обнаруженный `benches/<id>/spec.json`. Каждая combo-папка содержит артефакт(ы) и `meta.json` с размерами и хэшами.
@@ -291,8 +291,8 @@ Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.j
 │   ├── spec.json                   # v2: entries + expectedChecksums[entry][size] + fixture sha256
 │   ├── fixtures/                   # генерируемые .bin (gitignored); fixture-less workloads пишут 0-байт sentinels
 │   ├── js/{idiomatic,typed-array}/ # JS-имплементации (TS source) — typed-array variant только matmul
-│   ├── rust/{raw,bindgen}/         # Rust-крейты (matmul ещё имеет rust/shared core; hashmap workloads — только bindgen)
-│   ├── cpp/                        # общий .cpp + per-bench build-emscripten.sh + build-wasi-sdk.sh (hashmap — только emscripten)
+│   ├── rust/{raw,bindgen}/         # Rust-крейты (matmul ещё имеет rust/shared core)
+│   ├── cpp/                        # общий .cpp + per-bench build-emscripten.sh + build-wasi-sdk.sh
 │   └── validate/                   # справочный TS, генерит ожидаемые checksum'ы per (entry, size)
 │
 ├── benches/common/                 # shared fixture utilities (PRNG + per-workload generators)

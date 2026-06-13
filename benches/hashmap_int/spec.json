@@ -17,8 +17,8 @@
         "languages": ["js", "rust", "cpp"],
         "toolchains": {
             "js": ["idiomatic"],
-            "rust": ["bindgen"],
-            "cpp": ["emscripten"]
+            "rust": ["bindgen", "raw"],
+            "cpp": ["emscripten", "wasi-sdk"]
         },
         "profiles": ["speed", "size"]
     },
