@@ -146,7 +146,7 @@ pnpm build:all
 1. Генерирует фикстуры (`benches/matmul/fixtures/{s,m,l}.bin`).
 2. Копирует фикстуры и `spec.json` в `dist/matmul/` (для browser-фетчинга через Vite publicDir).
 3. Бандлит JS — esbuild ESM, минификация, ES2022 → `dist/matmul/js-{idiomatic,typed-array}-speed/module.js`.
-4. Собирает Rust raw (no_std) и wasm-bindgen в обоих профилях, прогоняет `wasm-opt -Oz` на size → `dist/matmul/rust-{raw,bindgen}-{speed,size}/`.
+4. Собирает Rust raw и wasm-bindgen в обоих профилях, прогоняет `wasm-opt -Oz` на size → `dist/matmul/rust-{raw,bindgen}-{speed,size}/`.
 5. Собирает C++ через Emscripten (`glue.mjs` + `glue.wasm`) и через wasi-sdk freestanding (`module.wasm`), оба × {speed, size} → `dist/matmul/cpp-{emscripten,wasi-sdk}-{speed,size}/`.
 
 После успешного прогона в `dist/<workload>/` будет 10 combo-папок + `fixtures/` + `spec.json` под каждый обнаруженный `benches/<id>/spec.json`. Каждая combo-папка содержит артефакт(ы) и `meta.json` с размерами и хэшами.
