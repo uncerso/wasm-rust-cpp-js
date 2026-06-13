@@ -820,16 +820,16 @@ git status --short
 
 ### Task 8: full benchmark run + report `[I]`
 
-- [ ] **Step 1: Run the full matrix in eval mode** (`dangerouslyDisableSandbox: true`; heavy)
+- [x] **Step 1: Run the full matrix in eval mode** (`dangerouslyDisableSandbox: true`; heavy)
 
 Run: `pnpm bench:all`
 Expected: builds + benches all combos (`--mode=eval`) + writes report. New raw/wasi-sdk rows present for both hashmap workloads, zero correctness failures.
 
-- [ ] **Step 2: Sanity-check the report**
+- [x] **Step 2: Sanity-check the report**
 
 Open the generated report (`results/summarized/...` HTML). Confirm: hashmap_int + hashmap_string each show 5 toolchain columns (js/idiomatic, rust/bindgen, rust/raw, cpp/emscripten, cpp/wasi-sdk) with size + runtime numbers.
 
-- [ ] **Step 3: Commit** any results/report changes intended to be tracked (per repo convention — check `git status`; raw results under `results/raw/` may be gitignored).
+- [x] **Step 3: Commit** any results/report changes intended to be tracked (per repo convention — check `git status`; raw results under `results/raw/` may be gitignored).
 
 ```bash
 git status --short
@@ -842,14 +842,14 @@ git commit --no-gpg-sign -m "bench(hashmap): full matrix incl rust/raw + cpp/was
 **Files:**
 - Modify: `docs/guidelines.md`
 
-- [ ] **Step 1: Analyze the size deltas** from the report:
+- [x] **Step 1: Analyze the size deltas** from the report:
   - **Glue overhead:** `rust/raw` vs `rust/bindgen` and `cpp/wasi-sdk` vs `cpp/emscripten` (same container + hasher) — raw/gzip/brotli, per profile, per key-type.
   - **std-inclusion delta:** `hashmap_*/rust/raw` (std) vs `matmul/rust/raw` (no_std) — the cost of pulling std + HashMap into an otherwise-minimal wasm.
   - **Runtime:** per-op (insert/lookup/delete) raw vs glue — does stripping glue change warm-sample throughput, or only artifact size?
 
-- [ ] **Step 2: Write claims** into `docs/guidelines.md` following the file's format header. Mark **confirmed** only where the signal is consistent across ≥2 sizes × ≥2 key-types; otherwise **tentative**. Target ≥1 confirmed claim (likely: "wasm-bindgen / emscripten glue adds a fixed ~N KB floor independent of container size" — verify direction + magnitude against the numbers, do not assume).
+- [x] **Step 2: Write claims** into `docs/guidelines.md` following the file's format header. Mark **confirmed** only where the signal is consistent across ≥2 sizes × ≥2 key-types; otherwise **tentative**. Target ≥1 confirmed claim (likely: "wasm-bindgen / emscripten glue adds a fixed ~N KB floor independent of container size" — verify direction + magnitude against the numbers, do not assume).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/guidelines.md
@@ -861,15 +861,15 @@ git commit --no-gpg-sign -m "docs(guidelines): glue-overhead + std-inclusion cla
 **Files:**
 - Modify: `docs/roadmap.md`
 
-- [ ] **Step 1: Remove** the `hashmap-stdlib-no-glue` item from `### Workload expansion` (Phase 1.2).
+- [x] **Step 1: Remove** the `hashmap-stdlib-no-glue` item from `### Workload expansion` (Phase 1.2).
 
-- [ ] **Step 2: Add** the deferred unification candidate under `### Workload expansion`:
+- [x] **Step 2: Add** the deferred unification candidate under `### Workload expansion`:
 
 ```markdown
 - **hashmap-raw-shared-crate** — DRY raw+bindgen hashmap logic into a shared crate per binary; only if measurement shows unification does NOT regress size/perf (currently duplicated to keep variants isolated). ([→ spec § Scope](superpowers/specs/2026-06-13-hashmap-stdlib-no-glue-design.md))
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/roadmap.md
