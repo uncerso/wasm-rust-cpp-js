@@ -1,6 +1,7 @@
 #include "hashmap_string.h"
 
 #include <cstring>
+#include <new>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -13,25 +14,41 @@ struct State {
     std::unordered_map<std::string, uint64_t> map;
 };
 
-State g_state;
+// Construct-on-first-use (mirrors the rust/raw + rust/bindgen LazyLock model).
+// The wasi-sdk no-glue build is instantiated by the raw-wasm loader without a
+// runtime that runs __wasm_call_ctors, so a plain `static State g_state;` would
+// be left unconstructed and trap/corrupt on use. Placement-new into static
+// storage on first access, guarded by a plain BSS bool — the same pattern the
+// shape_dispatch wasi-sdk workloads use. Avoids both global ctors and
+// __cxa_guard. emscripten behaves identically (lazy vs eager; same checksums).
+alignas(State) unsigned char g_storage[sizeof(State)];
+bool g_inited = false;
+
+State& state() {
+    if (!g_inited) {
+        new (g_storage) State();
+        g_inited = true;
+    }
+    return *reinterpret_cast<State*>(g_storage);
+}
 
 constexpr size_t PAIR_BYTES = 24;
 
 void parse_pairs(const uint8_t* buf, size_t len) {
     const size_t n = len / PAIR_BYTES;
-    g_state.pairs.clear();
-    g_state.pairs.reserve(n);
+    state().pairs.clear();
+    state().pairs.reserve(n);
     for (size_t i = 0; i < n; i++) {
         const size_t base = i * PAIR_BYTES;
         std::string key(reinterpret_cast<const char*>(buf + base), 16);
         uint64_t value;
         std::memcpy(&value, buf + base + 16, sizeof(value));
-        g_state.pairs.emplace_back(std::move(key), value);
+        state().pairs.emplace_back(std::move(key), value);
     }
-    g_state.map.clear();
-    g_state.map.reserve(n);
-    for (const auto& [k, v] : g_state.pairs) {
-        g_state.map.emplace(k, v);
+    state().map.clear();
+    state().map.reserve(n);
+    for (const auto& [k, v] : state().pairs) {
+        state().map.emplace(k, v);
     }
 }
 
@@ -47,20 +64,20 @@ extern "C" void load_input(uint32_t ptr, uint32_t len) {
 
 extern "C" double hashmap_string_insert(uint32_t iters) {
     for (uint32_t i = 0; i < iters; i++) {
-        g_state.map[g_state.pairs[i].first] = g_state.pairs[i].second;
+        state().map[state().pairs[i].first] = state().pairs[i].second;
     }
-    return static_cast<double>(g_state.map.size());
+    return static_cast<double>(state().map.size());
 }
 
 extern "C" void hashmap_string_insert_reset() {
-    g_state.map.clear();
+    state().map.clear();
 }
 
 extern "C" double hashmap_string_lookup(uint32_t iters) {
     double acc = 0.0;
     for (uint32_t i = 0; i < iters; i++) {
-        const auto it = g_state.map.find(g_state.pairs[i].first);
-        if (it != g_state.map.end()) {
+        const auto it = state().map.find(state().pairs[i].first);
+        if (it != state().map.end()) {
             acc += static_cast<double>(it->second);
         }
     }
@@ -74,19 +91,19 @@ extern "C" void hashmap_string_lookup_reset() {
 extern "C" double hashmap_string_delete(uint32_t iters) {
     double acc = 0.0;
     for (uint32_t i = 0; i < iters; i++) {
-        const auto it = g_state.map.find(g_state.pairs[i].first);
-        if (it != g_state.map.end()) {
+        const auto it = state().map.find(state().pairs[i].first);
+        if (it != state().map.end()) {
             acc += static_cast<double>(it->second);
-            g_state.map.erase(it);
+            state().map.erase(it);
         }
     }
     return acc;
 }
 
 extern "C" void hashmap_string_delete_reset() {
-    g_state.map.clear();
-    g_state.map.reserve(g_state.pairs.size());
-    for (const auto& [k, v] : g_state.pairs) {
-        g_state.map.emplace(k, v);
+    state().map.clear();
+    state().map.reserve(state().pairs.size());
+    for (const auto& [k, v] : state().pairs) {
+        state().map.emplace(k, v);
     }
 }
