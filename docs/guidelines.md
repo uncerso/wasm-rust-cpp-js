@@ -88,6 +88,21 @@ std-container floor над no_std/no-container baseline: Rust ~6.7–7.6 KB gz, 
 
 **Caveats:** **tentative** — workload-confounded: hashmap отличается от matmul/interop не только std-inclusion'ом, но и кодом workload'а, поэтому это «floor std-контейнерного workload'а», не чистая «цена std». Floor доминируется allocator'ом (dlmalloc / wasi malloc) + hash-machinery (SipHash `RandomState` / libc++ hash) + panic/abort-инфраструктурой, НЕ glue (числа уже no-glue). Для продукта: если нужен один hashmap в иначе-минимальном wasm — закладывай ~5–8 KB gz floor независимо от числа элементов.
 
+### Один примитив может молча залинковать multi-KB фиксированную таблицу, доминирующую над размером маленького wasm — аудируй примитивы, не алгоритм
+**Status:** confirmed
+**Evidence:** Phase 1.2, атрибуция через `wasm-tools objdump` (section-split) + `twiggy` (name-bearing analysis-build, `CARGO_PROFILE_RELEASE_STRIP=false`), `dist/{shape_dispatch_*,matmul}/{cpp-wasi-sdk,rust-raw}-size/`. Два независимых примера на двух языках:
+
+| примитив | toolchain | таблица | доля бинаря |
+|---|---|---|---|
+| `__builtin_log` (bit-exact) | cpp/wasi-sdk | musl `__log_data` 4247 B | 70% от 6024 B (shape_dispatch_homo_static) |
+| `usize::isqrt()` | rust/raw | core lookup 520 B | 32% от 1639 B (matmul) |
+
+Обе — **фиксированный налог**: платится один раз за использование примитива, не масштабируется с объёмом данных/вызовов. Обе устранимы (polynomial log / Newton isqrt → таблица исчезает), но ценой: polynomial log даёт +21-23% warm на log-доминируемом цикле (wasi-sdk homo, node, `results/raw/2026-06-13-size-perf-{baseline,levers}`); Newton isqrt — без perf-цены, но оба — не-idiomatic ручная замена stdlib-примитива (рычаги откатлены, артефакты остаются idiomatic; находка задокументирована, не shipped).
+
+**Phase:** introduced 1.2
+
+**Caveats:** Размер маленьких synthetic-workload'ов доминируется фиксированным overhead'ом тулчейна + линковкой примитивов, НЕ структурой алгоритма: тот же `shape_dispatch_homo_static` — 1522 B (rust/raw) … 6024 B (cpp/wasi-sdk) … 12449 B (rust/bindgen, ~10 KB runtime), **8× разброс при ~1.5 KB реальной dispatch-логики**. Кросс-язычный вывод «язык X компактнее» из микро-workload'а НЕВАЛИДЕН — сравнивай within-toolchain либо декомпозируй floor-vs-marginal (см. roadmap `wasm-size-floor-vs-marginal`).
+
 ## Toolchain choice
 
 ### На V8 runtimes (Node + Chromium) для u64-keyed hashmap'ов выбирай `rust/bindgen` (std HashMap); для string-keyed выбирай `js Map` — кросс-toolchain профайл инвертируется на key type

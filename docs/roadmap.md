@@ -36,7 +36,6 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 
 ### Workload expansion
 - **hashmap-raw-shared-crate** — DRY raw+bindgen hashmap logic into a shared crate per binary; adopt only if measurement shows unification does NOT regress size/perf (currently duplicated to keep variants isolated). ([→ spec § Scope](superpowers/specs/2026-06-13-hashmap-stdlib-no-glue-design.md))
-- **rust-raw-drop-staging-buffer** — now that the raw-wasm loader re-reads `memory.buffer` after `alloc`, the static 4 MiB staging buffer in `hashmap_{int,string}/rust/raw` is redundant; switch to natural `Vec` alloc (mirrors cpp's `operator new`) for a fairer rust/cpp comparison, and measure the size + initial-memory delta (BSS zero-init is not stored in `.wasm`, so file size likely barely moves — verify). Audit sibling raw crates for the same pattern. ([→ pitfall](pitfalls/2026-06-13-phase-1-2-hashmap-no-glue-w0.md))
 
 ### Agent workflow
 - **sessionstart-hook-insurance** — deterministic SessionStart hook that bootstraps `/iterate`; add only if `/iterate`-invocation drift recurs (deferred 2026-06-12, [→ spec § D2](superpowers/specs/2026-06-12-workflow-trigger-landing-design.md))
@@ -60,7 +59,7 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 > не уверен. `/backlog-review` периодически перетасовывает в Phase X.Y или Won't do.
 
 - **benchmark-cv-stabilization** — почти все ячейки отчётов жёлтые (coefficient of variation выше порога): разобраться в источниках дисперсии и стабилизировать измерения; одна известная под-причина — нет CPU-throttling lock на macOS ([→ tech_debt/cpu-throttling-lock-macos](tech_debt/cpu-throttling-lock-macos.md)).
-- **rust-vs-cpp-wasm-size** — rust wasm-модули стабильно крупнее cpp на одинаковых workload'ах: понять причину (std / allocator / panic machinery?) и, если подтвердится, вытащить guideline в `docs/guidelines.md`; смежная узкая гипотеза — `rust-raw-drop-staging-buffer` (Phase 1.2).
+- **wasm-size-floor-vs-marginal** — артефакт-size микро-workload'ов доминируется фиксированным налогом (allocator, std-контейнер, primitive-таблицы типа musl `log` / `isqrt`, panic-инфра — платится один раз, не масштабируется), а не маржинальным вкладом (сумма generic/template-инстансов + workload-код); 8× кросс-toolchain разброс на одной задаче это подтверждает. Разработать метод декомпозиции (differential builds: empty → +allocator → +container, либо twiggy-категоризация fixed-infra vs workload) → честные size-guideline'ы про реальную цену оси. Преемник закрытого `rust-vs-cpp-wasm-size` (Phase 1.2 атрибуция: исходная гипотеза «rust стабильно крупнее» опровергнута — направление зависит от workload'а и доминируется линковкой примитивов). ([→ guidelines § Artifact size](guidelines.md))
 
 ## Won't do
 
