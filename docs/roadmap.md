@@ -35,7 +35,6 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 - **safari-implementation** — selenium-webdriver extension, macOS-only safaridriver ([→ web-pipeline-finalize spec § Future Safari](superpowers/specs/2026-05-12-web-pipeline-finalize-design.md))
 
 ### Workload expansion
-- **hashmap-stdlib-no-glue** — extend hashmap workload to rust/raw + cpp/wasi-sdk without bindgen/emscripten glue overhead. Bundle-size delta for std-only inclusion — investigation question. ([→ spec § Out of scope](superpowers/specs/2026-05-23-phase-1-1-2-hashmap-design.md))
 - **hashmap-raw-shared-crate** — DRY raw+bindgen hashmap logic into a shared crate per binary; adopt only if measurement shows unification does NOT regress size/perf (currently duplicated to keep variants isolated). ([→ spec § Scope](superpowers/specs/2026-06-13-hashmap-stdlib-no-glue-design.md))
 - **rust-raw-drop-staging-buffer** — now that the raw-wasm loader re-reads `memory.buffer` after `alloc`, the static 4 MiB staging buffer in `hashmap_{int,string}/rust/raw` is redundant; switch to natural `Vec` alloc (mirrors cpp's `operator new`) for a fairer rust/cpp comparison, and measure the size + initial-memory delta (BSS zero-init is not stored in `.wasm`, so file size likely barely moves — verify). Audit sibling raw crates for the same pattern. ([→ pitfall](pitfalls/2026-06-13-phase-1-2-hashmap-no-glue-w0.md))
 
