@@ -91,7 +91,6 @@ export const rawWasmLoader: Loader = {
             throw new Error("raw-wasm: module missing 'memory' export");
         }
 
-        const memBuffer = exports.memory.buffer;
         const run = buildRunFor(input.entry, exports);
         const resetFn = bindReset(exports, input.entry);
         const module: BenchModule = {
@@ -99,7 +98,11 @@ export const rawWasmLoader: Loader = {
                 let ptr = 0;
                 if (buf.byteLength > 0) {
                     ptr = exports.alloc(buf.byteLength);
-                    new Uint8Array(memBuffer).set(buf, ptr);
+                    // Re-read memory.buffer AFTER alloc: a module whose alloc()
+                    // grows linear memory (e.g. cpp/wasi-sdk operator new at scale)
+                    // detaches any ArrayBuffer captured earlier. Reading it here,
+                    // post-alloc, always yields the live (non-detached) buffer.
+                    new Uint8Array(exports.memory.buffer).set(buf, ptr);
                 }
                 exports.load_input(ptr, buf.byteLength);
             },
