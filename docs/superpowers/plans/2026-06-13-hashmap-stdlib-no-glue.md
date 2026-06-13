@@ -1,6 +1,6 @@
 # hashmap-stdlib-no-glue Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add `rust/raw` + `cpp/wasi-sdk` minimal-overhead toolchain variants to the `hashmap_int` and `hashmap_string` workloads — same stdlib container + default hasher as the glue variants, stripping only the auto-glue.
 
@@ -57,7 +57,7 @@
 - Create: `benches/hashmap_int/rust/raw/src/lib.rs`
 - Modify: `Cargo.toml` (workspace `members`)
 
-- [ ] **Step 1: Create the crate manifest**
+- [x] **Step 1: Create the crate manifest**
 
 `benches/hashmap_int/rust/raw/Cargo.toml`:
 
@@ -77,7 +77,7 @@ crate-type = ["cdylib"]
 workspace = true
 ```
 
-- [ ] **Step 2: Write `lib.rs`** (mirrors `rust/bindgen` logic; manual exports instead of wasm-bindgen; leaked-`Vec` `alloc` instead of bindgen-managed memory)
+- [x] **Step 2: Write `lib.rs`** (mirrors `rust/bindgen` logic; manual exports instead of wasm-bindgen; leaked-`Vec` `alloc` instead of bindgen-managed memory)
 
 `benches/hashmap_int/rust/raw/src/lib.rs`:
 
@@ -203,7 +203,7 @@ pub extern "C" fn hashmap_int_delete_reset() {
 }
 ```
 
-- [ ] **Step 3: Register the crate in the workspace**
+- [x] **Step 3: Register the crate in the workspace**
 
 In `Cargo.toml` (workspace root), add to `members` after the existing `benches/hashmap_int/rust/bindgen` line:
 
@@ -211,7 +211,7 @@ In `Cargo.toml` (workspace root), add to `members` after the existing `benches/h
     "benches/hashmap_int/rust/raw",
 ```
 
-- [ ] **Step 4: Build the crate directly (bypass orchestrator)**
+- [x] **Step 4: Build the crate directly (bypass orchestrator)**
 
 Run (sandbox OK — cargo binds no socket):
 ```
@@ -219,12 +219,12 @@ cargo build -p hashmap-int-rust-raw --profile=release --target=wasm32-unknown-un
 ```
 Expected: builds clean; artifact at `target/wasm32-unknown-unknown/release/hashmap_int_rust_raw.wasm`.
 
-- [ ] **Step 5: clippy gate**
+- [x] **Step 5: clippy gate**
 
 Run: `cargo clippy -p hashmap-int-rust-raw --target wasm32-unknown-unknown -- -D warnings`
 Expected: no warnings/errors. If `missing_const_for_fn` / `cast_*` fire on a function not covered by an `#[allow]`, add the matching allow (truthful `reason`) and rebuild (≤2 attempts, then rethink).
 
-- [ ] **Step 6: Inspect imports (the spike's core check)**
+- [x] **Step 6: Inspect imports (the spike's core check)**
 
 Run:
 ```
@@ -232,7 +232,7 @@ node --input-type=module -e "import{readFileSync}from'node:fs';const m=await Web
 ```
 Expected: `[]` (empty). A non-empty list means `RandomState` seeding (or something) pulled an import — STOP, this is the spike's gating finding; record it for BP1 and consult spec § Risks fallback (do not silently apply).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add benches/hashmap_int/rust/raw Cargo.toml
@@ -245,7 +245,7 @@ git commit --no-gpg-sign -m "feat(hashmap_int): rust/raw std-HashMap cdylib (no 
 - Create: `benches/hashmap_int/cpp/src/wasi-shims.cpp`
 - Create: `benches/hashmap_int/cpp/build-wasi-sdk.sh`
 
-- [ ] **Step 1: Write the trap-shim TU**
+- [x] **Step 1: Write the trap-shim TU**
 
 `benches/hashmap_int/cpp/src/wasi-shims.cpp`:
 
@@ -287,7 +287,7 @@ inline namespace __2 {
 } // namespace std
 ```
 
-- [ ] **Step 2: Write the build script** (model: `benches/shape_dispatch_homo_dyn/cpp/build-wasi-sdk.sh`, extended with libc++ + heap + shims; `--allow-undefined` deliberately dropped so any missing symbol is a hard link error, not a silent import)
+- [x] **Step 2: Write the build script** (model: `benches/shape_dispatch_homo_dyn/cpp/build-wasi-sdk.sh`, extended with libc++ + heap + shims; `--allow-undefined` deliberately dropped so any missing symbol is a hard link error, not a silent import)
 
 `benches/hashmap_int/cpp/build-wasi-sdk.sh`:
 
@@ -360,7 +360,7 @@ fi
 
 `chmod +x benches/hashmap_int/cpp/build-wasi-sdk.sh`.
 
-- [ ] **Step 3: Spike-build directly + iterate to zero imports**
+- [x] **Step 3: Spike-build directly + iterate to zero imports**
 
 Resolve the wasi-sdk path, then run the script for the speed profile into a scratch dir (`dangerouslyDisableSandbox: true` — clang/LTO):
 ```
@@ -371,14 +371,14 @@ Expected: links clean → `$TMPDIR/wasi-spike/module.wasm`.
 - If the LINK fails on a missing symbol: if it is a syscall-shaped symbol (`__wasi_*`, `proc_exit`, `__main_void`, `environ*`, `fd_*`, `__assert_fail`), add a trap-shim/stub to `wasi-shims.cpp`; if it is a libc++/libc symbol, fix the archive group. Rebuild (≤2 attempts, then rethink).
 - Verify the clang version segment in `WASI_BUILTINS` matches the installed wasi-sdk (`ls "$WASI/lib/clang"`); fix the `19` if different.
 
-- [ ] **Step 4: Inspect imports**
+- [x] **Step 4: Inspect imports**
 
 ```
 node --input-type=module -e "import{readFileSync}from'node:fs';const m=await WebAssembly.compile(readFileSync(process.env.TMPDIR+'/wasi-spike/module.wasm'));console.log(JSON.stringify(WebAssembly.Module.imports(m)))"
 ```
 Expected: `[]`. Non-empty → add the corresponding trap-shim and rebuild; if a benign import is irreducible, STOP for BP1 (spec § Risks fallback).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add benches/hashmap_int/cpp/build-wasi-sdk.sh benches/hashmap_int/cpp/src/wasi-shims.cpp
@@ -390,13 +390,13 @@ git commit --no-gpg-sign -m "feat(hashmap_int): cpp/wasi-sdk libc++ build, zero-
 **Files:**
 - Modify: `benches/hashmap_int/spec.json`
 
-- [ ] **Step 1: Add the toolchains to spec.json**
+- [x] **Step 1: Add the toolchains to spec.json**
 
 In `benches/hashmap_int/spec.json`, under `supported.toolchains`:
 - change `"rust": ["bindgen"]` → `"rust": ["bindgen", "raw"]`
 - change `"cpp": ["emscripten"]` → `"cpp": ["emscripten", "wasi-sdk"]`
 
-- [ ] **Step 2: Build hashmap_int through the orchestrators**
+- [x] **Step 2: Build hashmap_int through the orchestrators**
 
 Run (`dangerouslyDisableSandbox: true` — tsx pipe):
 ```
@@ -405,14 +405,14 @@ pnpm exec tsx scripts/build-cpp.ts hashmap_int
 ```
 Expected: logs `built ... rust/raw` and `built wasi-sdk hashmap_int` for both profiles; artifacts under `dist/`.
 
-- [ ] **Step 3: Inspect the orchestrated artifacts' imports**
+- [x] **Step 3: Inspect the orchestrated artifacts' imports**
 
 ```
 for f in $(find dist -path '*hashmap_int*' \( -path '*raw*' -o -path '*wasi*' \) -name module.wasm); do echo "$f:"; node --input-type=module -e "import{readFileSync}from'node:fs';const m=await WebAssembly.compile(readFileSync('$f'));console.log(JSON.stringify(WebAssembly.Module.imports(m)))"; done
 ```
 Expected: every artifact prints `[]`.
 
-- [ ] **Step 4: Validate@S in Node against pinned checksums**
+- [x] **Step 4: Validate@S in Node against pinned checksums**
 
 Run (`dangerouslyDisableSandbox: true`):
 ```
@@ -420,7 +420,7 @@ pnpm exec tsx scripts/run-matrix.ts --benchmarks=hashmap_int --envs=node --sizes
 ```
 Expected: all hashmap_int combos at S pass (no correctness halt). The new `rust/raw` + `cpp/wasi-sdk` checksums equal the pinned `expectedChecksums` (insert→1000, lookup/delete→2078117175396).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add benches/hashmap_int/spec.json
@@ -440,7 +440,7 @@ git commit --no-gpg-sign -m "feat(hashmap_int): enable rust/raw + cpp/wasi-sdk i
 - Create: `benches/hashmap_string/rust/raw/src/lib.rs`
 - Modify: `Cargo.toml` (workspace `members`)
 
-- [ ] **Step 1: Create the manifest**
+- [x] **Step 1: Create the manifest**
 
 `benches/hashmap_string/rust/raw/Cargo.toml`:
 
@@ -460,7 +460,7 @@ crate-type = ["cdylib"]
 workspace = true
 ```
 
-- [ ] **Step 2: Write `lib.rs`** (String key; `PAIR_BYTES = 24`; UTF-8 parse — mirrors `hashmap_string/rust/bindgen` + the int/raw alloc pattern)
+- [x] **Step 2: Write `lib.rs`** (String key; `PAIR_BYTES = 24`; UTF-8 parse — mirrors `hashmap_string/rust/bindgen` + the int/raw alloc pattern)
 
 `benches/hashmap_string/rust/raw/src/lib.rs`:
 
@@ -589,13 +589,13 @@ pub extern "C" fn hashmap_string_delete_reset() {
 }
 ```
 
-- [ ] **Step 3: Register in workspace** — add to `Cargo.toml` `members`:
+- [x] **Step 3: Register in workspace** — add to `Cargo.toml` `members`:
 
 ```toml
     "benches/hashmap_string/rust/raw",
 ```
 
-- [ ] **Step 4: Build + clippy** (sandbox OK)
+- [x] **Step 4: Build + clippy** (sandbox OK)
 
 ```
 cargo build -p hashmap-string-rust-raw --profile=release --target=wasm32-unknown-unknown
@@ -603,7 +603,7 @@ cargo clippy -p hashmap-string-rust-raw --target wasm32-unknown-unknown -- -D wa
 ```
 Expected: clean build, no clippy warnings.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add benches/hashmap_string/rust/raw Cargo.toml
@@ -617,7 +617,7 @@ git commit --no-gpg-sign -m "feat(hashmap_string): rust/raw std-HashMap cdylib (
 - Create: `benches/hashmap_string/cpp/src/wasi-shims.cpp`
 - Create: `benches/hashmap_string/cpp/build-wasi-sdk.sh`
 
-- [ ] **Step 0: construct-on-first-use in `hashmap_string.cpp`** (W0 finding — the raw-wasm loader never runs `__wasm_call_ctors`, so a plain `static State g_state;` is left unconstructed and traps/corrupts at scale under wasi-sdk). Mirror the int fix exactly:
+- [x] **Step 0: construct-on-first-use in `hashmap_string.cpp`** (W0 finding — the raw-wasm loader never runs `__wasm_call_ctors`, so a plain `static State g_state;` is left unconstructed and traps/corrupts at scale under wasi-sdk). Mirror the int fix exactly:
   1. Add `#include <new>` to the includes (after `<cstring>`).
   2. Replace `State g_state;` with the placement-new accessor:
 
@@ -645,7 +645,7 @@ State& state() {
 
   NOTE: a `__cxa_guard`-backed Meyers singleton (`static State instance;`) was tried for int and produced GARBAGE under `-nostdlib` — use placement-new + BSS bool, not a function-local static.
 
-- [ ] **Step 1: Trap-shim TU** — identical content to the int one (file isolated per workload):
+- [x] **Step 1: Trap-shim TU** — identical content to the int one (file isolated per workload):
 
 `benches/hashmap_string/cpp/src/wasi-shims.cpp`:
 
@@ -687,7 +687,7 @@ inline namespace __2 {
 } // namespace std
 ```
 
-- [ ] **Step 2: Build script** — same as int's, with `hashmap_string.cpp` source + `hashmap_string_*` exports:
+- [x] **Step 2: Build script** — same as int's, with `hashmap_string.cpp` source + `hashmap_string_*` exports:
 
 `benches/hashmap_string/cpp/build-wasi-sdk.sh`:
 
@@ -757,7 +757,7 @@ fi
 
 `chmod +x benches/hashmap_string/cpp/build-wasi-sdk.sh`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add benches/hashmap_string/cpp/build-wasi-sdk.sh benches/hashmap_string/cpp/src/wasi-shims.cpp
@@ -769,11 +769,11 @@ git commit --no-gpg-sign -m "feat(hashmap_string): cpp/wasi-sdk libc++ build, ze
 **Files:**
 - Modify: `benches/hashmap_string/spec.json`
 
-- [ ] **Step 1: Edit spec.json** — under `supported.toolchains`:
+- [x] **Step 1: Edit spec.json** — under `supported.toolchains`:
 - `"rust": ["bindgen"]` → `"rust": ["bindgen", "raw"]`
 - `"cpp": ["emscripten"]` → `"cpp": ["emscripten", "wasi-sdk"]`
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add benches/hashmap_string/spec.json
@@ -782,30 +782,30 @@ git commit --no-gpg-sign -m "feat(hashmap_string): enable rust/raw + cpp/wasi-sd
 
 ### Task 7: full-suite gates `[I]`
 
-- [ ] **Step 1: Build everything** (`dangerouslyDisableSandbox: true`)
+- [x] **Step 1: Build everything** (`dangerouslyDisableSandbox: true`)
 
 Run: `pnpm build:all`
 Expected: succeeds; `dist/` gains 8 new artifacts (hashmap_{int,string} × {raw,wasi-sdk} × {speed,size}).
 
-- [ ] **Step 2: Inspect ALL new artifacts' imports**
+- [x] **Step 2: Inspect ALL new artifacts' imports**
 
 ```
 for f in $(find dist -path '*hashmap_*' \( -path '*raw*' -o -path '*wasi*' \) -name module.wasm); do echo "$f:"; node --input-type=module -e "import{readFileSync}from'node:fs';const m=await WebAssembly.compile(readFileSync('$f'));console.log(JSON.stringify(WebAssembly.Module.imports(m)))"; done
 ```
 Expected: every line `[]`.
 
-- [ ] **Step 3: Static gates** (sandbox OK)
+- [x] **Step 3: Static gates** (sandbox OK)
 
 Run: `pnpm typecheck` → expect pass.
 Run: `pnpm lint:all` → expect pass (clippy includes both new raw crates).
 Run: `pnpm test` → expect pass.
 
-- [ ] **Step 4: Smoke** (`dangerouslyDisableSandbox: true`)
+- [x] **Step 4: Smoke** (`dangerouslyDisableSandbox: true`)
 
 Run: `pnpm smoke`
 Expected: `smoke OK`. Covers all combos × S × Node — the 4 new (binary×toolchain) validate against pinned `expectedChecksums` (hashmap_int: insert 1000 / lookup,delete 2078117175396; hashmap_string: insert 1000 / lookup,delete 2159782707395).
 
-- [ ] **Step 5: Commit** (only if `pnpm build:all` produced tracked changes beyond artifacts — `dist/` is typically gitignored; if nothing tracked changed, skip)
+- [x] **Step 5: Commit** (only if `pnpm build:all` produced tracked changes beyond artifacts — `dist/` is typically gitignored; if nothing tracked changed, skip)
 
 ```bash
 git status --short
