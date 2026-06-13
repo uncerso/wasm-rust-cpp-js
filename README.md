@@ -291,8 +291,8 @@ Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.j
 │   ├── spec.json                   # v2: entries + expectedChecksums[entry][size] + fixture sha256
 │   ├── fixtures/                   # генерируемые .bin (gitignored); fixture-less workloads пишут 0-байт sentinels
 │   ├── js/{idiomatic,typed-array}/ # JS-имплементации (TS source) — typed-array variant только matmul
-│   ├── rust/{raw,bindgen}/         # Rust-крейты (matmul ещё имеет rust/shared core; hashmap workloads — только bindgen)
-│   ├── cpp/                        # общий .cpp + per-bench build-emscripten.sh + build-wasi-sdk.sh (hashmap — только emscripten)
+│   ├── rust/{raw,bindgen}/         # Rust-крейты (matmul ещё имеет rust/shared core)
+│   ├── cpp/                        # общий .cpp + per-bench build-emscripten.sh + build-wasi-sdk.sh
 │   └── validate/                   # справочный TS, генерит ожидаемые checksum'ы per (entry, size)
 │
 ├── benches/common/                 # shared fixture utilities (PRNG + per-workload generators)

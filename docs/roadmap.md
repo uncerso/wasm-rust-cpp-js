@@ -36,6 +36,7 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 
 ### Workload expansion
 - **hashmap-stdlib-no-glue** — extend hashmap workload to rust/raw + cpp/wasi-sdk without bindgen/emscripten glue overhead. Bundle-size delta for std-only inclusion — investigation question. ([→ spec § Out of scope](superpowers/specs/2026-05-23-phase-1-1-2-hashmap-design.md))
+- **hashmap-raw-shared-crate** — DRY raw+bindgen hashmap logic into a shared crate per binary; adopt only if measurement shows unification does NOT regress size/perf (currently duplicated to keep variants isolated). ([→ spec § Scope](superpowers/specs/2026-06-13-hashmap-stdlib-no-glue-design.md))
 
 ### Agent workflow
 - **sessionstart-hook-insurance** — deterministic SessionStart hook that bootstraps `/iterate`; add only if `/iterate`-invocation drift recurs (deferred 2026-06-12, [→ spec § D2](superpowers/specs/2026-06-12-workflow-trigger-landing-design.md))
