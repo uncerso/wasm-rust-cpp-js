@@ -33,6 +33,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashmap-string-rust-raw"
+version = "0.0.0"
+
+[[package]]
 name = "interop-calls-rust-bindgen"
 version = "0.0.0"
 dependencies = [
