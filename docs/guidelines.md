@@ -50,6 +50,44 @@ Skill `/finish-session` напоминает обновлять файл при 
 
 <!-- empty — заполнится при появлении первого confirmed вывода из phases -->
 
+## Artifact size
+
+### Для минимального transfer size при простых экспортах выбирай no-glue (`rust/raw` extern "C" / `cpp/wasi-sdk`) — auto-glue добавляет фиксированный gzip-floor независимо от контейнера/ключа
+**Status:** confirmed
+**Evidence:** Phase 1.2, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/hashmap_{int,string}_*__{rust-raw,rust-bindgen,cpp-wasi-sdk,cpp-emscripten}-{speed,size}__*__node.json`. Artifact bytes (env/size-invariant). Total gzipped transfer (wasm.gz + glue.gz):
+
+| workload | profile | rust/raw | rust/bindgen | Δ | cpp/wasi-sdk | cpp/emscripten | Δ |
+|---|---|---|---|---|---|---|---|
+| int | size | **7820** | 10173 | −23% | **5477** | 7695 | −29% |
+| int | speed | **9708** | 11624 | −16% | **5745** | 9312 | −38% |
+| str | size | **9159** | 11580 | −21% | **6507** | 8238 | −21% |
+| str | speed | **12454** | 14303 | −13% | **6979** | 9949 | −30% |
+
+Direction (no-glue < glue total transfer) consistent across 2 key-types × 2 profiles. JS-glue floor (gzipped) почти постоянен по key-type: wasm-bindgen ~1.6 KB (оба профиля); emscripten ~2.1 KB (size) / ~3.4 KB (speed). int≈str glue bytes (bindgen 1598≈1599; emscripten 2084≈2087) → floor зависит от toolchain+profile, НЕ от контейнера/ключа.
+
+**Phase:** introduced 1.2
+
+**Caveats:** Применимо когда не нужны фичи bindgen/emscripten за пределами простых numeric-экспортов — нет marshalling'а JS-строк/объектов per-call, нет DOM/FS/env-доступа, нет auto-managed памяти. no-glue требует ручных `alloc`/`load_input` + инстанцирования с пустыми импортами `{}`. Часть выигрыша — сам wasm (no-glue wasm обычно тоже чуть меньше: bindgen/emscripten вшивают marshalling-код); floor — это JS-glue файл, который no-glue устраняет целиком. Для cpp `string` no-glue выигрыш меньше (libc++ `string.cpp.o` монолитен — тянет dead `to_string`/`stoX`, см. pitfall).
+
+Mechanism: wasm-bindgen генерит JS-shim per export (typeof-checks, arity-adjust, FinalizationRegistry для GC-aware refcells); emscripten — целый Module-runtime (HEAP views, env, fs-shims). Оба shippятся рядом с wasm. no-glue экспортирует через direct call ABI и инстанцируется с `{}` — нулевой JS-floor.
+
+### Подтягивание stdlib-hashmap в no-glue wasm стоит multi-KB floor (~5 KB gz cpp libc++ / ~7–8 KB gz rust std) над no_std/no-container baseline
+**Status:** tentative
+**Evidence:** Phase 1.2, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/{hashmap_int,matmul,interop_calls}_*__{rust-raw,cpp-wasi-sdk}-size__*__node.json`. gzipped wasm, size profile:
+
+| crate | rust/raw (no_std→std) | cpp/wasi-sdk |
+|---|---|---|
+| interop_calls (trivial, no container) | 225 | 261 |
+| matmul (FP math, no container) | 1098 | 546 |
+| hashmap_int (+ std HashMap / libc++ unordered_map) | 7820 | 5477 |
+| hashmap_string (+ String/std::string keys) | 9159 | 6507 |
+
+std-container floor над no_std/no-container baseline: Rust ~6.7–7.6 KB gz, C++ libc++ ~4.9 KB gz. string +1 KB над int.
+
+**Phase:** introduced 1.2
+
+**Caveats:** **tentative** — workload-confounded: hashmap отличается от matmul/interop не только std-inclusion'ом, но и кодом workload'а, поэтому это «floor std-контейнерного workload'а», не чистая «цена std». Floor доминируется allocator'ом (dlmalloc / wasi malloc) + hash-machinery (SipHash `RandomState` / libc++ hash) + panic/abort-инфраструктурой, НЕ glue (числа уже no-glue). Для продукта: если нужен один hashmap в иначе-минимальном wasm — закладывай ~5–8 KB gz floor независимо от числа элементов.
+
 ## Toolchain choice
 
 ### На V8 runtimes (Node + Chromium) для u64-keyed hashmap'ов выбирай `rust/bindgen` (std HashMap); для string-keyed выбирай `js Map` — кросс-toolchain профайл инвертируется на key type
@@ -117,6 +155,25 @@ Direction (raw < bindgen) consistent across 9/9 (env, entry) pairs. Magnitude va
 **Caveats:** Single workload class (тривиальные сигнатуры — `()->()`, `(i32,i32)->i32`, `(f64,f64)->f64`). Overhead absolute small (~0.05-2.3 ns/call) и тонет в шуме при wasm body > ~50 ns (e.g. `matmul` где gap внутри CV). Для product code с редкими crossings (DOM events, RAF callbacks) разница не важна; для горячих циклов с миллионами JS↔Wasm calls — preferable. Magnitude variance high (especially Chromium add_i32 +94% outlier) — для product decision проверь на target signature shape.
 
 Mechanism: wasm-bindgen генерирует JS shim per export, который маршалит args/ret через shared memory + maintains FinalizationRegistry для GC-aware refcells. Для тривиальных primitive-only signatures shim просто forward'ит вызов, но добавляет typeof checks + arity adjust + (Rust-side) bindgen-instrumented entry. Raw `extern "C"` экспортирует через direct call ABI, no JS-side shim.
+
+### Для bulk-data контейнеров (данные пересекают boundary один раз через `load_input`) выбор `rust/raw` над `rust/bindgen` — чистый size-выигрыш, не runtime: warm per-op throughput совпадает в пределах шума
+**Status:** confirmed
+**Evidence:** Phase 1.2, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/hashmap_{int,string}_{insert,lookup,delete}__rust-{raw,bindgen}-speed__M__node.json`. Warm-median per `run(N)` @M node (N=10000), eval mode:
+
+| workload | op | rust/raw | rust/bindgen | Δ |
+|---|---|---|---|---|
+| int | insert | 0.0726 | 0.0749 | −3% |
+| int | lookup | 0.0489 | 0.0503 | −3% |
+| int | delete | 0.0629 | 0.0667 | −6% |
+| str | insert | 0.2390 | 0.2392 | ~0 |
+| str | lookup | 0.2126 | 0.2111 | +1% |
+| str | delete | 0.5266 | 0.4867 | +8% |
+
+Все Δ в пределах measurement noise (±8%, без consistent direction по 2 key-types × 3 ops). glue сидит на boundary `load_input` (одноразовый marshalling фикстуры), не в `run()` hot loop → стрип glue не трогает warm-throughput, только artifact size (см. Artifact size § glue-floor).
+
+**Phase:** introduced 1.2
+
+**Caveats:** Чистый A/B только для **Rust** (rust/raw vs rust/bindgen: тот же rustc/std/HashMap/SipHash, отличие лишь glue). cpp/wasi-sdk vs emscripten — НЕ чистый glue-A/B (разные libc/optimizer): e.g. int lookup @M wasi 0.055 vs emscripten 0.111 (2×) — это toolchain/libc артефакт, не glue. Claim — про raw-vs-bindgen ВНУТРИ Rust. Для workload'ов, пересекающих JS↔wasm boundary **per-call** (тривиальные горячие функции — см. interop claim выше), glue добавляет per-call overhead — там runtime отличается. Здесь данные грузятся один раз, hot loop целиком wasm-side.
 
 ## Code patterns
 
