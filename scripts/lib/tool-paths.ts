@@ -26,6 +26,10 @@ export function wasmPackPath(): string {
     return preferLocal("wasm-pack");
 }
 
+export function twiggyPath(): string {
+    return preferLocal("twiggy");
+}
+
 export function emccPath(): string {
     return preferLocal("emcc");
 }

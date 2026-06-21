@@ -194,6 +194,31 @@ export async function ensureWasmPackViaCargo(version: string): Promise<void> {
     console.log(`[setup] wasm-pack ${version} installed`);
 }
 
+export async function ensureTwiggyViaCargo(version: string): Promise<void> {
+    const state = await readState();
+    const installRoot = join(TOOLS_DIR, `twiggy-${version}`);
+    const binary = join(installRoot, "bin", "twiggy");
+
+    if (state["twiggy"] === version && await pathExists(binary)) {
+        console.log(`[setup] twiggy ${version} already installed, skipping`);
+        return;
+    }
+
+    console.log(`[setup] installing twiggy ${version} via cargo`);
+    await mkdir(TOOLS_DIR, { recursive: true });
+    await run("cargo", [
+        "install",
+        "--locked",
+        "--version", version,
+        "--root", resolve(installRoot),
+        "twiggy",
+    ]);
+
+    state["twiggy"] = version;
+    await writeState(state);
+    console.log(`[setup] twiggy ${version} installed`);
+}
+
 export async function ensureRustTarget(target: string): Promise<void> {
     console.log(`[setup] adding rust target ${target}`);
     await run("rustup", ["target", "add", target]);
@@ -326,6 +351,7 @@ export async function ensureChromeForTesting(spec: ChromeForTestingSpec): Promis
 interface ToolVersionsTools {
     binaryen: { version: string };
     "wasm-pack": { version: string };
+    twiggy: { version: string };
 }
 
 interface ToolVersionsFile {
@@ -338,6 +364,7 @@ export async function createSymlinks(): Promise<void> {
 
     const binaryenVersion = tv.tools.binaryen.version;
     const wasmPackVersion = tv.tools["wasm-pack"].version;
+    const twiggyVersion = tv.tools.twiggy.version;
 
     const binDir = join(TOOLS_DIR, "bin");
     // Wipe and recreate so stale links (e.g. emcc from older versions of this script) are removed.
@@ -351,6 +378,7 @@ export async function createSymlinks(): Promise<void> {
     const links: Array<[string, string]> = [
         ["wasm-opt",  `../binaryen-${binaryenVersion}/bin/wasm-opt`],
         ["wasm-pack", `../wasm-pack-${wasmPackVersion}/bin/wasm-pack`],
+        ["twiggy",    `../twiggy-${twiggyVersion}/bin/twiggy`],
     ];
 
     for (const [linkName, target] of links) {

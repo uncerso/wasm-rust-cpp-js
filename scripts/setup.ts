@@ -7,6 +7,7 @@ import {
     ensureTarball,
     ensureEmsdk,
     ensureWasmPackViaCargo,
+    ensureTwiggyViaCargo,
     ensureRustTarget,
     ensureFirefox,
     ensureGeckodriver,
@@ -30,6 +31,10 @@ interface WasmPackEntry {
     version: string;
 }
 
+interface TwiggyEntry {
+    version: string;
+}
+
 interface BrowsersManifest {
     firefox: FirefoxSpec;
     geckodriver: GeckodriverSpec;
@@ -42,6 +47,7 @@ interface VersionsManifest {
         binaryen: TarballEntry;
         emsdk: EmsdkEntry;
         "wasm-pack": WasmPackEntry;
+        twiggy: TwiggyEntry;
     };
     browsers: BrowsersManifest;
 }
@@ -64,6 +70,7 @@ async function main(): Promise<void> {
     await ensureTarball(binaryen);
     await ensureEmsdk(manifest.tools.emsdk.version);
     await ensureWasmPackViaCargo(manifest.tools["wasm-pack"].version);
+    await ensureTwiggyViaCargo(manifest.tools.twiggy.version);
     await createSymlinks();
     await ensureRustTarget("wasm32-unknown-unknown");
     await ensureFirefox(manifest.browsers.firefox);
