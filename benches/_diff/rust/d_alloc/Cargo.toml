@@ -1,0 +1,13 @@
+[package]
+name = "d-alloc"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+
+[lints]
+workspace = true
