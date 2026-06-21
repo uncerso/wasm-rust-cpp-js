@@ -10,6 +10,7 @@ import { statArtifact, writeMeta, type ArtifactMeta } from "./lib/meta.js";
 import { detectActual } from "./lib/tool-versions.js";
 import { wasiSdkPath } from "./lib/tool-paths.js";
 import { emsdkEnv } from "./lib/emsdk-env.js";
+import { attributeWasiSdk } from "./lib/size-attr-build.js";
 
 function metaFromBinary(c: BinaryCombination): ArtifactMeta["combination"] {
     return {
@@ -44,6 +45,7 @@ async function buildEmscripten(c: BinaryCombination): Promise<void> {
         jsModule: null,
         totalTransferGzipBytes: wasmStat.gzipBytes + glueStat.gzipBytes,
         toolchainVersions: await detectActual(),
+        composition: null,
     };
     await writeMeta(out, meta);
     console.log(`built emscripten ${c.sourceBench} (${c.profile}) -> ${out} (${wasmStat.rawBytes} B + ${glueStat.rawBytes} B glue)`);
@@ -56,10 +58,13 @@ async function buildWasiSdk(c: BinaryCombination): Promise<void> {
     const toolsBin = resolve(".tools/bin");
     const mergedPath = `${toolsBin}:${process.env["PATH"] ?? ""}`;
     await run("bash", [script, c.profile, resolve(out)], {
-        env: { WASI_SDK_PATH: wasiSdkPath(), PATH: mergedPath },
+        env: { WASI_SDK_PATH: wasiSdkPath(), PATH: mergedPath, SIZE_ATTR: "1" },
     });
 
     const wasmStat = await statArtifact(join(out, "module.wasm"));
+    const composition = await attributeWasiSdk(c, out, {
+        rawBytes: wasmStat.rawBytes, gzipBytes: wasmStat.gzipBytes, brotliBytes: wasmStat.brotliBytes,
+    });
     const meta: ArtifactMeta = {
         combination: metaFromBinary(c),
         wasm: wasmStat,
@@ -67,6 +72,7 @@ async function buildWasiSdk(c: BinaryCombination): Promise<void> {
         jsModule: null,
         totalTransferGzipBytes: wasmStat.gzipBytes,
         toolchainVersions: await detectActual(),
+        composition,
     };
     await writeMeta(out, meta);
     console.log(`built wasi-sdk ${c.sourceBench} (${c.profile}) -> ${out} (${wasmStat.rawBytes} B)`);

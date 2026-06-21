@@ -8,3 +8,4 @@ benches/matmul/rust/*/Cargo.lock
 *.tsbuildinfo
 .DS_Store
 benches/*/fixtures/*.bin
+.superpowers/

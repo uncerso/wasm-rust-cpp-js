@@ -31,7 +31,9 @@ Follow `docs/workflow.md` exactly:
    - Break: recommend `/finish-session` (user decides).
 5. **Orient** — (fresh session) re-read the session-state.
 6. **Execute** — Wave-0 baseline gate; route each task by the plan's `[I]`/`[S]` tags (do NOT re-ask the harness — all-`[I]` ⇒ inline); per-task break-check; commit code per wave. Use `executing-plans` or `subagent-driven-development`.
-7. **Close** — gates green → push → PR (user reviews on GitHub) → recommend `/finish-session`.
+7. **Close** — gates green → push → PR (user reviews on GitHub) → recommend `/finish-session`. Before declaring a phase closed:
+   - **Visual deliverable check** — if the phase ships a UI / report / rendered artifact, OPEN it and eyeball it. Gates (typecheck/lint/test) do NOT catch render/UX regressions (bar scaling, stale strings, missing controls). See `docs/pitfalls/2026-06-22-phase-1-3-close-out-visual-deliverable.md`.
+   - **Spec-coverage diff** — explicitly name any spec § items NOT implemented this phase and surface them to the user; never let a plan's "relocate without redesign" / "v1 only" silently drop a spec item.
 
 ## Rules
 

@@ -36,32 +36,48 @@ function fakeResult(
 
 describe("renderHtml", () => {
     it("produces non-empty HTML containing the benchmark id and warmMedian", () => {
-        const html = renderHtml(aggregate([fakeResult()]));
+        const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
         expect(html).toContain("matmul");
         expect(html).toContain("1.234"); // warmMedian formatted to 3 decimals
-        expect(html).toContain("1234");  // totalTransferGzipBytes
         expect(html).toContain("<!doctype html>");
+    });
+
+    it("renders a tabbed shell with Size and Perf panels", () => {
+        const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
+        expect(html).toContain('<nav class="tabs">');
+        expect(html).toContain('data-tab="size"');
+        expect(html).toContain('data-tab="perf"');
+        expect(html).toContain('id="tab-size"');
+        expect(html).toContain('id="tab-perf"');
+    });
+
+    it("renders Perf-tab filters (env/size/profile) over filterable rows", () => {
+        const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
+        expect(html).toContain('class="size-controls perf-controls"');
+        expect(html).toContain('name="perfEnv"');
+        expect(html).toContain('name="perfSize"');
+        expect(html).toContain('name="perfProfile"');
+        expect(html).toMatch(/<tr[^>]*data-env="[^"]+"[^>]*data-size="[^"]+"[^>]*data-profile="[^"]+"/);
     });
 
     it("escapes potentially-hazardous characters in fields", () => {
         const r = fakeResult();
         r.benchmark.id = "<script>alert(1)</script>";
-        const html = renderHtml(aggregate([r]));
+        const html = renderHtml(aggregate([r]), { binaries: [] });
         expect(html).not.toContain("<script>alert(1)</script>");
         expect(html).toContain("&lt;script&gt;");
     });
 
-    it("includes units in size and timing column headers", () => {
-        const html = renderHtml(aggregate([fakeResult()]));
-        expect(html).toContain("<th>wasm raw (B)</th>");
-        expect(html).toContain("<th>wasm gz (B)</th>");
-        expect(html).toContain("<th>total gz (B)</th>");
+    it("includes timing column headers and drops size columns (moved to Size view)", () => {
+        const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
         expect(html).toContain("<th>init (ms)</th>");
         expect(html).toContain("<th>first (ms)</th>");
         expect(html).toContain("<th>warm med (ms)</th>");
         expect(html).toContain("<th>warm p95 (ms)</th>");
         expect(html).toContain("<th>cv</th>");
         expect(html).toContain("<th>ok</th>");
+        expect(html).not.toContain("<th>wasm raw (B)</th>");
+        expect(html).not.toContain("<th>total gz (B)</th>");
     });
 });
 
@@ -85,7 +101,7 @@ describe("renderHtml shape_dispatch 2×2 factorial grid", () => {
             shapeCase("shape_dispatch_mixed_dyn", 44.444),
             fakeResult(), // a normal matmul flat section
         ];
-        const html = renderHtml(aggregate(results));
+        const html = renderHtml(aggregate(results), { binaries: [] });
         expect(html).toContain("shape_dispatch (2×2 factorial)");
         // the 4 grid cell values
         expect(html).toContain("11.111");
@@ -106,7 +122,7 @@ describe("renderHtml shape_dispatch 2×2 factorial grid", () => {
             shapeCase("shape_dispatch_mixed_static", 33.333),
             shapeCase("shape_dispatch_mixed_dyn", 44.444),
         ];
-        const html = renderHtml(aggregate(results));
+        const html = renderHtml(aggregate(results), { binaries: [] });
         expect(html).toContain("shape_dispatch (2×2 factorial)");
         expect(html).toContain("—");
     });

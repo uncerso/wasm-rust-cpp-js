@@ -18,6 +18,10 @@ members = [
     "benches/shape_dispatch_homo_dyn/rust/bindgen",
     "benches/shape_dispatch_mixed_static/rust/bindgen",
     "benches/shape_dispatch_mixed_dyn/rust/bindgen",
+    "benches/_diff/rust/d_bare",
+    "benches/_diff/rust/d_alloc",
+    "benches/_diff/rust/d_map1",
+    "benches/_diff/rust/d_map8",
 ]
 
 [workspace.package]

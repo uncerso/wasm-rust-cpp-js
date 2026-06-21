@@ -14,6 +14,9 @@ importers:
       '@bench/result-schema':
         specifier: workspace:*
         version: link:packages/result-schema
+      '@bench/size-attr':
+        specifier: workspace:*
+        version: link:packages/size-attr
       '@stylistic/eslint-plugin':
         specifier: ^5.10.0
         version: 5.10.0(eslint@10.3.0)
@@ -199,6 +202,22 @@ importers:
 
   packages/result-schema:
     dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@22.19.17)(tsx@4.21.0)
+
+  packages/size-attr:
+    dependencies:
+      '@bench/result-schema':
+        specifier: workspace:*
+        version: link:../result-schema
       zod:
         specifier: ^3.23.8
         version: 3.25.76

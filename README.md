@@ -64,6 +64,7 @@
 - wasi-sdk 25.
 - wasm-opt 129 (binaryen).
 - wasm-pack 0.13.1 (через `cargo install --root .tools/wasm-pack-0.13.1`).
+- twiggy 0.8.0 (через `cargo install --root .tools/twiggy-0.8.0`) — code-size профайлер для size-атрибуции.
 - Firefox stable + geckodriver + Chrome for Testing + chromedriver — см. [Browser versions](#browser-versions).
 
 Точные версии и pinned URL+sha256 — в [`tool-versions.json`](./tool-versions.json). При расхождении артефакты и тайминги будут отличаться — формально такой прогон **не воспроизводим** относительно референсного.
@@ -122,6 +123,7 @@ pnpm setup-tools
 - скачивает и проверяет sha256 wasi-sdk 25 и binaryen 129 в `.tools/`;
 - клонирует и активирует emsdk 5.0.7 в `.tools/emsdk/`;
 - ставит wasm-pack 0.13.1 через `cargo install --locked --root .tools/wasm-pack-0.13.1`;
+- ставит twiggy 0.8.0 через `cargo install --locked --root .tools/twiggy-0.8.0`;
 - добавляет rustup target `wasm32-unknown-unknown`;
 - скачивает Firefox stable + geckodriver + Chrome for Testing + chromedriver (DMG / tar.gz / ZIP, sha256-pinned).
 
@@ -129,7 +131,7 @@ pnpm setup-tools
 
 ### 4. Linux / Windows (вручную)
 
-Auto-install сделан под macOS arm64. На других платформах поставьте версии из `tool-versions.json` любым способом и сделайте чтобы `emcc`, `wasm-opt`, `wasm-pack` резолвились на PATH; для wasi-sdk выставьте `WASI_SDK_PATH` на корень установленного SDK. Build-скрипты упадут на bare-name резолюцию через PATH когда `.tools/` пуст.
+Auto-install сделан под macOS arm64. На других платформах поставьте версии из `tool-versions.json` любым способом и сделайте чтобы `emcc`, `wasm-opt`, `wasm-pack`, `twiggy` резолвились на PATH; для wasi-sdk выставьте `WASI_SDK_PATH` на корень установленного SDK. Build-скрипты упадут на bare-name резолюцию через PATH когда `.tools/` пуст.
 
 ---
 
@@ -155,8 +157,8 @@ pnpm build:all
 
 ```bash
 pnpm build:js   <bench-id>…   # только JS-цепочка для указанных workload'ов
-pnpm build:rust <bench-id>…   # только Rust (требует rustc + wasm-pack + wasm-opt)
-pnpm build:cpp  <bench-id>…   # только C++ (требует emcc + wasi-sdk + wasm-opt)
+pnpm build:rust <bench-id>…   # только Rust (требует rustc + wasm-pack + wasm-opt + twiggy)
+pnpm build:cpp  <bench-id>…   # только C++ (требует emcc + wasi-sdk + wasm-opt + twiggy)
 ```
 
 ---
@@ -262,9 +264,20 @@ pnpm report --in=results/raw/<run-name>
 # или без --in: возьмёт самый свежий каталог под results/raw/
 ```
 
-Создаёт `results/summarized/<ISO timestamp>/index.html` — статичный HTML с таблицей по каждому benchmark'у. Строки шумных кейсов (cv > порога) подсвечены жёлтым, упавшие correctness — красным.
+Создаёт `results/summarized/<ISO timestamp>/index.html` — одну статическую страницу с двумя вкладками:
 
-Каждый JSON-результат прогоняется через `BenchResultSchema.parse` перед агрегацией — невалидный файл будет ошибкой.
+- **Size** — композиция артефакта по facility-категориям (allocator / hash-map / string / panic-fmt / observed / …) композиционными bars (шкала баров — в пределах workload'а: 100% = его крупнейший бинарь, чтобы мелкие workload'ы оставались читаемыми; кросс-workload абсолют — в колонке total и таблице): floor-band (paid-once, приглушённый) + observed-band (изучаемый код, акцент), сегменты разделены тонкой линией, имя+байты — в hover-тултипе. Фильтры: сжатие raw/gzip/brotli, профиль, тулчейны, тумблер «только наблюдаемое». Под барами — кросс-языковая таблица по категориям (численный per-facility разбор). Доли считаются по raw, абсолют помечен ≈ (pre-opt композиция × калибровка к точному production-тоталу — байт-точная символьная атрибуция post-opt невозможна; почему — раздел «Почему размеры приближённые» ниже).
+- **Perf** — таблица таймингов по каждому benchmark'у + 2×2 grid для shape_dispatch, с клиентскими фильтрами env / size (S/M/L) / профиль (2×2 grid — закреплённый headline, фильтры на него не действуют). Строки шумных кейсов подсвечены жёлтым, упавшие correctness — красным.
+
+Size читает `composition` из `dist/*/meta.json` (rust/raw покрыты; cpp/wasi-sdk, bindgen, emscripten деградируют до одного серого бара «не атрибутировано» (js — один observed-бар, floor≈0) — расширение атрибуции на эти тулчейны отложено, см. roadmap `size-attr-toolchain-coverage`). Каждый JSON-результат прогоняется через `BenchResultSchema.parse` перед агрегацией — невалидный файл будет ошибкой.
+
+### Почему размеры приближённые (и почему это ок)
+
+Per-facility байты — **приближённые**: pre-opt символьная композиция (доли по `twiggy`) × калибровка к **точному** production-тоталу. Сегменты помечены `≈`.
+
+**Почему не байт-точно.** Присутствие `name`/debug-секций во время `wasm-opt` **меняет** оптимизацию (binaryen `-g` глушит merge-functions/dedup): name-bearing matmul = 1005 code B / 8 функций против production 940 / 6. Контроль `strip → wasm-opt` даёт байт-в-байт production, но выкидывает имена. Нельзя одновременно иметь production-байты И post-opt имена → символьная атрибуция неизбежно **pre-optimization** (композиция/доли, не абсолют).
+
+**Почему это ок.** Production-тотал точен (якорь, длина бара). Доли устойчивы к калибровке. Per-facility порядок величины надёжен (caveat: `wasm-opt` сжимает категории неравномерно). Headline-факты дополнительно кросс-проверены **production-точным дифференциалом** (`scripts/size-diff.ts` — слоистые `-Oz` сборки `empty → +allocator → +HashMap → ×N`; дельты совпадают по порядку с долями композиции). См. `docs/guidelines.md` § Artifact size.
 
 ---
 

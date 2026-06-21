@@ -72,8 +72,10 @@ Direction (no-glue < glue total transfer) consistent across 2 key-types × 2 pro
 Mechanism: wasm-bindgen генерит JS-shim per export (typeof-checks, arity-adjust, FinalizationRegistry для GC-aware refcells); emscripten — целый Module-runtime (HEAP views, env, fs-shims). Оба shippятся рядом с wasm. no-glue экспортирует через direct call ABI и инстанцируется с `{}` — нулевой JS-floor.
 
 ### Подтягивание stdlib-hashmap в no-glue wasm стоит multi-KB floor (~5 KB gz cpp libc++ / ~7–8 KB gz rust std) над no_std/no-container baseline
-**Status:** tentative
-**Evidence:** Phase 1.2, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/{hashmap_int,matmul,interop_calls}_*__{rust-raw,cpp-wasi-sdk}-size__*__node.json`. gzipped wasm, size profile:
+**Status:** confirmed
+**Evidence:** Phase 1.2 (workload-level) + Phase 1.3 (контролируемый дифференциал, `scripts/size-diff.ts`). gzipped wasm, size profile.
+
+Workload-level (no-glue, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/…`):
 
 | crate | rust/raw (no_std→std) | cpp/wasi-sdk |
 |---|---|---|
@@ -82,11 +84,36 @@ Mechanism: wasm-bindgen генерит JS-shim per export (typeof-checks, arity-
 | hashmap_int (+ std HashMap / libc++ unordered_map) | 7820 | 5477 |
 | hashmap_string (+ String/std::string keys) | 9159 | 6507 |
 
-std-container floor над no_std/no-container baseline: Rust ~6.7–7.6 KB gz, C++ libc++ ~4.9 KB gz. string +1 KB над int.
+Контролируемый дифференциал (rust/raw, `-Oz`, слоистые синтетические крейты `empty → +allocator → +HashMap → ×8 use-sites`) снимает workload-confound:
 
-**Phase:** introduced 1.2
+| слой | raw | gz |
+|---|---|---|
+| baseline (std, без heap) | 107 | 121 |
+| + первая heap-аллокация (dlmalloc + panic/fmt, что она тянет) | +8 519 | +3 633 |
+| + std `HashMap` (SipHash / `RandomState` / hash) | +1 971 | +1 168 |
+| **8 use-site'ов HashMap против 1** | **+44** | **+16** |
 
-**Caveats:** **tentative** — workload-confounded: hashmap отличается от matmul/interop не только std-inclusion'ом, но и кодом workload'а, поэтому это «floor std-контейнерного workload'а», не чистая «цена std». Floor доминируется allocator'ом (dlmalloc / wasi malloc) + hash-machinery (SipHash `RandomState` / libc++ hash) + panic/abort-инфраструктурой, НЕ glue (числа уже no-glue). Для продукта: если нужен один hashmap в иначе-минимальном wasm — закладывай ~5–8 KB gz floor независимо от числа элементов.
+**Phase:** introduced 1.2 / refined 1.3
+
+**Caveats:** Floor платится **один раз** — 8 мест использования HashMap добавили 44 B raw над одним (не ×8 от ~2 KB map-кода): не масштабируется ни с числом use-site'ов, ни с числом элементов. Дифференциал — rust/raw синтетика; cpp-сторона остаётся workload-level (cpp/wasi-sdk атрибуция в degraded-режиме → roadmap `size-attr-toolchain-coverage`). Floor доминируется allocator'ом (одна dlmalloc-аллокация ~3.6 KB gz, тянет panic/abort-инфру) + hash-machinery; для продукта: один hashmap в иначе-минимальном wasm → закладывай ~5–8 KB gz floor.
+
+### Размер микро-wasm = floor (paid-once) + observed; floor доминирует, а observed (твой код) сопоставим между workload'ами — «X больше» обычно про floor, не про твой код
+**Status:** confirmed (rust/raw; кросс-языково — partial)
+**Evidence:** Phase 1.3, `dist/*/meta.json` поле `composition` (twiggy pre-opt × калибровка к точному production-тоталу) — first-class в отчёте (`pnpm report`, вкладка Size). rust/raw, size profile:
+
+| workload | total raw | observed raw | floor % |
+|---|---|---|---|
+| interop_calls | 302 | 74 | 75% |
+| matmul (FP + isqrt-таблица) | 1 639 | 964 | 41% |
+| shape_dispatch_homo_static | 1 522 | 963 | 37% |
+| hashmap_int | 16 188 | 1 736 | 89% |
+| hashmap_string | 18 938 | 2 374 | 87% |
+
+Тоталы расходятся 0.3 KB ↔ 19 KB, но observed (наблюдаемый workload-код) держится в ~0.1–2.4 KB; разница почти вся — floor (allocator + hash + panic + primitive-таблицы), платящийся один раз. Compute-bound (matmul) — low-floor (~40%); container-bound (hashmap) — floor-dominated (~90%).
+
+**Phase:** introduced 1.3
+
+**Caveats:** per-facility байты приближённые (`≈`, pre-opt доля × точный тотал; wasm-opt сжимает категории неравномерно) — порядок величины надёжен, production-тотал точен, headline-факты кросс-проверены production-точным дифференциалом (`scripts/size-diff.ts` — см. claim про std-container floor выше). Атрибутирован пока только rust/raw (16 бинарей); cpp/wasi-sdk degraded, bindgen/emscripten вне scope (→ roadmap `size-attr-toolchain-coverage`). JS: floor ≈ 0 — весь bundle observed (движок не едет в артефакт). Доп.: static dispatch чуть **меньше** dynamic на rust/raw `-Oz` (homo_static 1522 < homo_dyn 1693 B: vtable-инфра дороже 3 монроморфных тел при K=3) — кросс-проверка дифференциалом; ось perf — отдельный dispatch-claim ниже.
 
 ### Один примитив может молча залинковать multi-KB фиксированную таблицу, доминирующую над размером маленького wasm — аудируй примитивы, не алгоритм
 **Status:** confirmed
@@ -101,7 +128,7 @@ std-container floor над no_std/no-container baseline: Rust ~6.7–7.6 KB gz, 
 
 **Phase:** introduced 1.2
 
-**Caveats:** Размер маленьких synthetic-workload'ов доминируется фиксированным overhead'ом тулчейна + линковкой примитивов, НЕ структурой алгоритма: тот же `shape_dispatch_homo_static` — 1522 B (rust/raw) … 6024 B (cpp/wasi-sdk) … 12449 B (rust/bindgen, ~10 KB runtime), **8× разброс при ~1.5 KB реальной dispatch-логики**. Кросс-язычный вывод «язык X компактнее» из микро-workload'а НЕВАЛИДЕН — сравнивай within-toolchain либо декомпозируй floor-vs-marginal (см. roadmap `wasm-size-floor-vs-marginal`).
+**Caveats:** Размер маленьких synthetic-workload'ов доминируется фиксированным overhead'ом тулчейна + линковкой примитивов, НЕ структурой алгоритма: тот же `shape_dispatch_homo_static` — 1522 B (rust/raw) … 6024 B (cpp/wasi-sdk) … 12449 B (rust/bindgen, ~10 KB runtime), **8× разброс при ~1.5 KB реальной dispatch-логики**. Кросс-язычный вывод «язык X компактнее» из микро-workload'а НЕВАЛИДЕН — сравнивай within-toolchain либо декомпозируй floor-vs-marginal (теперь first-class в отчёте, вкладка Size — см. claim про floor-vs-marginal выше).
 
 ## Toolchain choice
 

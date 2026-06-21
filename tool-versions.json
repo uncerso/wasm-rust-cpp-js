@@ -28,6 +28,11 @@
       "version": "0.13.1",
       "installVia": "cargo",
       "_note": "wasm-pack v0.13.1 не публикует aarch64-apple-darwin asset (только x86_64). v0.14.0 публикует, но bumps version vs Phase 1.0 baseline. Используем cargo install --locked --version 0.13.1 wasm-pack --root .tools/wasm-pack-0.13.1 (rustup pre-installed по spec §5.1)."
+    },
+    "twiggy": {
+      "version": "0.8.0",
+      "installVia": "cargo",
+      "_note": "Code-size profiler. rustwasm org sunset (2025) → repo AlexEne/twiggy, read-only с 2026-03; core wasm-формат стабилен, при нужде форкаем (MIT/Apache). Pre-opt символьная атрибуция (имена срезаются wasm-opt). cargo install --locked --version 0.8.0 twiggy --root .tools/twiggy-0.8.0."
     }
   },
   "browsers": {

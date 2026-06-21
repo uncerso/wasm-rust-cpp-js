@@ -8,6 +8,7 @@ import {
 import { statArtifact, writeMeta, type ArtifactMeta } from "./lib/meta.js";
 import { detectActual } from "./lib/tool-versions.js";
 import { wasmOptPath, wasmPackPath } from "./lib/tool-paths.js";
+import { attributeRustRaw } from "./lib/size-attr-build.js";
 
 function metaFromBinary(c: BinaryCombination): ArtifactMeta["combination"] {
     return {
@@ -36,6 +37,9 @@ async function buildRaw(c: BinaryCombination): Promise<void> {
     }
 
     const wasmStat = await statArtifact(dst);
+    const composition = await attributeRustRaw(c, {
+        rawBytes: wasmStat.rawBytes, gzipBytes: wasmStat.gzipBytes, brotliBytes: wasmStat.brotliBytes,
+    });
     const meta: ArtifactMeta = {
         combination: metaFromBinary(c),
         wasm: wasmStat,
@@ -43,6 +47,7 @@ async function buildRaw(c: BinaryCombination): Promise<void> {
         jsModule: null,
         totalTransferGzipBytes: wasmStat.gzipBytes,
         toolchainVersions: await detectActual(),
+        composition,
     };
     await writeMeta(out, meta);
     console.log(`built ${crateDir} (${profile}) -> ${dst} (${wasmStat.rawBytes} B)`);
@@ -87,6 +92,7 @@ async function buildBindgen(c: BinaryCombination): Promise<void> {
         jsModule: null,
         totalTransferGzipBytes: wasmStat.gzipBytes + glueStat.gzipBytes,
         toolchainVersions: await detectActual(),
+        composition: null,
     };
     await writeMeta(out, meta);
     console.log(`built ${crateDir} (${c.profile}) -> ${wasmDst} (${wasmStat.rawBytes} B + ${glueStat.rawBytes} B glue)`);
