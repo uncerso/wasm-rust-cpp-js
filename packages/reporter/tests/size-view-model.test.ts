@@ -73,14 +73,16 @@ describe("buildCrossLangTables", () => {
     it("aligns facilities into shared columns per workload", () => {
         const vm = buildSizeViewModel({ binaries: [
             bin({ composition }),
-            bin({ language: "cpp", toolchain: "wasi-sdk", label: "cpp/wasi-sdk/size", composition: {
-                source: "pre-opt-twiggy",
-                productionTotal: { rawBytes: 800, gzipBytes: 400, brotliBytes: 360 },
-                preOptTotalBytes: 850, calibrationFactor: 0.94, unattributedShare: 0,
-                facilities: [{ facility: "allocator", scaling: "paid-once", share: 1, approxBytes: 800 }],
-            } }),
+            bin({ language: "cpp", toolchain: "wasi-sdk", label: "cpp/wasi-sdk/size",
+                totals: { rawBytes: 800, gzipBytes: 400, brotliBytes: 360 },
+                composition: {
+                    source: "pre-opt-twiggy",
+                    productionTotal: { rawBytes: 800, gzipBytes: 400, brotliBytes: 360 },
+                    preOptTotalBytes: 850, calibrationFactor: 0.94, unattributedShare: 0,
+                    facilities: [{ facility: "allocator", scaling: "paid-once", share: 1, approxBytes: 800 }],
+                } }),
         ] });
-        const tables = buildCrossLangTables(vm, "rawBytes");
+        const tables = buildCrossLangTables(vm);
         expect(tables).toHaveLength(1);
         const t = tables[0]!;
         expect(t.id).toBe("hashmap_int");
@@ -88,7 +90,11 @@ describe("buildCrossLangTables", () => {
         expect(t.facilities).toContain("observed");
         expect(t.rows).toHaveLength(2);
         const cpp = t.rows.find((r) => r.label === "cpp/wasi-sdk/size")!;
-        expect(cpp.byFacility["allocator"]).toBe(800);
-        expect(cpp.byFacility["observed"] ?? 0).toBe(0);
+        expect(cpp.byFacility["allocator"]!.rawBytes).toBe(800);
+        expect(cpp.byFacility["allocator"]!.gzBytes).toBe(400); // share 1 × 400 gz total
+        expect(cpp.byFacility["observed"]?.rawBytes ?? 0).toBe(0);
+        expect(cpp.total).toEqual({ rawBytes: 800, gzBytes: 400, brotliBytes: 360 });
+        expect(cpp.toolchain).toBe("wasi-sdk");
+        expect(cpp.profile).toBe("size");
     });
 });

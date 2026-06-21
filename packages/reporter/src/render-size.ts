@@ -38,6 +38,13 @@ export const SIZE_JS = `
       row.style.display = show ? '' : 'none';
       if (show) { visible.push(row); }
     });
+    Array.from(document.querySelectorAll('tr.xlang-row')).forEach(function (tr) {
+      var show = (profile === 'all' || tr.dataset.profile === profile) && checkedTc.indexOf(tr.dataset.toolchain) >= 0;
+      tr.style.display = show ? '' : 'none';
+    });
+    Array.from(document.querySelectorAll('.xlang-cell')).forEach(function (td) {
+      td.textContent = td.dataset[key];
+    });
     var maxBar = 0;
     visible.forEach(function (row) {
       var segs = Array.from(row.querySelectorAll('.seg'));
@@ -109,24 +116,28 @@ function controls(toolchains: string[]): string {
   </div>`;
 }
 
+function cell(c: { rawBytes: number; gzBytes: number; brotliBytes: number }): string {
+    return `<td class="xlang-cell" data-raw="${c.rawBytes}" data-gz="${c.gzBytes}" data-brotli="${c.brotliBytes}">${c.rawBytes}</td>`;
+}
+
+const ZERO_CELL = { rawBytes: 0, gzBytes: 0, brotliBytes: 0 };
+
 function renderTable(t: WorkloadTable): string {
     const head = t.facilities.map((f) => `<th>${escape(f)}</th>`).join("");
     const rows = t.rows
         .map((r) => {
-            const cells = t.facilities
-                .map((f) => `<td>${r.byFacility[f] ?? 0}</td>`)
-                .join("");
-            return `<tr><td>${escape(r.label)}</td>${cells}<td>${r.total}</td></tr>`;
+            const cells = t.facilities.map((f) => cell(r.byFacility[f] ?? ZERO_CELL)).join("");
+            return `<tr class="xlang-row" data-toolchain="${escape(r.toolchain)}" data-profile="${escape(r.profile)}"><td>${escape(r.label)}</td>${cells}${cell(r.total)}</tr>`;
         })
         .join("\n");
-    return `<p class="size-note">кросс-языковая таблица — байты по raw</p>
+    return `<p class="size-note">кросс-языковая таблица — байты по выбранному сжатию (доли по raw, абсолют ≈)</p>
     <table class="xlang"><thead><tr><th>impl</th>${head}<th>total</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 export function renderSizeView(data: SizeData): string {
     const vm = buildSizeViewModel(data);
     const toolchains = [...new Set(vm.binaries.map((b) => b.toolchain))].sort();
-    const tables = buildCrossLangTables(vm, "rawBytes");
+    const tables = buildCrossLangTables(vm);
     const byWorkload = new Map<string, BinaryViewModel[]>();
     for (const b of vm.binaries) {
         const arr = byWorkload.get(b.id) ?? [];

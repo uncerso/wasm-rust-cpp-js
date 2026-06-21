@@ -86,11 +86,19 @@ export function buildSizeViewModel(data: SizeData): SizeViewModel {
     return { binaries: data.binaries.map(modelFor) };
 }
 
+export interface CellBytes {
+    rawBytes: number;
+    gzBytes: number;
+    brotliBytes: number;
+}
+
 export interface CrossLangRow {
     id: string;
     label: string;
-    byFacility: Record<string, number>;
-    total: number;
+    toolchain: string;
+    profile: string;
+    byFacility: Record<string, CellBytes>;
+    total: CellBytes;
 }
 
 export interface WorkloadTable {
@@ -99,9 +107,7 @@ export interface WorkloadTable {
     rows: CrossLangRow[];
 }
 
-type CompKey = "rawBytes" | "gzBytes" | "brotliBytes";
-
-export function buildCrossLangTables(vm: SizeViewModel, compression: CompKey): WorkloadTable[] {
+export function buildCrossLangTables(vm: SizeViewModel): WorkloadTable[] {
     const byWorkload = new Map<string, BinaryViewModel[]>();
     for (const b of vm.binaries) {
         const arr = byWorkload.get(b.id) ?? [];
@@ -112,15 +118,20 @@ export function buildCrossLangTables(vm: SizeViewModel, compression: CompKey): W
     for (const [id, bins] of byWorkload) {
         const facilitySet = new Set<string>();
         const rows: CrossLangRow[] = bins.map((b) => {
-            const byFacility: Record<string, number> = {};
-            let total = 0;
+            const byFacility: Record<string, CellBytes> = {};
+            const total: CellBytes = { rawBytes: 0, gzBytes: 0, brotliBytes: 0 };
             for (const s of b.segments) {
-                const bytes = s[compression];
-                byFacility[s.facility] = (byFacility[s.facility] ?? 0) + bytes;
-                total += bytes;
+                const cur = byFacility[s.facility] ?? { rawBytes: 0, gzBytes: 0, brotliBytes: 0 };
+                cur.rawBytes += s.rawBytes;
+                cur.gzBytes += s.gzBytes;
+                cur.brotliBytes += s.brotliBytes;
+                byFacility[s.facility] = cur;
+                total.rawBytes += s.rawBytes;
+                total.gzBytes += s.gzBytes;
+                total.brotliBytes += s.brotliBytes;
                 facilitySet.add(s.facility);
             }
-            return { id, label: b.label, byFacility, total };
+            return { id, label: b.label, toolchain: b.toolchain, profile: b.profile, byFacility, total };
         });
         tables.push({ id, facilities: [...facilitySet].sort(), rows });
     }
