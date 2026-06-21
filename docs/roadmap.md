@@ -60,6 +60,7 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 
 - **benchmark-cv-stabilization** — почти все ячейки отчётов жёлтые (coefficient of variation выше порога): разобраться в источниках дисперсии и стабилизировать измерения; одна известная под-причина — нет CPU-throttling lock на macOS ([→ tech_debt/cpu-throttling-lock-macos](tech_debt/cpu-throttling-lock-macos.md)).
 - **wasm-size-floor-vs-marginal** — артефакт-size микро-workload'ов доминируется фиксированным налогом (allocator, std-контейнер, primitive-таблицы типа musl `log` / `isqrt`, panic-инфра — платится один раз, не масштабируется), а не маржинальным вкладом (сумма generic/template-инстансов + workload-код); 8× кросс-toolchain разброс на одной задаче это подтверждает. Разработать метод декомпозиции (differential builds: empty → +allocator → +container, либо twiggy-категоризация fixed-infra vs workload) → честные size-guideline'ы про реальную цену оси. Преемник закрытого `rust-vs-cpp-wasm-size` (Phase 1.2 атрибуция: исходная гипотеза «rust стабильно крупнее» опровергнута — направление зависит от workload'а и доминируется линковкой примитивов). ([→ guidelines § Artifact size](guidelines.md))
+- **size-bar-per-facility-color** — Size-вид отчёта красит floor одним цветом на band (разделители + hover-тултип есть); per-facility расцветка/легенда на самом баре сделала бы «из чего состоит floor» читаемым без обращения к таблице (за пределами текущей band-level спеки Phase 1.3).
 
 ## Won't do
 
