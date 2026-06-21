@@ -1,6 +1,6 @@
 import type { Aggregated } from "./aggregate.js";
 import type { SizeData } from "./size-data.js";
-import { renderPerfView, escape } from "./render-perf.js";
+import { renderPerfView, escape, PERF_JS } from "./render-perf.js";
 import { renderSizeView, SIZE_CSS, SIZE_JS } from "./render-size.js";
 
 const SHELL_CSS = `
@@ -57,5 +57,6 @@ ${renderPerfView(agg)}
 </section>
 <script>${TABS_JS}</script>
 <script>${SIZE_JS}</script>
+<script>${PERF_JS}</script>
 </body></html>`;
 }

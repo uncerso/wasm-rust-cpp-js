@@ -51,13 +51,15 @@ describe("buildSizeViewModel", () => {
         expect(alloc.brotliBytes).toBe(Math.round(0.45 * 450));
     });
 
-    it("degrades null composition to one observed bar with a note", () => {
+    it("degrades null composition (non-JS) to one 'unknown' bar with an honest note", () => {
         const vm = buildSizeViewModel({ binaries: [bin({ composition: null })] });
         const b = vm.binaries[0]!;
         expect(b.hasComposition).toBe(false);
         expect(b.segments).toHaveLength(1);
         expect(b.segments[0]!.rawBytes).toBe(1000);
-        expect(b.note).toContain("unavailable");
+        expect(b.segments[0]!.band).toBe("unknown");
+        expect(b.segments[0]!.facility).toBe("(не атрибутировано)");
+        expect(b.note).toContain("rust/raw");
     });
 
     it("marks JS as a single observed bar (floor 0)", () => {

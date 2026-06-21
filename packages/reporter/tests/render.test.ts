@@ -51,6 +51,15 @@ describe("renderHtml", () => {
         expect(html).toContain('id="tab-perf"');
     });
 
+    it("renders Perf-tab filters (env/size/profile) over filterable rows", () => {
+        const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
+        expect(html).toContain('class="size-controls perf-controls"');
+        expect(html).toContain('name="perfEnv"');
+        expect(html).toContain('name="perfSize"');
+        expect(html).toContain('name="perfProfile"');
+        expect(html).toMatch(/<tr[^>]*data-env="[^"]+"[^>]*data-size="[^"]+"[^>]*data-profile="[^"]+"/);
+    });
+
     it("escapes potentially-hazardous characters in fields", () => {
         const r = fakeResult();
         r.benchmark.id = "<script>alert(1)</script>";

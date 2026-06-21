@@ -17,7 +17,7 @@ function renderRow(r: BenchResult): string {
     const noisyClass = r.stats.noisy ? "noisy" : "";
     const failClass = r.quality.correctnessFailed ? "fail" : "";
     const cls = [noisyClass, failClass].filter(Boolean).join(" ");
-    return `<tr class="${cls}">
+    return `<tr class="${cls}" data-env="${escape(r.env.name)}" data-size="${escape(r.benchmark.inputSize)}" data-profile="${escape(r.benchmark.profile)}">
     <td>${escape(r.env.name)}</td>
     <td>${escape(r.benchmark.language)}/${escape(r.benchmark.toolchain)}/${escape(r.benchmark.profile)}</td>
     <td>${escape(r.benchmark.inputSize)}</td>
@@ -85,11 +85,65 @@ function renderShapeDispatchSection(agg: Aggregated): string {
   </section>`;
 }
 
+const ENV_ORDER = ["node", "chromium", "firefox"];
+const SIZE_ORDER = ["S", "M", "L"];
+const PROFILE_ORDER = ["size", "speed"];
+
+function distinct(agg: Aggregated, pick: (r: BenchResult) => string): string[] {
+    const set = new Set<string>();
+    for (const b of Object.values(agg.benchmarks)) {
+        for (const c of b.cases) {
+            set.add(pick(c.result));
+        }
+    }
+    return [...set];
+}
+
+function orderBy(values: string[], order: string[]): string[] {
+    const rank = (v: string): number => (order.indexOf(v) < 0 ? order.length : order.indexOf(v));
+    return [...values].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
+function perfControls(envs: string[], sizes: string[], profiles: string[]): string {
+    const box = (name: string, v: string): string =>
+        `<label><input type="checkbox" name="${name}" value="${escape(v)}" checked> ${escape(v)}</label>`;
+    return `<div class="size-controls perf-controls">
+    <fieldset><legend>env</legend>${envs.map((e) => box("perfEnv", e)).join(" ")}</fieldset>
+    <fieldset><legend>size</legend>${sizes.map((s) => box("perfSize", s)).join(" ")}</fieldset>
+    <fieldset><legend>profile</legend>${profiles.map((p) => box("perfProfile", p)).join(" ")}</fieldset>
+    <span class="grid-label">2×2 grid — закреплённый headline (node rust/raw speed L), фильтры не применяются</span>
+  </div>`;
+}
+
+export const PERF_JS = `
+  function applyPerfFilters() {
+    var envs = Array.from(document.querySelectorAll('input[name="perfEnv"]:checked')).map(function (c) { return c.value; });
+    var sizes = Array.from(document.querySelectorAll('input[name="perfSize"]:checked')).map(function (c) { return c.value; });
+    var profiles = Array.from(document.querySelectorAll('input[name="perfProfile"]:checked')).map(function (c) { return c.value; });
+    Array.from(document.querySelectorAll('tr[data-env]')).forEach(function (tr) {
+      var show = envs.indexOf(tr.dataset.env) >= 0 && sizes.indexOf(tr.dataset.size) >= 0 && profiles.indexOf(tr.dataset.profile) >= 0;
+      tr.style.display = show ? '' : 'none';
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.perf-controls input').forEach(function (el) {
+      el.addEventListener('change', applyPerfFilters);
+    });
+    applyPerfFilters();
+  });
+`;
+
 export function renderPerfView(agg: Aggregated): string {
+    const controls = perfControls(
+        orderBy(distinct(agg, (r) => r.env.name), ENV_ORDER),
+        orderBy(distinct(agg, (r) => r.benchmark.inputSize), SIZE_ORDER),
+        orderBy(distinct(agg, (r) => r.benchmark.profile), PROFILE_ORDER),
+    );
     const flat = Object.values(agg.benchmarks)
         .filter((b) => !SHAPE_DISPATCH_IDS.has(b.id))
         .map(renderBenchmark)
         .join("\n");
     const hasShapeDispatch = Object.values(agg.benchmarks).some((b) => SHAPE_DISPATCH_IDS.has(b.id));
-    return hasShapeDispatch ? `${flat}\n${renderShapeDispatchSection(agg)}` : flat;
+    const body = hasShapeDispatch ? `${flat}\n${renderShapeDispatchSection(agg)}` : flat;
+    return `${controls}\n${body}`;
 }

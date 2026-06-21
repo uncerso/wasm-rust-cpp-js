@@ -1,6 +1,6 @@
 import type { SizeBinary, SizeData } from "./size-data.js";
 
-export type Band = "floor" | "observed" | "unattributed";
+export type Band = "floor" | "observed" | "unattributed" | "unknown";
 
 export interface Segment {
     facility: string;
@@ -33,7 +33,7 @@ export function bandOf(scaling: string): Band {
     return scaling === "observed" || scaling === "per-type" ? "observed" : "floor";
 }
 
-const BAND_ORDER: Record<Band, number> = { floor: 0, observed: 1, unattributed: 2 };
+const BAND_ORDER: Record<Band, number> = { floor: 0, observed: 1, unattributed: 2, unknown: 3 };
 
 function modelFor(b: SizeBinary): BinaryViewModel {
     const base = {
@@ -44,11 +44,11 @@ function modelFor(b: SizeBinary): BinaryViewModel {
         return {
             ...base,
             hasComposition: false,
-            note: b.isJs ? "JS bundle — всё observed, floor≈0" : "composition unavailable (Plan 3)",
+            note: b.isJs ? "JS bundle — всё observed, floor≈0" : "facility-атрибуция пока только rust/raw",
             segments: [{
-                facility: b.isJs ? "js-bundle" : "(unattributed total)",
-                scaling: "observed",
-                band: "observed",
+                facility: b.isJs ? "js-bundle" : "(не атрибутировано)",
+                scaling: b.isJs ? "observed" : "paid-once",
+                band: b.isJs ? "observed" : "unknown",
                 rawBytes: b.totals.rawBytes,
                 gzBytes: b.totals.gzipBytes,
                 brotliBytes: b.totals.brotliBytes,
