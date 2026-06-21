@@ -42,6 +42,15 @@ describe("renderHtml", () => {
         expect(html).toContain("<!doctype html>");
     });
 
+    it("renders a tabbed shell with Size and Perf panels", () => {
+        const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
+        expect(html).toContain('<nav class="tabs">');
+        expect(html).toContain('data-tab="size"');
+        expect(html).toContain('data-tab="perf"');
+        expect(html).toContain('id="tab-size"');
+        expect(html).toContain('id="tab-perf"');
+    });
+
     it("escapes potentially-hazardous characters in fields", () => {
         const r = fakeResult();
         r.benchmark.id = "<script>alert(1)</script>";
