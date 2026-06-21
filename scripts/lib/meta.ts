@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { gzipSync, brotliCompressSync } from "node:zlib";
 import { join } from "node:path";
+import type { SizeComposition } from "@bench/result-schema";
 
 export interface ArtifactStat {
     rawBytes: number;
@@ -17,6 +18,7 @@ export interface ArtifactMeta {
     jsModule: ArtifactStat | null;
     totalTransferGzipBytes: number;
     toolchainVersions: Record<string, string>;
+    composition: SizeComposition | null;
 }
 
 export async function statArtifact(path: string): Promise<ArtifactStat> {

@@ -40,6 +40,7 @@ async function buildOne(c: BinaryCombination): Promise<void> {
         jsModule: stat,
         totalTransferGzipBytes: stat.gzipBytes,
         toolchainVersions: versions,
+        composition: null,
     };
     await writeMeta(out, meta);
     console.log(`built ${entry} -> ${outFile} (${stat.rawBytes} B raw, ${stat.gzipBytes} B gz)`);

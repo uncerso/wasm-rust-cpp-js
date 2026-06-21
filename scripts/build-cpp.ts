@@ -44,6 +44,7 @@ async function buildEmscripten(c: BinaryCombination): Promise<void> {
         jsModule: null,
         totalTransferGzipBytes: wasmStat.gzipBytes + glueStat.gzipBytes,
         toolchainVersions: await detectActual(),
+        composition: null,
     };
     await writeMeta(out, meta);
     console.log(`built emscripten ${c.sourceBench} (${c.profile}) -> ${out} (${wasmStat.rawBytes} B + ${glueStat.rawBytes} B glue)`);
@@ -67,6 +68,7 @@ async function buildWasiSdk(c: BinaryCombination): Promise<void> {
         jsModule: null,
         totalTransferGzipBytes: wasmStat.gzipBytes,
         toolchainVersions: await detectActual(),
+        composition: null,
     };
     await writeMeta(out, meta);
     console.log(`built wasi-sdk ${c.sourceBench} (${c.profile}) -> ${out} (${wasmStat.rawBytes} B)`);
