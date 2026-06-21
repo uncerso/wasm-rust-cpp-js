@@ -64,6 +64,7 @@
 - wasi-sdk 25.
 - wasm-opt 129 (binaryen).
 - wasm-pack 0.13.1 (через `cargo install --root .tools/wasm-pack-0.13.1`).
+- twiggy 0.8.0 (через `cargo install --root .tools/twiggy-0.8.0`) — code-size профайлер для size-атрибуции.
 - Firefox stable + geckodriver + Chrome for Testing + chromedriver — см. [Browser versions](#browser-versions).
 
 Точные версии и pinned URL+sha256 — в [`tool-versions.json`](./tool-versions.json). При расхождении артефакты и тайминги будут отличаться — формально такой прогон **не воспроизводим** относительно референсного.
@@ -122,6 +123,7 @@ pnpm setup-tools
 - скачивает и проверяет sha256 wasi-sdk 25 и binaryen 129 в `.tools/`;
 - клонирует и активирует emsdk 5.0.7 в `.tools/emsdk/`;
 - ставит wasm-pack 0.13.1 через `cargo install --locked --root .tools/wasm-pack-0.13.1`;
+- ставит twiggy 0.8.0 через `cargo install --locked --root .tools/twiggy-0.8.0`;
 - добавляет rustup target `wasm32-unknown-unknown`;
 - скачивает Firefox stable + geckodriver + Chrome for Testing + chromedriver (DMG / tar.gz / ZIP, sha256-pinned).
 
@@ -129,7 +131,7 @@ pnpm setup-tools
 
 ### 4. Linux / Windows (вручную)
 
-Auto-install сделан под macOS arm64. На других платформах поставьте версии из `tool-versions.json` любым способом и сделайте чтобы `emcc`, `wasm-opt`, `wasm-pack` резолвились на PATH; для wasi-sdk выставьте `WASI_SDK_PATH` на корень установленного SDK. Build-скрипты упадут на bare-name резолюцию через PATH когда `.tools/` пуст.
+Auto-install сделан под macOS arm64. На других платформах поставьте версии из `tool-versions.json` любым способом и сделайте чтобы `emcc`, `wasm-opt`, `wasm-pack`, `twiggy` резолвились на PATH; для wasi-sdk выставьте `WASI_SDK_PATH` на корень установленного SDK. Build-скрипты упадут на bare-name резолюцию через PATH когда `.tools/` пуст.
 
 ---
 
@@ -155,8 +157,8 @@ pnpm build:all
 
 ```bash
 pnpm build:js   <bench-id>…   # только JS-цепочка для указанных workload'ов
-pnpm build:rust <bench-id>…   # только Rust (требует rustc + wasm-pack + wasm-opt)
-pnpm build:cpp  <bench-id>…   # только C++ (требует emcc + wasi-sdk + wasm-opt)
+pnpm build:rust <bench-id>…   # только Rust (требует rustc + wasm-pack + wasm-opt + twiggy)
+pnpm build:cpp  <bench-id>…   # только C++ (требует emcc + wasi-sdk + wasm-opt + twiggy)
 ```
 
 ---

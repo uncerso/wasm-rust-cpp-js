@@ -42,7 +42,7 @@ Workspace = pnpm + cargo. Everything flows through `BenchResult`: each run of on
   - `cpp/` — shared `.cpp` + per-bench `build-{emscripten,wasi-sdk}.sh` × {speed,size}.
   - `validate/` — reference TS computing expected checksums per (entry, size); fixtures under `fixtures/` (gitignored `*.bin`).
 - **`benches/common/`** — shared fixture generators (`fixtures.ts`): `mulberry32`, `genF64Array`, `genAsciiHexKeys`, `genIntPairs53`. Add a generator here when ≥2 workloads need it.
-- **`packages/`** — host libs: `result-schema` (zod `BenchResultSchema`, single source of truth — **any schema change goes through this file**), `harness` (measure loop + stats + validation), `loaders` (`plain-js` / `raw-wasm` / `rust-bindgen` / `emscripten`, each returning a unified `BenchModule`; per-entry reset via `bind-reset.ts`), `reporter` (aggregate JSON → static HTML).
+- **`packages/`** — host libs: `result-schema` (zod `BenchResultSchema`, single source of truth — **any schema change goes through this file**), `harness` (measure loop + stats + validation), `loaders` (`plain-js` / `raw-wasm` / `rust-bindgen` / `emscripten`, each returning a unified `BenchModule`; per-entry reset via `bind-reset.ts`), `reporter` (aggregate JSON → static HTML), `size-attr` (twiggy-based wasm size composition → `meta.json` `composition`; facility registry + calibration).
 - **`apps/`** — `runner-node` (one case in Node) and `runner-web` (Vite + Worker + selenium-webdriver; dev server on port 5174; COOP+COEP for cross-origin isolation).
 - **`scripts/`** — tsx orchestrators; `lib/` has `matrix.ts`, `exec.ts`, `meta.ts`, `tool-paths.ts`, `tool-versions.ts`.
 
