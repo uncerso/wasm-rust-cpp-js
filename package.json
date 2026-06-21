@@ -31,6 +31,7 @@
   "devDependencies": {
     "@bench/reporter": "workspace:^",
     "@bench/result-schema": "workspace:*",
+    "@bench/size-attr": "workspace:*",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^22.0.0",
     "esbuild": "^0.24.0",
