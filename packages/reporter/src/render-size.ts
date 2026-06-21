@@ -1,5 +1,5 @@
 import type { SizeData } from "./size-data.js";
-import { buildSizeViewModel, type BinaryViewModel, type Segment } from "./size-view-model.js";
+import { buildSizeViewModel, buildCrossLangTables, type BinaryViewModel, type Segment, type WorkloadTable } from "./size-view-model.js";
 import { escape } from "./render-perf.js";
 
 export const SIZE_CSS = `
@@ -109,9 +109,24 @@ function controls(toolchains: string[]): string {
   </div>`;
 }
 
+function renderTable(t: WorkloadTable): string {
+    const head = t.facilities.map((f) => `<th>${escape(f)}</th>`).join("");
+    const rows = t.rows
+        .map((r) => {
+            const cells = t.facilities
+                .map((f) => `<td>${r.byFacility[f] ?? 0}</td>`)
+                .join("");
+            return `<tr><td>${escape(r.label)}</td>${cells}<td>${r.total}</td></tr>`;
+        })
+        .join("\n");
+    return `<p class="size-note">кросс-языковая таблица — байты по raw</p>
+    <table class="xlang"><thead><tr><th>impl</th>${head}<th>total</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
 export function renderSizeView(data: SizeData): string {
     const vm = buildSizeViewModel(data);
     const toolchains = [...new Set(vm.binaries.map((b) => b.toolchain))].sort();
+    const tables = buildCrossLangTables(vm, "rawBytes");
     const byWorkload = new Map<string, BinaryViewModel[]>();
     for (const b of vm.binaries) {
         const arr = byWorkload.get(b.id) ?? [];
@@ -119,7 +134,11 @@ export function renderSizeView(data: SizeData): string {
         byWorkload.set(b.id, arr);
     }
     const groups = [...byWorkload.entries()]
-        .map(([id, bins]) => `<div class="size-workload"><h2>${escape(id)}</h2>${bins.map(renderRow).join("\n")}</div>`)
+        .map(([id, bins]) => {
+            const table = tables.find((t) => t.id === id);
+            const tableHtml = table ? renderTable(table) : "";
+            return `<div class="size-workload"><h2>${escape(id)}</h2>${bins.map(renderRow).join("\n")}\n${tableHtml}</div>`;
+        })
         .join("\n");
     return `${controls(toolchains)}\n${groups}`;
 }

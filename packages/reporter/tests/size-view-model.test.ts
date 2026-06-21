@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bandOf, buildSizeViewModel } from "../src/size-view-model.js";
+import { bandOf, buildSizeViewModel, buildCrossLangTables } from "../src/size-view-model.js";
 import type { SizeBinary } from "../src/size-data.js";
 
 function bin(over: Partial<SizeBinary> = {}): SizeBinary {
@@ -66,5 +66,29 @@ describe("buildSizeViewModel", () => {
         const b = vm.binaries[0]!;
         expect(b.segments[0]!.band).toBe("observed");
         expect(b.note).toContain("JS");
+    });
+});
+
+describe("buildCrossLangTables", () => {
+    it("aligns facilities into shared columns per workload", () => {
+        const vm = buildSizeViewModel({ binaries: [
+            bin({ composition }),
+            bin({ language: "cpp", toolchain: "wasi-sdk", label: "cpp/wasi-sdk/size", composition: {
+                source: "pre-opt-twiggy",
+                productionTotal: { rawBytes: 800, gzipBytes: 400, brotliBytes: 360 },
+                preOptTotalBytes: 850, calibrationFactor: 0.94, unattributedShare: 0,
+                facilities: [{ facility: "allocator", scaling: "paid-once", share: 1, approxBytes: 800 }],
+            } }),
+        ] });
+        const tables = buildCrossLangTables(vm, "rawBytes");
+        expect(tables).toHaveLength(1);
+        const t = tables[0]!;
+        expect(t.id).toBe("hashmap_int");
+        expect(t.facilities).toContain("allocator");
+        expect(t.facilities).toContain("observed");
+        expect(t.rows).toHaveLength(2);
+        const cpp = t.rows.find((r) => r.label === "cpp/wasi-sdk/size")!;
+        expect(cpp.byFacility["allocator"]).toBe(800);
+        expect(cpp.byFacility["observed"] ?? 0).toBe(0);
     });
 });

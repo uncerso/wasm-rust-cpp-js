@@ -45,4 +45,10 @@ describe("renderSizeView", () => {
         expect(html).not.toContain("<x>");
         expect(html).toContain("&lt;x&gt;");
     });
+
+    it("renders a cross-language facility table", () => {
+        const html = renderSizeView(data);
+        expect(html).toContain('class="xlang"');
+        expect(html).toContain("<th>allocator</th>");
+    });
 });

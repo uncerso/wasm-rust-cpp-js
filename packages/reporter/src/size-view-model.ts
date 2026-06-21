@@ -85,3 +85,44 @@ function modelFor(b: SizeBinary): BinaryViewModel {
 export function buildSizeViewModel(data: SizeData): SizeViewModel {
     return { binaries: data.binaries.map(modelFor) };
 }
+
+export interface CrossLangRow {
+    id: string;
+    label: string;
+    byFacility: Record<string, number>;
+    total: number;
+}
+
+export interface WorkloadTable {
+    id: string;
+    facilities: string[];
+    rows: CrossLangRow[];
+}
+
+type CompKey = "rawBytes" | "gzBytes" | "brotliBytes";
+
+export function buildCrossLangTables(vm: SizeViewModel, compression: CompKey): WorkloadTable[] {
+    const byWorkload = new Map<string, BinaryViewModel[]>();
+    for (const b of vm.binaries) {
+        const arr = byWorkload.get(b.id) ?? [];
+        arr.push(b);
+        byWorkload.set(b.id, arr);
+    }
+    const tables: WorkloadTable[] = [];
+    for (const [id, bins] of byWorkload) {
+        const facilitySet = new Set<string>();
+        const rows: CrossLangRow[] = bins.map((b) => {
+            const byFacility: Record<string, number> = {};
+            let total = 0;
+            for (const s of b.segments) {
+                const bytes = s[compression];
+                byFacility[s.facility] = (byFacility[s.facility] ?? 0) + bytes;
+                total += bytes;
+                facilitySet.add(s.facility);
+            }
+            return { id, label: b.label, byFacility, total };
+        });
+        tables.push({ id, facilities: [...facilitySet].sort(), rows });
+    }
+    return tables;
+}
