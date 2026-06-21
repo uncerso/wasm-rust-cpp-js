@@ -44,6 +44,10 @@ describe("categorize", () => {
         expect(categorize("type[8]: (i32, i32, i32, i32, i32) -> i32", ctx).facility).toBe("structural");
         expect(categorize("wasm magic bytes", ctx).facility).toBe("structural");
     });
+    it("buckets wasm globals (stack ptr / heap base) into structural (P3 W2)", () => {
+        expect(categorize("global[0]", ctx).facility).toBe("structural");
+        expect(categorize("global[2]", ctx).facility).toBe("structural");
+    });
     it("buckets toolchain-runtime (RandomState lazy init)", () => {
         expect(categorize("std::thread::local::LocalKey<T>::with", ctx).facility).toBe("toolchain-runtime");
         expect(categorize("<std::sync::LazyLock<T,F> as Deref>::deref", ctx).facility).toBe("toolchain-runtime");
@@ -51,6 +55,19 @@ describe("categorize", () => {
     it("marks observed by export name / workload prefix", () => {
         expect(categorize("matmul", ctx)).toEqual({ facility: "observed", scaling: "observed" });
         expect(categorize("matmul_shared::matmul_naive", ctx).facility).toBe("observed");
+    });
+    it("bench-name workload prefix catches mangled crate path + extern exports (P3 W2)", () => {
+        // rustObservedCtx now seeds workloadPrefixes with the bare bench name so a substring
+        // match catches both the `<bench>_rust_raw::…` mangled path (shape_dispatch trait-impl
+        // / vtable methods) and `<bench>_<entry>` extern exports (interop_calls_noop), which the
+        // narrower `<bench>::` prefix missed (crate name carries the `_rust_raw` suffix).
+        const dynCtx: CategorizeCtx = { exportNames: new Set(), workloadPrefixes: ["shape_dispatch_homo_dyn"] };
+        expect(categorize("<shape_dispatch_homo_dyn_rust_raw::Triangle as shape_dispatch_homo_dyn_rust_raw::Shape>::area", dynCtx).facility).toBe("observed");
+        expect(categorize("shape_dispatch_homo_dyn_rust_raw::process::hc6212203242a7769", dynCtx).facility).toBe("observed");
+        const interopCtx: CategorizeCtx = { exportNames: new Set(), workloadPrefixes: ["interop_calls"] };
+        expect(categorize("interop_calls_noop", interopCtx).facility).toBe("observed"); // function body
+        // The `export "…"` table row is structural overhead (matched before the observed check), not observed.
+        expect(categorize('export "interop_calls_add_f64"', interopCtx).facility).toBe("structural");
     });
     it("falls through to unattributed", () => {
         expect(categorize("something::totally::unknown", ctx).facility).toBe("unattributed");

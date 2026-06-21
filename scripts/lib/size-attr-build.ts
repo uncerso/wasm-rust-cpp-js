@@ -22,7 +22,10 @@ function rustObservedCtx(c: BinaryCombination): CategorizeCtx {
             `${c.sourceBench}_insert`, `${c.sourceBench}_lookup`, `${c.sourceBench}_delete`,
             `${c.sourceBench}_insert_reset`, `${c.sourceBench}_lookup_reset`, `${c.sourceBench}_delete_reset`,
         ]),
-        workloadPrefixes: [`${c.sourceBench}::`, "matmul_shared::", "parse_pairs", "with_slices"],
+        // Bench-name substring catches both `<bench>_<entry>` extern exports (interop_calls_noop)
+        // and the mangled crate path `<bench>_rust_raw::…` (shape_dispatch trait-impl/vtable methods),
+        // which the narrower `<bench>::` prefix missed (crate name carries the `_rust_raw` suffix).
+        workloadPrefixes: [`${c.sourceBench}`, "matmul_shared::", "parse_pairs", "with_slices"],
     };
 }
 

@@ -30,7 +30,7 @@ const RULES: Rule[] = [
     { facility: "dynamic-array", scaling: "paid-once", re: /RawVec|raw_vec|alloc::vec|alloc::slice|::Vec<|to_vec|capacity_overflow|__split_buffer|::vector/ },
     { facility: "compiler-rt", scaling: "paid-once", re: /__multi3|__udiv|__umod|__div|memcpy|memmove|memset|memcmp|swap_nonoverlapping|compiler_builtins/ },
     { facility: "data", scaling: "paid-once", re: /^data segment|\.rodata|\.data/ },
-    { facility: "structural", scaling: "paid-once", re: /^export |^elem|^table|^type[ \[]|code section|magic|function table/ },
+    { facility: "structural", scaling: "paid-once", re: /^export |^elem|^table|^type[ \[]|^global\[|code section|magic|function table/ },
 ];
 
 export function categorize(name: string, ctx: CategorizeCtx): FacilityResult {
