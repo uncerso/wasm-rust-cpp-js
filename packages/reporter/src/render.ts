@@ -1,6 +1,7 @@
 import type { Aggregated } from "./aggregate.js";
 import type { SizeData } from "./size-data.js";
 import { renderPerfView, escape } from "./render-perf.js";
+import { renderSizeView, SIZE_CSS, SIZE_JS } from "./render-size.js";
 
 const SHELL_CSS = `
   body { font-family: ui-monospace, monospace; max-width: 1400px; margin: 1em auto; padding: 0 1em; }
@@ -40,10 +41,9 @@ const TABS_JS = `
 `;
 
 export function renderHtml(agg: Aggregated, sizeData: SizeData): string {
-    const sizePlaceholder = `<p>Size view: ${sizeData.binaries.length} binaries loaded.</p>`;
     return `<!doctype html>
 <html><head><meta charset="utf-8"><title>bench results</title>
-<style>${SHELL_CSS}</style></head>
+<style>${SHELL_CSS}${SIZE_CSS}</style></head>
 <body>
 <h1>wasm-rust-cpp-js results</h1>
 <p>Generated ${escape(agg.generatedAt)}.</p>
@@ -51,10 +51,11 @@ export function renderHtml(agg: Aggregated, sizeData: SizeData): string {
   <button data-tab="size">Size</button>
   <button data-tab="perf">Perf</button>
 </nav>
-<section id="tab-size" class="tab-panel">${sizePlaceholder}</section>
+<section id="tab-size" class="tab-panel">${renderSizeView(sizeData)}</section>
 <section id="tab-perf" class="tab-panel">
 ${renderPerfView(agg)}
 </section>
 <script>${TABS_JS}</script>
+<script>${SIZE_JS}</script>
 </body></html>`;
 }
