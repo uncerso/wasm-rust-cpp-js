@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { buildComposition, parseTwiggyJson, type CategorizeCtx, type ProductionTotal } from "@bench/size-attr";
 import type { SizeComposition } from "@bench/result-schema";
@@ -40,4 +41,44 @@ export async function attributeRustRaw(
     const json = await capture(twiggyPath(), ["top", "-f", "json", "-n", "1000", wasm]);
     const rows = parseTwiggyJson(json);
     return buildComposition(rows, rustObservedCtx(c), productionTotal);
+}
+
+/** Exported symbol names that count as "observed" for cpp (extern "C" surface). twiggy auto-demangles C++. */
+function cppObservedCtx(c: BinaryCombination): CategorizeCtx {
+    return {
+        exportNames: new Set([
+            "alloc", "load_input", "reset",
+            `${c.sourceBench}`, "matmul", "output_ptr", "output_len",
+            `${c.sourceBench}_insert`, `${c.sourceBench}_lookup`, `${c.sourceBench}_delete`,
+            `${c.sourceBench}_insert_reset`, `${c.sourceBench}_lookup_reset`, `${c.sourceBench}_delete_reset`,
+        ]),
+        workloadPrefixes: ["parse_pairs", "(anonymous namespace)", "::state(", "::State"],
+    };
+}
+
+export async function attributeWasiSdk(
+    c: BinaryCombination,
+    distDir: string,
+    productionTotal: ProductionTotal,
+): Promise<SizeComposition | null> {
+    const named = join(distDir, "module.attr.wasm");
+    if (!existsSync(named)) {
+        return null; // name-bearing output absent (e.g. build script not yet SIZE_ATTR-aware)
+    }
+    const json = await capture(twiggyPath(), ["top", "-f", "json", "-n", "1000", named]);
+    const rows = parseTwiggyJson(json);
+    const composition = buildComposition(rows, cppObservedCtx(c), productionTotal);
+    // Guard against the cpp/wasi-sdk name-section heisenbug: when build-wasi-sdk.sh emits
+    // module.attr.wasm with anonymous code[N] (no usable "function names" subsection), nearly
+    // everything falls to `unattributed`. Rather than ship a meaningless ~98%-unattributed
+    // composition, degrade to section-only (null). See docs/superpowers/bug-reports.
+    if (composition.unattributedShare > 0.5) {
+        console.warn(
+            `[size-attr] ${c.sourceBench} ${c.toolchain}/${c.profile}: attribution unusable `
+            + `(unattributed ${(composition.unattributedShare * 100).toFixed(1)}% — name section not read); `
+            + "writing composition: null.",
+        );
+        return null;
+    }
+    return composition;
 }
