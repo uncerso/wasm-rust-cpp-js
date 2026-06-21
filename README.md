@@ -264,9 +264,12 @@ pnpm report --in=results/raw/<run-name>
 # или без --in: возьмёт самый свежий каталог под results/raw/
 ```
 
-Создаёт `results/summarized/<ISO timestamp>/index.html` — статичный HTML с таблицей по каждому benchmark'у. Строки шумных кейсов (cv > порога) подсвечены жёлтым, упавшие correctness — красным.
+Создаёт `results/summarized/<ISO timestamp>/index.html` — одну статическую страницу с двумя вкладками:
 
-Каждый JSON-результат прогоняется через `BenchResultSchema.parse` перед агрегацией — невалидный файл будет ошибкой.
+- **Size** — композиция артефакта по facility-категориям (allocator / hash-map / string / panic-fmt / observed / …) композиционными bars на общей байтовой шкале: floor-band (paid-once, приглушённый) + observed-band (изучаемый код, акцент), сегменты разделены тонкой линией, имя+байты — в hover-тултипе. Фильтры: сжатие raw/gzip/brotli, профиль, тулчейны, тумблер «только наблюдаемое». Под барами — кросс-языковая таблица по категориям (численный per-facility разбор). Доли считаются по raw, абсолют помечен ≈ (pre-opt композиция × калибровка к точному production-тоталу — байт-точная символьная атрибуция post-opt невозможна; подробнее — Plan 3/README).
+- **Perf** — таблица таймингов по каждому benchmark'у + 2×2 grid для shape_dispatch. Строки шумных кейсов подсвечены жёлтым, упавшие correctness — красным.
+
+Size читает `composition` из `dist/*/meta.json` (rust/raw покрыты; cpp/wasi-sdk, bindgen, emscripten, js деградируют до одного бара с пометкой — атрибуция расширяется в Plan 3). Каждый JSON-результат прогоняется через `BenchResultSchema.parse` перед агрегацией — невалидный файл будет ошибкой.
 
 ---
 
