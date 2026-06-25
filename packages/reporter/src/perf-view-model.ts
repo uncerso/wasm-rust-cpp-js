@@ -6,7 +6,7 @@ export const SIZE_ORDER: readonly string[] = ["S", "M", "L"];
 
 export interface PerfImplMultiple {
     impl: string;
-    byEnv: Record<string, number | null>;
+    byEnv: Record<string, number>;   // absent env key = "not run" (rendered as —)
 }
 
 export interface PerfDetailRow {
@@ -91,7 +91,7 @@ function buildSlice(
     // Build PerfImplMultiple entries
     const multiples: PerfImplMultiple[] = [];
     for (const [impl, entries] of casesByImpl) {
-        const byEnv: Record<string, number | null> = {};
+        const byEnv: Record<string, number> = {};
         for (const e of entries) {
             byEnv[e.env] = e.result.timingsMs.warmMedian;
         }
@@ -132,7 +132,7 @@ function buildSlice(
     return { size, profile, envs, multiples, detail };
 }
 
-function pickRepresentativeWm(byEnv: Record<string, number | null>, envs: string[]): number | null {
+function pickRepresentativeWm(byEnv: Record<string, number>, envs: string[]): number | null {
     const nodeVal = byEnv["node"];
     if (nodeVal !== undefined && nodeVal !== null) {
         return nodeVal;

@@ -188,7 +188,7 @@ function renderSegControl(ctrl: string, values: string[], active: string): strin
         const cls = v === active ? ' class="on"' : "";
         return `<span${cls} data-val="${escape(v)}">${escape(v)}</span>`;
     }).join("");
-    return `<span class="perf-seg" data-ctrl="${ctrl}">${spans}</span>`;
+    return `<span class="perf-seg" data-ctrl="${escape(ctrl)}">${spans}</span>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -200,7 +200,7 @@ function shapeBucket(value: number, max: number): number {
     if (max <= 0) {
         return 1;
     }
-    return Math.min(5, Math.max(1, Math.ceil((value / max) * 5)));
+    return Math.min(5, Math.max(1, Math.round((value / max) * 5)));
 }
 
 function renderShapeHeatmap(cells: ShapeCell[]): string {
