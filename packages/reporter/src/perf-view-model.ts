@@ -64,11 +64,12 @@ const SHAPE_DISPATCH_GRID: { layout: string; dispatch: string; id: string }[] = 
 const SHAPE_DISPATCH_IDS = new Set(SHAPE_DISPATCH_GRID.map((g) => g.id));
 
 function implKey(r: BenchResult): string {
+    // JS ships one bundle with no size/speed build — drop the meaningless profile so the
+    // impl reads `js/idiomatic` (not `js/idiomatic/speed`) and groups across profile slices.
+    if (r.benchmark.language === "js") {
+        return `${r.benchmark.language}/${r.benchmark.toolchain}`;
+    }
     return `${r.benchmark.language}/${r.benchmark.toolchain}/${r.benchmark.profile}`;
-}
-
-function sliceKey(r: BenchResult): string {
-    return `${r.benchmark.inputSize}|${r.benchmark.profile}`;
 }
 
 function orderBy(values: string[], order: readonly string[]): string[] {
@@ -183,28 +184,36 @@ export function buildPerfModel(agg: Aggregated): PerfModel {
             continue;
         }
 
-        // Group cases by (size, profile) -> impl -> [{env, result}]
+        // Group cases by (size, profile) -> impl -> [{env, result}]. JS has no size/speed
+        // build variant, so inject each JS case into EVERY profile this workload offers — the
+        // profile filter then never hides it (mirrors the size-tab profile-agnostic rows).
         const sliceMap = new Map<string, Map<string, { env: string; result: BenchResult }[]>>();
+        const wlProfiles = [...new Set(bench.cases.map((c) => c.result.benchmark.profile))];
 
         for (const { result } of bench.cases) {
-            const sk = sliceKey(result);
+            const isJs = result.benchmark.language === "js";
+            const size = result.benchmark.inputSize;
             const ik = implKey(result);
             const env = result.env.name;
 
-            sizeSet.add(result.benchmark.inputSize);
+            sizeSet.add(size);
             profileSet.add(result.benchmark.profile);
 
-            let implMap = sliceMap.get(sk);
-            if (!implMap) {
-                implMap = new Map();
-                sliceMap.set(sk, implMap);
+            const targetProfiles = isJs ? wlProfiles : [result.benchmark.profile];
+            for (const profile of targetProfiles) {
+                const sk = `${size}|${profile}`;
+                let implMap = sliceMap.get(sk);
+                if (!implMap) {
+                    implMap = new Map();
+                    sliceMap.set(sk, implMap);
+                }
+                let entries = implMap.get(ik);
+                if (!entries) {
+                    entries = [];
+                    implMap.set(ik, entries);
+                }
+                entries.push({ env, result });
             }
-            let entries = implMap.get(ik);
-            if (!entries) {
-                entries = [];
-                implMap.set(ik, entries);
-            }
-            entries.push({ env, result });
         }
 
         // Build slices and sort them

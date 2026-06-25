@@ -87,4 +87,19 @@ describe("buildPerfModel", () => {
         expect(slice.detail.some((r) => r.env === "chromium")).toBe(true);
         expect(slice.detail).toHaveLength(2);
     });
+    it("treats JS as profile-agnostic: shows it in every profile slice, label without profile", () => {
+        // hashmap_int has a wasm impl at both size+speed and a JS impl tagged only speed.
+        const results = [
+            fakeResult({ id: "hashmap_int", language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, 0.05, "node"),
+            fakeResult({ id: "hashmap_int", language: "rust", toolchain: "raw", profile: "size", inputSize: "L" }, 0.06, "node"),
+            fakeResult({ id: "hashmap_int", language: "js", toolchain: "idiomatic", profile: "speed", inputSize: "L" }, 0.10, "node"),
+        ];
+        const wl = buildPerfModel(aggregate(results)).workloads.find((w) => w.id === "hashmap_int")!;
+        const speed = wl.slices.find((s) => s.size === "L" && s.profile === "speed")!;
+        const size = wl.slices.find((s) => s.size === "L" && s.profile === "size")!;
+        // JS appears in BOTH profile slices, labeled `js/idiomatic` (no profile suffix):
+        expect(speed.multiples.some((m) => m.impl === "js/idiomatic")).toBe(true);
+        expect(size.multiples.some((m) => m.impl === "js/idiomatic")).toBe(true);
+        expect(wl.slices.some((s) => s.multiples.some((m) => m.impl === "js/idiomatic/speed"))).toBe(false);
+    });
 });
