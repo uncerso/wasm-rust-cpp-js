@@ -75,16 +75,16 @@ describe("renderSizeView", () => {
         expect(html).toContain("title=");
     });
 
-    it("labels only story segments: largest floor + observed, not smaller floors", () => {
+    it("labels EVERY segment server-side; the client (fitLabels) hides non-fitting ones", () => {
         const html = renderSizeView(data);
-        // labeled segments render a .seg-lbl span with the byte+facility text:
+        // every segment renders a .seg-lbl candidate (4 facilities in the fixture) — the
+        // pixel-fit decision is deferred to SIZE_JS, so the server never pre-drops a label.
         const labels = [...html.matchAll(/<span class="seg-lbl"[^>]*>([^<]*)<\/span>/g)].map((m) => m[1]);
-        expect(labels).toContain("500 B data");        // largest floor → labeled
-        expect(labels).toContain("250 B observed");    // observed band → labeled
-        // smaller floors render NO .seg-lbl (the <title> tooltip still carries 200 B / 50 B):
-        expect(labels).not.toContain("200 B allocator");   // allocator: not the largest floor
-        expect(labels).not.toContain("50 B structural");   // structural: tiny floor
-        expect(labels.length).toBe(2);                     // exactly the two story segments
+        expect(labels).toContain("500 B data");
+        expect(labels).toContain("250 B observed");
+        expect(labels).toContain("200 B allocator");
+        expect(labels).toContain("50 B structural");
+        expect(labels.length).toBe(4);
     });
 
     it("adapts label text color to background luminance", () => {

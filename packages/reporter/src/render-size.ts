@@ -109,17 +109,23 @@ export const SIZE_JS = `
   // changes with the window. Measuring (scrollWidth vs clientWidth) and hiding non-fitting
   // labels avoids mid-glyph clipping; fitLabels re-runs on resize.
   function fitLabels() {
+    // Batched to avoid layout thrash now that every segment carries a label: first show all
+    // candidate labels (writes), then measure all (reads → one reflow), then hide the
+    // non-fitting (writes). Hiding a label can't change another seg's width (min-width:0 +
+    // %-widths), so the single measurement pass stays valid.
+    var lbls = [];
     Array.prototype.forEach.call(document.querySelectorAll('.size-row'), function (row) {
       if (row.style.display === 'none') { return; }
       Array.prototype.forEach.call(row.querySelectorAll('.seg'), function (seg) {
         var lbl = seg.querySelector('.seg-lbl');
         if (!lbl) { return; }
+        if (seg.style.display === 'none') { lbl.style.display = 'none'; return; }
         lbl.style.display = '';
-        if (seg.style.display === 'none' || lbl.scrollWidth > lbl.clientWidth + 1) {
-          lbl.style.display = 'none';
-        }
+        lbls.push(lbl);
       });
     });
+    var hide = lbls.filter(function (lbl) { return lbl.scrollWidth > lbl.clientWidth + 1; });
+    hide.forEach(function (lbl) { lbl.style.display = 'none'; });
   }
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.sh-seg').forEach(function (seg) {
@@ -179,22 +185,7 @@ function labelColor(hex: string): string {
     return luminance > 150 ? "#1f2530" : "#fff";
 }
 
-/**
- * A segment is a "story" segment (gets a visible label) iff its band is glue/observed/
- * unattributed/unknown, OR it is the single largest-rawBytes floor segment in its bar.
- * Narrow and other-floor segments render with no `.seg-lbl` so slivers don't clip
- * mid-glyph; the `<title>` tooltip still carries full detail. (`unknown` is the single
- * full-width segment of a not-yet-attributed binary — always wide, so keep it labeled.)
- * `largestFloor` is the Segment reference of the labeled floor (or null if the bar has none).
- */
-function isStorySegment(s: Segment, largestFloor: Segment | null): boolean {
-    if (s.band === "glue" || s.band === "observed" || s.band === "unattributed" || s.band === "unknown") {
-        return true;
-    }
-    return s.band === "floor" && s === largestFloor;
-}
-
-function renderSegment(s: Segment, largestFloor: Segment | null): string {
+function renderSegment(s: Segment): string {
     // Glue bytes are measured exactly (not a pre-opt share estimate), so show them without
     // the "≈" and without a share % (glue's share is 0 — it is not a wasm facility, it is
     // the separate JS-glue artifact). Facility segments keep "≈<bytes> B (<share>%)".
@@ -206,30 +197,18 @@ function renderSegment(s: Segment, largestFloor: Segment | null): string {
     // data-fac / data-share carry the facility text + raw share% so SIZE_JS can rebuild
     // BOTH the visible label and the tooltip for the selected compression (#9, #4).
     const facAttr = ` data-fac="${escape(s.facility)}" data-share="${shareStr}"`;
-    let lbl = "";
-    if (isStorySegment(s, largestFloor)) {
-        const label = `${fmtBytes(s.rawBytes)} ${s.facility}`;
-        lbl = `<span class="seg-lbl" style="color:${labelColor(color)}">${escape(label)}</span>`;
-    }
+    // EVERY segment carries a label; the client (SIZE_JS fitLabels) hides only the labels
+    // whose text can't fit the segment's current pixel width, so widening the window surfaces
+    // more of them. The <title> tooltip always carries full detail regardless.
+    const label = `${fmtBytes(s.rawBytes)} ${s.facility}`;
+    const lbl = `<span class="seg-lbl" style="color:${labelColor(color)}">${escape(label)}</span>`;
     return `<span class="seg" data-band="${s.band}" data-raw="${s.rawBytes}" data-gz="${s.gzBytes}" data-brotli="${s.brotliBytes}"${facAttr} style="background:${color}" title="${escape(title)}">${lbl}</span>`;
-}
-
-/** The single largest-rawBytes floor segment in a bar, or null if the bar has no floor. */
-function largestFloorSegment(segments: Segment[]): Segment | null {
-    let best: Segment | null = null;
-    for (const s of segments) {
-        if (s.band === "floor" && (best === null || s.rawBytes > best.rawBytes)) {
-            best = s;
-        }
-    }
-    return best;
 }
 
 function renderRow(b: BinaryViewModel): string {
     const noComp = b.hasComposition ? "" : " no-comp";
     const note = b.note ? ` <span class="size-note">${escape(b.note)}</span>` : "";
-    const largestFloor = largestFloorSegment(b.segments);
-    const bars = b.segments.map((s) => renderSegment(s, largestFloor)).join("");
+    const bars = b.segments.map((s) => renderSegment(s)).join("");
     // JS has no size/speed build variant — it ships one bundle tagged with a single
     // profile. Mark it profile-agnostic so the profile filter shows it under any profile.
     const agnostic = b.isJs ? ' data-agnostic="1"' : "";

@@ -1,5 +1,5 @@
 import type { Aggregated } from "./aggregate.js";
-import { buildPerfModel, type PerfDetailRow, type PerfImplMultiple, type PerfSlice, type ShapeCell, type ShapeSlice } from "./perf-view-model.js";
+import { buildPerfModel, SIZE_ORDER, type PerfDetailRow, type PerfImplMultiple, type PerfSlice, type ShapeCell, type ShapeSlice } from "./perf-view-model.js";
 
 const ESCAPES: Record<string, string> = {
     "&": "&amp;",
@@ -253,7 +253,10 @@ ${blocks}
 export function renderPerfView(agg: Aggregated): string {
     const model = buildPerfModel(agg);
 
-    const defaultSize = model.sizes.includes("L") ? "L" : (model.sizes[0] ?? "");
+    // Default to the LARGEST available size — its data is the most representative.
+    const defaultSize = model.sizes.length
+        ? model.sizes.reduce((best, s) => (SIZE_ORDER.indexOf(s) > SIZE_ORDER.indexOf(best) ? s : best))
+        : "";
     const defaultProfile = model.profiles.includes("speed") ? "speed" : (model.profiles[0] ?? "");
 
     // Controls

@@ -73,6 +73,19 @@ describe("renderPerfView", () => {
         expect(html).toContain('data-size="S" data-profile="speed"');
     });
 
+    it("defaults the size control to the LARGEST available size (most representative)", () => {
+        // Only S and M present (no L): M is the max, so it must be the active size.
+        const results = [
+            fakeResult({ inputSize: "S", profile: "speed" }, 2.0, "node"),
+            fakeResult({ inputSize: "M", profile: "speed" }, 1.0, "node"),
+        ];
+        const html = renderPerfView(aggregate(results));
+        expect(html).toContain('<span class="on" data-val="M">M</span>');   // M active in the control
+        expect(html).not.toContain('<span class="on" data-val="S">');       // S not active
+        // and the M slice is the visible (non-hidden) one:
+        expect(html).toContain('<div class="perf-slice" data-size="M" data-profile="speed">');
+    });
+
     it("renders warmMedian via .toFixed(3)", () => {
         const results = [fakeResult({}, 1.234, "node")];
         const html = renderPerfView(aggregate(results));
