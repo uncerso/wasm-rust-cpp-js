@@ -92,6 +92,74 @@ export async function attributeRustBindgen(
     return composition;
 }
 
+/**
+ * Exported symbol names that count as "observed" for cpp/emscripten.
+ * Emscripten's EXPORTED_FUNCTIONS convention prefixes a leading underscore,
+ * but the symbol names visible to twiggy inside the wasm drop the underscore
+ * (they are the raw C function names). We include both forms defensively.
+ */
+function emscriptenObservedCtx(c: BinaryCombination): CategorizeCtx {
+    return {
+        exportNames: new Set([
+            // With and without underscore prefix (emscripten may expose either form)
+            "alloc", "_alloc",
+            "load_input", "_load_input",
+            "reset", "_reset",
+            `${c.sourceBench}`, `_${c.sourceBench}`,
+            "matmul", "_matmul",
+            "output_ptr", "_output_ptr",
+            "output_len", "_output_len",
+            `${c.sourceBench}_insert`, `_${c.sourceBench}_insert`,
+            `${c.sourceBench}_lookup`, `_${c.sourceBench}_lookup`,
+            `${c.sourceBench}_delete`, `_${c.sourceBench}_delete`,
+            `${c.sourceBench}_insert_reset`, `_${c.sourceBench}_insert_reset`,
+            `${c.sourceBench}_lookup_reset`, `_${c.sourceBench}_lookup_reset`,
+            `${c.sourceBench}_delete_reset`, `_${c.sourceBench}_delete_reset`,
+            // interop_calls variants
+            `${c.sourceBench}_noop`, `_${c.sourceBench}_noop`,
+            `${c.sourceBench}_noop_counter`, `_${c.sourceBench}_noop_counter`,
+            `${c.sourceBench}_add_i32`, `_${c.sourceBench}_add_i32`,
+            `${c.sourceBench}_add_f64`, `_${c.sourceBench}_add_f64`,
+            // shape_dispatch libc math calls (__builtin_log / __builtin_sqrt lowered by emscripten
+            // to libm symbols that become wasm function bodies — part of the workload score computation).
+            "log", "sqrt", "log10", "logf", "sqrtf",
+        ]),
+        workloadPrefixes: [
+            "parse_pairs", "(anonymous namespace)", "::state(", "::State",
+            // shape_dispatch C++ class methods (virtual dispatch workload).
+            // Triangle::~Triangle() is a virtual destructor that holds the dispatch overhead.
+            "Triangle::", "Circle::", "Square::",
+        ],
+    };
+}
+
+export async function attributeEmscripten(
+    c: BinaryCombination,
+    attrDir: string,
+    productionTotal: ProductionTotal,
+): Promise<SizeComposition | null> {
+    // Probe Step 1 result: emscripten 5.x + -g2 keeps the wasm "function names"
+    // subsection (0 anonymous `code[N]` entries). If module.attr.wasm is absent
+    // (e.g. build script not SIZE_ATTR-aware) fall back to section-only (null).
+    const named = join(attrDir, "module.attr.wasm");
+    if (!existsSync(named)) {
+        return null;
+    }
+    const json = await capture(twiggyPath(), ["top", "-f", "json", "-n", "1000", named]);
+    const composition = buildComposition(parseTwiggyJson(json), emscriptenObservedCtx(c), productionTotal);
+    // Guard: if names did not survive (e.g. emcc version change strips them despite -g2),
+    // unattributedShare will be very high. Fall back to section-only rather than ship a
+    // misleading composition.
+    if (composition.unattributedShare > 0.5) {
+        console.warn(
+            `[size-attr] ${c.sourceBench} ${c.toolchain}/${c.profile}: emscripten attribution unusable `
+            + `(unattributed ${(composition.unattributedShare * 100).toFixed(1)}%); writing null.`,
+        );
+        return null;
+    }
+    return composition;
+}
+
 /** Exported symbol names that count as "observed" for cpp (extern "C" surface). twiggy auto-demangles C++. */
 function cppObservedCtx(c: BinaryCombination): CategorizeCtx {
     return {

@@ -10,7 +10,7 @@ import { statArtifact, writeMeta, type ArtifactMeta } from "./lib/meta.js";
 import { detectActual } from "./lib/tool-versions.js";
 import { wasiSdkPath, wasmOptPath } from "./lib/tool-paths.js";
 import { emsdkEnv } from "./lib/emsdk-env.js";
-import { attributeWasiSdk } from "./lib/size-attr-build.js";
+import { attributeWasiSdk, attributeEmscripten } from "./lib/size-attr-build.js";
 
 function metaFromBinary(c: BinaryCombination): ArtifactMeta["combination"] {
     return {
@@ -30,14 +30,19 @@ async function buildEmscripten(c: BinaryCombination): Promise<void> {
     const emsdk = existsSync(resolve(".tools/emsdk")) ? await emsdkEnv() : {};
     const toolsBin = resolve(".tools/bin");
     const mergedPath = `${toolsBin}:${emsdk["PATH"] ?? process.env["PATH"] ?? ""}`;
+    const attrDir = resolve("target/attr-cpp", `${c.sourceBench}-${c.toolchain}-${c.profile}`);
+    await mkdir(attrDir, { recursive: true });
     await run("bash", [script, c.profile, resolve(out)], {
-        env: { ...emsdk, PATH: mergedPath },
+        env: { ...emsdk, PATH: mergedPath, SIZE_ATTR: "1", ATTR_OUT: attrDir },
     });
 
     // Emscripten emits glue.mjs + glue.wasm side-by-side; glue.mjs hardcodes
     // the wasm filename, so we don't rename.
     const wasmStat = await statArtifact(join(out, "glue.wasm"));
     const glueStat = await statArtifact(join(out, "glue.mjs"));
+    const composition = await attributeEmscripten(c, attrDir, {
+        rawBytes: wasmStat.rawBytes, gzipBytes: wasmStat.gzipBytes, brotliBytes: wasmStat.brotliBytes,
+    });
     const meta: ArtifactMeta = {
         combination: metaFromBinary(c),
         wasm: wasmStat,
@@ -45,7 +50,7 @@ async function buildEmscripten(c: BinaryCombination): Promise<void> {
         jsModule: null,
         totalTransferGzipBytes: wasmStat.gzipBytes + glueStat.gzipBytes,
         toolchainVersions: await detectActual(),
-        composition: null,
+        composition,
     };
     await writeMeta(out, meta);
     console.log(`built emscripten ${c.sourceBench} (${c.profile}) -> ${out} (${wasmStat.rawBytes} B + ${glueStat.rawBytes} B glue)`);
