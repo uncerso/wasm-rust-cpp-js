@@ -70,7 +70,6 @@ fi
 # This attr build keeps names because build-cpp.ts runs us WITHOUT wasm-opt on PATH —
 # otherwise wasi-sdk clang -flto auto-runs wasm-opt at link and strips the name section
 # (the real root cause, see docs/pitfalls/2026-06-25-cpp-wasi-sdk-name-section-env-diff.md).
-# Do NOT add -g either: DWARF also suppresses the name subsection.
 if [[ "${SIZE_ATTR:-0}" == "1" ]]; then
   mkdir -p "${ATTR_OUT:-$OUT_DIR}"
   "$WASI_SDK_PATH/bin/clang++" \

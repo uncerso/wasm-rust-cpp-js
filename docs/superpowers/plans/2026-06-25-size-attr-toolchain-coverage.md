@@ -248,7 +248,7 @@ Update the call in `build-cpp.ts buildWasiSdk` to pass `attrDir` instead of `out
 
 - [ ] **Step 4: `hashmap_string/cpp/build-wasi-sdk.sh` — use `$WASM_OPT` + write attr to `$ATTR_OUT`**
 
-Production `wasm-opt` line → `"${WASM_OPT:-wasm-opt}" -Oz ...`. SIZE_ATTR block: output `-o "${ATTR_OUT:-$OUT_DIR}/module.attr.wasm"`; ensure `mkdir -p "${ATTR_OUT:-$OUT_DIR}"` first. Remove the now-obsolete comment block claiming "MUST stay flat, NOT a shared helper" (that was the misdiagnosis — real cause was PATH/wasm-opt); replace with a one-line note: `# attr build keeps names because build-cpp.ts runs us WITHOUT wasm-opt on PATH (else clang -flto auto-runs it and strips names). Do NOT add -g (DWARF also suppresses the name subsection).`
+Production `wasm-opt` line → `"${WASM_OPT:-wasm-opt}" -Oz ...`. SIZE_ATTR block: output `-o "${ATTR_OUT:-$OUT_DIR}/module.attr.wasm"`; ensure `mkdir -p "${ATTR_OUT:-$OUT_DIR}"` first. Remove the now-obsolete comment block claiming "MUST stay flat, NOT a shared helper" (that was the misdiagnosis — real cause was PATH/wasm-opt); replace with a one-line note: `# attr build keeps names because build-cpp.ts runs us WITHOUT wasm-opt on PATH (else clang -flto auto-runs it and strips names).`
 
 - [ ] **Step 5: Build + verify wasi-sdk composition not null**
 
