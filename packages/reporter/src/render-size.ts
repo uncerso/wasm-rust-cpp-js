@@ -87,7 +87,12 @@ export const SIZE_JS = `
 `;
 
 function renderSegment(s: Segment): string {
-    const title = `${s.facility} ≈${s.rawBytes} B (${(s.share * 100).toFixed(1)}%)`;
+    // Glue bytes are measured exactly (not a pre-opt share estimate), so show them without
+    // the "≈" and without a share % (glue's share is 0 — it is not a wasm facility, it is
+    // the separate JS-glue artifact). Facility segments keep "≈<bytes> B (<share>%)".
+    const pct = s.share > 0 ? ` (${(s.share * 100).toFixed(1)}%)` : "";
+    const approx = s.band === "glue" ? "" : "≈";
+    const title = `${s.facility} ${approx}${s.rawBytes} B${pct}`;
     return `<span class="seg seg-${s.band}" data-band="${s.band}" data-raw="${s.rawBytes}" data-gz="${s.gzBytes}" data-brotli="${s.brotliBytes}" title="${escape(title)}"></span>`;
 }
 
