@@ -11,9 +11,12 @@ export const SIZE_CSS = `
   .size-row .lbl { font-size: 12px; text-align: left; }
   .size-row .total { font-size: 12px; text-align: right; color: #333; }
   .size-bar { height: 26px; border-radius: 5px; background: #eef2f6; display: flex; overflow: hidden; }
-  .seg { height: 100%; box-sizing: border-box; border-right: 1px solid #fff; display: flex; align-items: center; padding: 0 6px; }
+  /* min-width:0 lets each flex seg shrink to its byte-proportional width% instead of
+     being forced wider by its label's min-content size (which also made proportions
+     drift on resize). Padding lives on the label, so unlabeled slivers stay exact. */
+  .seg { height: 100%; box-sizing: border-box; border-right: 1px solid #fff; display: flex; align-items: center; min-width: 0; overflow: hidden; }
   .seg:last-child { border-right: none; }
-  .seg-lbl { font: 600 9.5px ui-monospace,monospace; color: #fff; white-space: nowrap; overflow: hidden; }
+  .seg-lbl { font: 600 9.5px ui-monospace,monospace; color: #fff; white-space: nowrap; overflow: hidden; min-width: 0; padding: 0 6px; }
   .size-row.no-comp .size-bar { opacity: 0.6; }
   .size-note { font-size: 11px; color: #888; }
   table.xlang { border-collapse: collapse; font: 500 10.5px ui-monospace,monospace; width: 100%; margin: 0.5em 0 1em; }
@@ -91,6 +94,10 @@ export const SIZE_JS = `
           // label tracks the bar instead of staying frozen on raw KB.
           var lbl = seg.querySelector('.seg-lbl');
           if (lbl) { lbl.textContent = fmtBytes(b) + ' ' + seg.dataset.fac; }
+          // #4: rebuild the tooltip in the selected compression's exact bytes too.
+          var approx = seg.dataset.band === 'glue' ? '' : '≈';
+          var shareStr = seg.dataset.share ? ' (' + seg.dataset.share + '%)' : '';
+          seg.title = seg.dataset.fac + ' ' + approx + b + ' B' + shareStr;
         });
         row.querySelector('.total').textContent = fmtBytes(sum);
       });
@@ -151,6 +158,15 @@ function fmtBytes(n: number): string {
 }
 
 /**
+ * Display label: JS ships one bundle with no size/speed build variant, so its
+ * `${lang}/${toolchain}/${profile}` label carries a meaningless profile suffix — drop it
+ * (→ `${lang}/${toolchain}`). Applies to every JS toolchain (idiomatic, typed-array).
+ */
+function dispLabel(label: string, isJs: boolean): string {
+    return isJs ? label.replace(/\/[^/]+$/, "") : label;
+}
+
+/**
  * Pick a label text color that stays legible on the segment background. Light shades
  * (luminance > 150) get dark ink (#1f2530); dark shades keep white. Luminance uses the
  * standard perceptual weighting (0.299r+0.587g+0.114b). Mirrors mockup `.t-d` intent.
@@ -182,13 +198,14 @@ function renderSegment(s: Segment, largestFloor: Segment | null): string {
     // Glue bytes are measured exactly (not a pre-opt share estimate), so show them without
     // the "≈" and without a share % (glue's share is 0 — it is not a wasm facility, it is
     // the separate JS-glue artifact). Facility segments keep "≈<bytes> B (<share>%)".
-    const pct = s.share > 0 ? ` (${(s.share * 100).toFixed(1)}%)` : "";
+    const shareStr = s.share > 0 ? `${(s.share * 100).toFixed(1)}` : "";
+    const pct = shareStr ? ` (${shareStr}%)` : "";
     const approx = s.band === "glue" ? "" : "≈";
     const title = `${s.facility} ${approx}${s.rawBytes} B${pct}`;
     const color = segmentColor(s);
-    // data-fac carries the facility text so SIZE_JS can rebuild the label
-    // (`<bytes> <facility>`) for the selected compression on every change (#9).
-    const facAttr = ` data-fac="${escape(s.facility)}"`;
+    // data-fac / data-share carry the facility text + raw share% so SIZE_JS can rebuild
+    // BOTH the visible label and the tooltip for the selected compression (#9, #4).
+    const facAttr = ` data-fac="${escape(s.facility)}" data-share="${shareStr}"`;
     let lbl = "";
     if (isStorySegment(s, largestFloor)) {
         const label = `${fmtBytes(s.rawBytes)} ${s.facility}`;
@@ -217,7 +234,7 @@ function renderRow(b: BinaryViewModel): string {
     // profile. Mark it profile-agnostic so the profile filter shows it under any profile.
     const agnostic = b.isJs ? ' data-agnostic="1"' : "";
     return `<div class="size-row${noComp}" data-toolchain="${escape(b.toolchain)}" data-profile="${escape(b.profile)}"${agnostic} data-lang="${escape(b.language)}">
-      <div class="lbl">${escape(b.label)}${note}</div>
+      <div class="lbl">${escape(dispLabel(b.label, b.isJs))}${note}</div>
       <div class="size-bar">${bars}</div>
       <div class="total"></div>
     </div>`;
@@ -317,7 +334,7 @@ function renderTable(t: WorkloadTable): string {
                 })
                 .join("");
             const agnostic = r.isJs ? ' data-agnostic="1"' : "";
-            return `<tr class="xlang-row" data-toolchain="${escape(r.toolchain)}" data-profile="${escape(r.profile)}"${agnostic}><td>${escape(r.label)}</td>${cells}${cell(r.total, { tot: true })}</tr>`;
+            return `<tr class="xlang-row" data-toolchain="${escape(r.toolchain)}" data-profile="${escape(r.profile)}"${agnostic}><td>${escape(dispLabel(r.label, r.isJs))}</td>${cells}${cell(r.total, { tot: true })}</tr>`;
         })
         .join("\n");
     return `<details class="xlang-wrap"><summary class="xlang-toggle">table · ${escape(t.id)} · bytes</summary>

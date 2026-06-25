@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderSizeView, SIZE_JS } from "../src/render-size.js";
+import { renderSizeView, SIZE_JS, SIZE_CSS } from "../src/render-size.js";
 import type { SizeData } from "../src/size-data.js";
 
 // Fixture: one rust/raw binary whose floor splits across three facilities so the
@@ -147,6 +147,9 @@ describe("renderSizeView", () => {
         // both the bar row and the cross-lang table row carry data-agnostic:
         expect(html).toMatch(/<div class="size-row[^"]*"[^>]*data-agnostic="1"/);
         expect(html).toMatch(/<tr class="xlang-row"[^>]*data-agnostic="1"/);
+        // and the meaningless profile suffix is stripped from the JS label (idiomatic + typed-array):
+        expect(html).toContain(">js/idiomatic<");
+        expect(html).not.toContain("js/idiomatic/speed");
     });
 
     it("renders labels with a runtime fit + resize pass (no mid-glyph clipping)", () => {
@@ -155,5 +158,18 @@ describe("renderSizeView", () => {
         expect(SIZE_JS).toContain("fitLabels");
         expect(SIZE_JS).toContain("scrollWidth");
         expect(SIZE_JS).toContain("addEventListener('resize'");
+    });
+
+    it("keeps segment width byte-proportional, not label-driven (min-width:0)", () => {
+        // Flex segs must shrink below their label's min-content width so the bar stays
+        // proportional and stable on resize.
+        expect(SIZE_CSS).toMatch(/\.seg\s*\{[^}]*min-width:\s*0/);
+    });
+
+    it("carries data-share so the tooltip can be rebuilt per compression (#4)", () => {
+        const html = renderSizeView(data);
+        expect(html).toContain("data-share=");
+        // SIZE_JS rebuilds the title (tooltip) in the selected compression's bytes:
+        expect(SIZE_JS).toContain("seg.title");
     });
 });
