@@ -19,6 +19,16 @@ export const SIZE_CSS = `
   .size-note { font-size: 11px; color: #888; }
   .legend-band { display: inline-block; width: 0.9em; height: 0.9em; vertical-align: middle; margin-right: 0.3em; }
   table.xlang { width: auto; margin: 0.5em 0 1em; font-size: 11px; }
+  table.xlang tbody tr:nth-child(even) { background: #fafbfc; }
+  table.xlang td.z { color: #c4ccd6; }
+  table.xlang th.tot, table.xlang td.tot { border-left: 1px solid #e3e7ec; }
+  table.xlang td.tot { font-weight: 700; color: #1f2530; }
+  .xlang-heat-1 { background: #f3f5f8; }
+  .xlang-heat-2 { background: #dde3ea; }
+  .xlang-heat-3 { background: #c2cbd7; color: #1f2530; }
+  .xlang-heat-4 { background: #9aa7b8; color: #fff; }
+  .xlang-heat-5 { background: #6e7d92; color: #fff; }
+  summary.xlang-toggle { cursor: pointer; font-size: 11px; color: #555; margin: 0.5em 0; user-select: none; }
 `;
 
 export const SIZE_JS = `
@@ -131,22 +141,56 @@ function controls(toolchains: string[]): string {
   </div>`;
 }
 
-function cell(c: { rawBytes: number; gzBytes: number; brotliBytes: number }): string {
-    return `<td class="xlang-cell" data-raw="${c.rawBytes}" data-gz="${c.gzBytes}" data-brotli="${c.brotliBytes}">${c.rawBytes}</td>`;
+interface CellOpts {
+    bucket?: number;   // heatmap bucket 1..5 (omitted for muted-zero / total cells)
+    zero?: boolean;    // muted zero contributor
+    tot?: boolean;     // emphasized total column
+}
+
+function cell(c: { rawBytes: number; gzBytes: number; brotliBytes: number }, opts: CellOpts = {}): string {
+    const classes = ["xlang-cell"];
+    if (opts.tot) {
+        classes.push("tot");
+    } else if (opts.zero) {
+        classes.push("z");
+    } else if (opts.bucket) {
+        classes.push(`xlang-heat-${opts.bucket}`);
+    }
+    return `<td class="${classes.join(" ")}" data-raw="${c.rawBytes}" data-gz="${c.gzBytes}" data-brotli="${c.brotliBytes}">${c.rawBytes}</td>`;
 }
 
 const ZERO_CELL = { rawBytes: 0, gzBytes: 0, brotliBytes: 0 };
 
+/** Heat bucket 1..5 from a raw value relative to its column max — deterministic, raw-based (spec §9.4). */
+function heatBucket(value: number, columnMax: number): number {
+    if (columnMax <= 0 || value <= 0) {
+        return 1;
+    }
+    return Math.min(5, Math.max(1, Math.ceil((value / columnMax) * 5)));
+}
+
 function renderTable(t: WorkloadTable): string {
     const head = t.facilities.map((f) => `<th>${escape(f)}</th>`).join("");
+    const colMax = new Map<string, number>();
+    for (const f of t.facilities) {
+        colMax.set(f, t.rows.reduce((m, r) => Math.max(m, r.byFacility[f]?.rawBytes ?? 0), 0));
+    }
     const rows = t.rows
         .map((r) => {
-            const cells = t.facilities.map((f) => cell(r.byFacility[f] ?? ZERO_CELL)).join("");
-            return `<tr class="xlang-row" data-toolchain="${escape(r.toolchain)}" data-profile="${escape(r.profile)}"><td>${escape(r.label)}</td>${cells}${cell(r.total)}</tr>`;
+            const cells = t.facilities
+                .map((f) => {
+                    const c = r.byFacility[f] ?? ZERO_CELL;
+                    return c.rawBytes <= 0
+                        ? cell(c, { zero: true })
+                        : cell(c, { bucket: heatBucket(c.rawBytes, colMax.get(f) ?? 0) });
+                })
+                .join("");
+            return `<tr class="xlang-row" data-toolchain="${escape(r.toolchain)}" data-profile="${escape(r.profile)}"><td>${escape(r.label)}</td>${cells}${cell(r.total, { tot: true })}</tr>`;
         })
         .join("\n");
-    return `<p class="size-note">кросс-языковая таблица — байты по выбранному сжатию (доли по raw, абсолют ≈)</p>
-    <table class="xlang"><thead><tr><th>impl</th>${head}<th>total</th></tr></thead><tbody>${rows}</tbody></table>`;
+    return `<details class="xlang-wrap"><summary class="xlang-toggle">таблица · ${escape(t.id)} · байты</summary>
+    <p class="size-note">кросс-языковая таблица — байты по выбранному сжатию (доли по raw, абсолют ≈)</p>
+    <table class="xlang"><thead><tr><th>impl</th>${head}<th class="tot">total</th></tr></thead><tbody>${rows}</tbody></table></details>`;
 }
 
 export function renderSizeView(data: SizeData): string {

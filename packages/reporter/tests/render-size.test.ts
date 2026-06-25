@@ -66,12 +66,20 @@ describe("renderSizeView", () => {
 
     it("emits per-cell raw/gz/brotli data attributes for compression-aware totals", () => {
         const html = renderSizeView(data);
-        // allocator cell: raw 600, gz round(0.6*500)=300, brotli round(0.6*450)=270
-        expect(html).toMatch(/<td class="xlang-cell" data-raw="600" data-gz="300" data-brotli="270">600<\/td>/);
+        // allocator cell: raw 600, gz round(0.6*500)=300, brotli round(0.6*450)=270;
+        // heat bucket from rawBytes/columnMaxRaw (single row -> column max -> bucket 5).
+        expect(html).toMatch(/<td class="xlang-cell xlang-heat-5" data-raw="600" data-gz="300" data-brotli="270">600<\/td>/);
     });
 
     it("tags table rows with toolchain/profile so client filters can hide them", () => {
         const html = renderSizeView(data);
         expect(html).toMatch(/<tr class="xlang-row"[^>]*data-toolchain="raw"[^>]*data-profile="size"/);
+    });
+
+    it("makes the cross-lang table collapsible with heatmap-tinted cells", () => {
+        const html = renderSizeView(data);
+        expect(html).toContain("<details");
+        expect(html).toContain("<summary");
+        expect(html).toContain("xlang-heat-");   // heatmap bucket class on data cells
     });
 });
