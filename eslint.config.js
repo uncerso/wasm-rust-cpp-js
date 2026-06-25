@@ -9,6 +9,7 @@ export default tseslint.config(
             "**/node_modules/**",
             "**/target/**",
             "**/pkg-tmp/**",
+            "**/pkg-attr/**",
             "results/**",
             ".tools/**",
             "benches/*/fixtures/**",
