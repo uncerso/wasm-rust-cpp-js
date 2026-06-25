@@ -107,10 +107,10 @@ function cppObservedCtx(c: BinaryCombination): CategorizeCtx {
 
 export async function attributeWasiSdk(
     c: BinaryCombination,
-    distDir: string,
+    attrDir: string,
     productionTotal: ProductionTotal,
 ): Promise<SizeComposition | null> {
-    const named = join(distDir, "module.attr.wasm");
+    const named = join(attrDir, "module.attr.wasm");
     if (!existsSync(named)) {
         return null; // name-bearing output absent (e.g. build script not yet SIZE_ATTR-aware)
     }

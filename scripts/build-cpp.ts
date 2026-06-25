@@ -8,7 +8,7 @@ import {
 } from "./lib/matrix.js";
 import { statArtifact, writeMeta, type ArtifactMeta } from "./lib/meta.js";
 import { detectActual } from "./lib/tool-versions.js";
-import { wasiSdkPath } from "./lib/tool-paths.js";
+import { wasiSdkPath, wasmOptPath } from "./lib/tool-paths.js";
 import { emsdkEnv } from "./lib/emsdk-env.js";
 import { attributeWasiSdk } from "./lib/size-attr-build.js";
 
@@ -55,14 +55,27 @@ async function buildWasiSdk(c: BinaryCombination): Promise<void> {
     const out = distDirFor(c);
     await mkdir(out, { recursive: true });
     const script = resolve(`benches/${c.sourceBench}/cpp/build-wasi-sdk.sh`);
-    const toolsBin = resolve(".tools/bin");
-    const mergedPath = `${toolsBin}:${process.env["PATH"] ?? ""}`;
+    const attrDir = resolve("target/attr-cpp", `${c.sourceBench}-${c.toolchain}-${c.profile}`);
+    await mkdir(attrDir, { recursive: true });
     await run("bash", [script, c.profile, resolve(out)], {
-        env: { WASI_SDK_PATH: wasiSdkPath(), PATH: mergedPath, SIZE_ATTR: "1" },
+        env: {
+            WASI_SDK_PATH: wasiSdkPath(),
+            SIZE_ATTR: "1",
+            WASM_OPT: wasmOptPath(), // absolute path for the explicit size wasm-opt pass
+            ATTR_OUT: attrDir, // name-bearing attr.wasm goes here, not dist
+            // PROD_PATH carries .tools/bin for the PRODUCTION clang++ invocation ONLY, so the
+            // wasi-sdk clang -flto driver auto-finds + runs wasm-opt post-link — reproducing the
+            // size/perf baseline measured since Phase 1.1 (byte-identical production binary).
+            // The attr clang++ runs WITHOUT it (clean inherited PATH) so the name section survives.
+            // Making cpp wasm-opt explicit + fully isolating PATH (so wasi-sdk clang can't pick up
+            // a stray wasm-opt from the user's machine) is deferred — see docs/roadmap.md
+            // path-hygiene-build-isolation.
+            PROD_PATH: resolve(".tools/bin"),
+        },
     });
 
     const wasmStat = await statArtifact(join(out, "module.wasm"));
-    const composition = await attributeWasiSdk(c, out, {
+    const composition = await attributeWasiSdk(c, attrDir, {
         rawBytes: wasmStat.rawBytes, gzipBytes: wasmStat.gzipBytes, brotliBytes: wasmStat.brotliBytes,
     });
     const meta: ArtifactMeta = {
