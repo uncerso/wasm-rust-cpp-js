@@ -1,6 +1,6 @@
 import type { Aggregated } from "./aggregate.js";
 import type { SizeData } from "./size-data.js";
-import { renderPerfView, escape, PERF_JS } from "./render-perf.js";
+import { renderPerfView, escape, PERF_JS, PERF_CSS } from "./render-perf.js";
 import { renderSizeView, SIZE_CSS, SIZE_JS } from "./render-size.js";
 import { SHELL_CSS } from "./theme.js";
 
@@ -33,7 +33,7 @@ const TABS_JS = `
 export function renderHtml(agg: Aggregated, sizeData: SizeData): string {
     return `<!doctype html>
 <html><head><meta charset="utf-8"><title>bench results</title>
-<style>${SHELL_CSS}${SHELL_LOCAL_CSS}${SIZE_CSS}</style></head>
+<style>${SHELL_CSS}${SHELL_LOCAL_CSS}${SIZE_CSS}${PERF_CSS}</style></head>
 <body>
 <div class="app">
   <header class="sh-head">

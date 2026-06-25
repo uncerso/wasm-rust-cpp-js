@@ -53,6 +53,16 @@ describe("renderHtml", () => {
         expect(html).not.toContain("font-family: ui-monospace, monospace; max-width");
     });
 
+    it("wires every view's CSS into the shell <style> (size + perf)", () => {
+        const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
+        // SIZE_CSS marker (size bars) and PERF_CSS markers (small-multiples track +
+        // detail hatch) must all reach the <style> block — guards against a view's
+        // CSS export not being imported into render.ts (the Perf tab once shipped unstyled).
+        expect(html).toContain(".size-bar");
+        expect(html).toContain(".em-trk");
+        expect(html).toContain("repeating-linear-gradient");   // PERF_CSS hatch — CSS-only, never in markup
+    });
+
     it("escapes potentially-hazardous characters in fields", () => {
         const r = fakeResult();
         r.benchmark.id = "<script>alert(1)</script>";
