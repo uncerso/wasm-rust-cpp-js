@@ -58,8 +58,8 @@ describe("buildSizeViewModel", () => {
         expect(b.segments).toHaveLength(1);
         expect(b.segments[0]!.rawBytes).toBe(1000);
         expect(b.segments[0]!.band).toBe("unknown");
-        expect(b.segments[0]!.facility).toBe("(не атрибутировано)");
-        expect(b.note).toContain("rust/raw");
+        expect(b.segments[0]!.facility).toBe("(unattributed)");
+        expect(b.note).toContain("facility attribution unavailable");
     });
 
     it("marks JS as a single observed bar (floor 0)", () => {

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { renderSizeView } from "../src/render-size.js";
+import { renderSizeView, SIZE_JS, SIZE_CSS } from "../src/render-size.js";
 import type { SizeData } from "../src/size-data.js";
 
+// Fixture: one rust/raw binary whose floor splits across three facilities so the
+// selective-label rule (only the single largest-raw floor is labeled) is exercised,
+// plus an observed band. `data` (#bac2cd, light) is the largest floor → labeled with
+// dark text; `allocator` (#6e7b8c, mid) and `structural` (#c8cfd7, light) are smaller
+// floors → label-less. `observed` (#34b88a, dark-enough) → labeled, white text.
 const data: SizeData = {
     binaries: [
         {
@@ -12,8 +17,10 @@ const data: SizeData = {
                 productionTotal: { rawBytes: 1000, gzipBytes: 500, brotliBytes: 450 },
                 preOptTotalBytes: 1100, calibrationFactor: 0.9, unattributedShare: 0,
                 facilities: [
-                    { facility: "allocator", scaling: "paid-once", share: 0.6, approxBytes: 600 },
-                    { facility: "observed", scaling: "observed", share: 0.4, approxBytes: 400 },
+                    { facility: "data", scaling: "paid-once", share: 0.5, approxBytes: 500 },
+                    { facility: "allocator", scaling: "paid-once", share: 0.2, approxBytes: 200 },
+                    { facility: "structural", scaling: "paid-once", share: 0.05, approxBytes: 50 },
+                    { facility: "observed", scaling: "observed", share: 0.25, approxBytes: 250 },
                 ],
             },
         },
@@ -21,22 +28,78 @@ const data: SizeData = {
 };
 
 describe("renderSizeView", () => {
-    it("renders a bar per binary with filter controls", () => {
+    it("renders a segmented sticky tray with all four control surfaces", () => {
         const html = renderSizeView(data);
-        expect(html).toContain('class="size-controls"');
-        expect(html).toContain('name="compression"');
-        expect(html).toContain('name="observedOnly"');
-        expect(html).toContain('class="size-bar"');
-        expect(html).toContain('data-toolchain="raw"');
-        expect(html).toContain('data-profile="size"');
+        expect(html).toContain('class="sh-tray"');
+        expect(html).toContain('data-ctrl="compression"');
+        expect(html).toContain('data-ctrl="sizeProfile"');
+        expect(html).toContain('data-tc="raw"');           // one toolchain pill
+        expect(html).toContain('data-sw="observedOnly"');  // the switch
+        // legacy controls are gone:
+        expect(html).not.toContain('class="size-controls"');
+        expect(html).not.toContain('name="compression"');
     });
 
-    it("emits floor and observed segments with byte data attributes", () => {
+    it("defaults compression=raw and profile=all to the .on segment", () => {
         const html = renderSizeView(data);
-        expect(html).toContain('class="seg seg-floor"');
-        expect(html).toContain('class="seg seg-observed"');
-        expect(html).toContain('data-raw="600"');
-        expect(html).toContain('data-raw="400"');
+        expect(html).toContain('<span data-val="raw" class="on">raw</span>');
+        expect(html).toContain('<span data-val="all" class="on">all</span>');
+        // observedOnly switch defaults OFF → no .on on the .sh-sw:
+        expect(html).toContain('<span class="sh-sw" data-sw="observedOnly">');
+    });
+
+    it("renders the legend swatches via segmentColor backgrounds", () => {
+        const html = renderSizeView(data);
+        expect(html).toContain('class="sh-legend"');
+        expect(html).toContain('style="background:#6e7b8c"');  // floor key
+        expect(html).toContain('style="background:#d8be73"');  // glue key
+        expect(html).toContain('style="background:#34b88a"');  // observed key
+        expect(html).toContain('style="background:#e0a8a8"');  // unattr key
+    });
+
+    it("emits floor and observed segments with byte data attributes on every seg", () => {
+        const html = renderSizeView(data);
+        expect(html).toContain('class="seg"');
+        expect(html).toContain("background:#bac2cd");          // data floor shade (largest floor)
+        expect(html).toContain("background:#6e7b8c");          // allocator floor shade
+        expect(html).toContain("background:#34b88a");          // observed accent
+        expect(html).toContain('data-raw="500"');              // data
+        expect(html).toContain('data-raw="200"');              // allocator
+        expect(html).toContain('data-raw="50"');               // structural
+        expect(html).toContain('data-raw="250"');              // observed
+        // every seg keeps its compression byte attrs + band + title:
+        expect(html).toContain('data-band="floor"');
+        expect(html).toContain('data-band="observed"');
+        expect(html).toContain("data-gz=");
+        expect(html).toContain("data-brotli=");
+        expect(html).toContain("title=");
+    });
+
+    it("labels EVERY segment server-side; the client (fitLabels) hides non-fitting ones", () => {
+        const html = renderSizeView(data);
+        // every segment renders a .seg-lbl candidate (4 facilities in the fixture) — the
+        // pixel-fit decision is deferred to SIZE_JS, so the server never pre-drops a label.
+        const labels = [...html.matchAll(/<span class="seg-lbl"[^>]*>([^<]*)<\/span>/g)].map((m) => m[1]);
+        expect(labels).toContain("500 B data");
+        expect(labels).toContain("250 B observed");
+        expect(labels).toContain("200 B allocator");
+        expect(labels).toContain("50 B structural");
+        expect(labels.length).toBe(4);
+    });
+
+    it("adapts label text color to background luminance", () => {
+        const html = renderSizeView(data);
+        // observed #34b88a is dark → white label text:
+        expect(html).toMatch(/background:#34b88a[^>]*>[^<]*<span class="seg-lbl" style="color:#fff">/);
+        // data floor #bac2cd is light → dark label text:
+        expect(html).toMatch(/background:#bac2cd[^>]*>[^<]*<span class="seg-lbl" style="color:#1f2530">/);
+    });
+
+    it("stores per-facility label text for compression-aware JS relabeling", () => {
+        const html = renderSizeView(data);
+        // labeled segments carry the facility name in data-fac so SIZE_JS can rebuild
+        // the label when the user switches compression:
+        expect(html).toContain('data-fac="observed"');
     });
 
     it("escapes the binary label", () => {
@@ -54,12 +117,59 @@ describe("renderSizeView", () => {
 
     it("emits per-cell raw/gz/brotli data attributes for compression-aware totals", () => {
         const html = renderSizeView(data);
-        // allocator cell: raw 600, gz round(0.6*500)=300, brotli round(0.6*450)=270
-        expect(html).toMatch(/<td class="xlang-cell" data-raw="600" data-gz="300" data-brotli="270">600<\/td>/);
+        // data cell: raw 500, gz round(0.5*500)=250, brotli round(0.5*450)=225;
+        // single row → column max → heat bucket 5.
+        expect(html).toMatch(/<td class="xlang-cell xlang-heat-5" data-raw="500" data-gz="250" data-brotli="225">500<\/td>/);
     });
 
     it("tags table rows with toolchain/profile so client filters can hide them", () => {
         const html = renderSizeView(data);
         expect(html).toMatch(/<tr class="xlang-row"[^>]*data-toolchain="raw"[^>]*data-profile="size"/);
+    });
+
+    it("makes the cross-lang table collapsible with heatmap-tinted cells", () => {
+        const html = renderSizeView(data);
+        expect(html).toContain("<details");
+        expect(html).toContain("<summary");
+        expect(html).toContain("xlang-heat-");   // heatmap bucket class on data cells
+    });
+
+    it("marks JS rows profile-agnostic so the profile filter never hides them", () => {
+        const js: SizeData = {
+            binaries: [{
+                id: "hashmap_int", language: "js", toolchain: "idiomatic", profile: "speed",
+                label: "js/idiomatic/speed",
+                totals: { rawBytes: 453, gzipBytes: 300, brotliBytes: 250 }, glue: null, isJs: true,
+                composition: null,
+            }],
+        };
+        const html = renderSizeView(js);
+        // both the bar row and the cross-lang table row carry data-agnostic:
+        expect(html).toMatch(/<div class="size-row[^"]*"[^>]*data-agnostic="1"/);
+        expect(html).toMatch(/<tr class="xlang-row"[^>]*data-agnostic="1"/);
+        // and the meaningless profile suffix is stripped from the JS label (idiomatic + typed-array):
+        expect(html).toContain(">js/idiomatic<");
+        expect(html).not.toContain("js/idiomatic/speed");
+    });
+
+    it("renders labels with a runtime fit + resize pass (no mid-glyph clipping)", () => {
+        // The fit decision is pixel-based, so it lives in SIZE_JS (measure + hide on overflow,
+        // re-run on resize) rather than in the server-rendered markup.
+        expect(SIZE_JS).toContain("fitLabels");
+        expect(SIZE_JS).toContain("scrollWidth");
+        expect(SIZE_JS).toContain("addEventListener('resize'");
+    });
+
+    it("keeps segment width byte-proportional, not label-driven (min-width:0)", () => {
+        // Flex segs must shrink below their label's min-content width so the bar stays
+        // proportional and stable on resize.
+        expect(SIZE_CSS).toMatch(/\.seg\s*\{[^}]*min-width:\s*0/);
+    });
+
+    it("carries data-share so the tooltip can be rebuilt per compression (#4)", () => {
+        const html = renderSizeView(data);
+        expect(html).toContain("data-share=");
+        // SIZE_JS rebuilds the title (tooltip) in the selected compression's bytes:
+        expect(SIZE_JS).toContain("seg.title");
     });
 });

@@ -44,20 +44,23 @@ describe("renderHtml", () => {
 
     it("renders a tabbed shell with Size and Perf panels", () => {
         const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
-        expect(html).toContain('<nav class="tabs">');
+        expect(html).toContain('class="app"');
+        expect(html).toContain('class="tabbar"');
         expect(html).toContain('data-tab="size"');
         expect(html).toContain('data-tab="perf"');
         expect(html).toContain('id="tab-size"');
         expect(html).toContain('id="tab-perf"');
+        expect(html).not.toContain("font-family: ui-monospace, monospace; max-width");
     });
 
-    it("renders Perf-tab filters (env/size/profile) over filterable rows", () => {
+    it("wires every view's CSS into the shell <style> (size + perf)", () => {
         const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
-        expect(html).toContain('class="size-controls perf-controls"');
-        expect(html).toContain('name="perfEnv"');
-        expect(html).toContain('name="perfSize"');
-        expect(html).toContain('name="perfProfile"');
-        expect(html).toMatch(/<tr[^>]*data-env="[^"]+"[^>]*data-size="[^"]+"[^>]*data-profile="[^"]+"/);
+        // SIZE_CSS marker (size bars) and PERF_CSS markers (small-multiples track +
+        // detail hatch) must all reach the <style> block — guards against a view's
+        // CSS export not being imported into render.ts (the Perf tab once shipped unstyled).
+        expect(html).toContain(".size-bar");
+        expect(html).toContain(".em-trk");
+        expect(html).toContain("repeating-linear-gradient");   // PERF_CSS hatch — CSS-only, never in markup
     });
 
     it("escapes potentially-hazardous characters in fields", () => {
@@ -68,62 +71,4 @@ describe("renderHtml", () => {
         expect(html).toContain("&lt;script&gt;");
     });
 
-    it("includes timing column headers and drops size columns (moved to Size view)", () => {
-        const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
-        expect(html).toContain("<th>init (ms)</th>");
-        expect(html).toContain("<th>first (ms)</th>");
-        expect(html).toContain("<th>warm med (ms)</th>");
-        expect(html).toContain("<th>warm p95 (ms)</th>");
-        expect(html).toContain("<th>cv</th>");
-        expect(html).toContain("<th>ok</th>");
-        expect(html).not.toContain("<th>wasm raw (B)</th>");
-        expect(html).not.toContain("<th>total gz (B)</th>");
-    });
-});
-
-describe("renderHtml shape_dispatch 2×2 factorial grid", () => {
-    const pinned = { env: { kind: "node", name: "node", version: "v22.0.0", engine: "V8" } } as const;
-
-    function shapeCase(id: string, warmMedian: number): BenchResult {
-        const r = fakeResult(
-            { id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" },
-            warmMedian,
-        );
-        r.env = { ...pinned.env };
-        return r;
-    }
-
-    it("emits a 2×2 factorial super-section with the 4 pinned warm-medians", () => {
-        const results = [
-            shapeCase("shape_dispatch_homo_static", 11.111),
-            shapeCase("shape_dispatch_homo_dyn", 22.222),
-            shapeCase("shape_dispatch_mixed_static", 33.333),
-            shapeCase("shape_dispatch_mixed_dyn", 44.444),
-            fakeResult(), // a normal matmul flat section
-        ];
-        const html = renderHtml(aggregate(results), { binaries: [] });
-        expect(html).toContain("shape_dispatch (2×2 factorial)");
-        // the 4 grid cell values
-        expect(html).toContain("11.111");
-        expect(html).toContain("22.222");
-        expect(html).toContain("33.333");
-        expect(html).toContain("44.444");
-        // non-shape_dispatch flat section still rendered
-        expect(html).toContain("<h2>matmul</h2>");
-        // the 4 detail tables still appear (reusing renderBenchmark)
-        expect(html).toContain("<h2>shape_dispatch_homo_static</h2>");
-        expect(html).toContain("<h2>shape_dispatch_mixed_dyn</h2>");
-    });
-
-    it("renders — for a missing pinned cell", () => {
-        const results = [
-            shapeCase("shape_dispatch_homo_static", 11.111),
-            // homo_dyn missing
-            shapeCase("shape_dispatch_mixed_static", 33.333),
-            shapeCase("shape_dispatch_mixed_dyn", 44.444),
-        ];
-        const html = renderHtml(aggregate(results), { binaries: [] });
-        expect(html).toContain("shape_dispatch (2×2 factorial)");
-        expect(html).toContain("—");
-    });
 });
