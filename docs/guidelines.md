@@ -95,10 +95,10 @@ Workload-level (no-glue, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/…`)
 
 **Phase:** introduced 1.2 / refined 1.3
 
-**Caveats:** Floor платится **один раз** — 8 мест использования HashMap добавили 44 B raw над одним (не ×8 от ~2 KB map-кода): не масштабируется ни с числом use-site'ов, ни с числом элементов. Дифференциал — rust/raw синтетика; cpp-сторона остаётся workload-level (cpp/wasi-sdk атрибуция в degraded-режиме → roadmap `size-attr-toolchain-coverage`). Floor доминируется allocator'ом (одна dlmalloc-аллокация ~3.6 KB gz, тянет panic/abort-инфру) + hash-machinery; для продукта: один hashmap в иначе-минимальном wasm → закладывай ~5–8 KB gz floor.
+**Caveats:** Floor платится **один раз** — 8 мест использования HashMap добавили 44 B raw над одним (не ×8 от ~2 KB map-кода): не масштабируется ни с числом use-site'ов, ни с числом элементов. Дифференциал — rust/raw синтетика (изолирует use-site scaling); cpp/wasi-sdk per-facility композиция теперь first-class (Phase 1.4), но без контролируемого слоистого дифференциала. Floor доминируется allocator'ом (одна dlmalloc-аллокация ~3.6 KB gz, тянет panic/abort-инфру) + hash-machinery; для продукта: один hashmap в иначе-минимальном wasm → закладывай ~5–8 KB gz floor.
 
 ### Размер микро-wasm = floor (paid-once) + observed; floor доминирует, а observed (твой код) сопоставим между workload'ами — «X больше» обычно про floor, не про твой код
-**Status:** confirmed (rust/raw; кросс-языково — partial)
+**Status:** confirmed
 **Evidence:** Phase 1.3, `dist/*/meta.json` поле `composition` (twiggy pre-opt × калибровка к точному production-тоталу) — first-class в отчёте (`pnpm report`, вкладка Size). rust/raw, size profile:
 
 | workload | total raw | observed raw | floor % |
@@ -111,9 +111,26 @@ Workload-level (no-glue, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/…`)
 
 Тоталы расходятся 0.3 KB ↔ 19 KB, но observed (наблюдаемый workload-код) держится в ~0.1–2.4 KB; разница почти вся — floor (allocator + hash + panic + primitive-таблицы), платящийся один раз. Compute-bound (matmul) — low-floor (~40%); container-bound (hashmap) — floor-dominated (~90%).
 
-**Phase:** introduced 1.3
+**Phase:** introduced 1.3 / refined 1.4 (cross-toolchain attribution)
 
-**Caveats:** per-facility байты приближённые (`≈`, pre-opt доля × точный тотал; wasm-opt сжимает категории неравномерно) — порядок величины надёжен, production-тотал точен, headline-факты кросс-проверены production-точным дифференциалом (`scripts/size-diff.ts` — см. claim про std-container floor выше). Атрибутирован пока только rust/raw (16 бинарей); cpp/wasi-sdk degraded, bindgen/emscripten вне scope (→ roadmap `size-attr-toolchain-coverage`). JS: floor ≈ 0 — весь bundle observed (движок не едет в артефакт). Доп.: static dispatch чуть **меньше** dynamic на rust/raw `-Oz` (homo_static 1522 < homo_dyn 1693 B: vtable-инфра дороже 3 монроморфных тел при K=3) — кросс-проверка дифференциалом; ось perf — отдельный dispatch-claim ниже.
+**Caveats:** per-facility байты приближённые (`≈`, pre-opt доля × точный тотал; wasm-opt сжимает категории неравномерно) — порядок величины надёжен, production-тотал точен, headline-факты кросс-проверены production-точным дифференциалом (`scripts/size-diff.ts` — см. claim про std-container floor выше). Атрибутированы все wasm-тулчейны (rust/raw+bindgen, cpp/wasi-sdk+emscripten, 64 бинаря; Phase 1.4) — состав floor по тулчейнам см. в следующем claim'е. JS: floor ≈ 0 — весь bundle observed (движок не едет в артефакт). Доп.: static dispatch чуть **меньше** dynamic на rust/raw `-Oz` (homo_static 1522 < homo_dyn 1693 B: vtable-инфра дороже 3 монроморфных тел при K=3) — кросс-проверка дифференциалом; ось perf — отдельный dispatch-claim ниже.
+
+### Состав floor — toolchain-специфичен: rust несёт 21–25% panic/fmt-налог, у cpp (`-fno-exceptions -fno-rtti`) его ~0%; у emscripten ~45% floor'а — собственный runtime; bindgen/emscripten добавляют paid-once JS-glue, которого нет у raw/wasi-sdk
+**Status:** confirmed
+**Evidence:** Phase 1.4, `dist/*/{rust-raw,rust-bindgen,cpp-wasi-sdk,cpp-emscripten}-*/meta.json` поле `composition` (twiggy name-bearing pre-opt × калибровка к точному production-тоталу; unattributed 0.0–3.0% на rich-workload'ах) — first-class в отчёте (`pnpm report`, вкладка Size; amber-band «glue (JS)» = измеренный `jsGlue`, не доля wasm). hashmap_string, size profile:
+
+| toolchain | wasm raw/gz | доминантный floor-facility | panic-fmt | glue raw/gz |
+|---|---|---|---|---|
+| rust/raw | 18938 / 9153 | allocator 32% | **25%** | — |
+| rust/bindgen | 21968 / 9981 | allocator 29% | **21%** | 5705 / 1599 |
+| cpp/wasi-sdk | 16279 / 6507 | allocator 44% | **0%** | — |
+| cpp/emscripten | 14786 / 6151 | emscripten-runtime 45% | **0%** | 4379 / 2087 |
+
+Две toolchain-floor-сигнатуры: (1) **rust платит panic/fmt-налог** — 21–25% на rich-workload'е (даже 16% у крошечного matmul/bindgen), cpp с `-fno-exceptions -fno-rtti` несёт ~0% (нет unwind/fmt-инфры); (2) **доминантный facility различается** — rust + cpp/wasi-sdk дают allocator (dlmalloc 29–44%), cpp/emscripten — собственный runtime (стек-операции, ctors, `dynCall`) ~45% при allocator ~1%. **Glue — реальный paid-once расход**: bindgen ~1.6 KB gz, emscripten ~2.1 KB gz; raw/wasi-sdk его не несут (но требуют рукописного generic host-loader'а, пока не учтённого — → roadmap `size-attr-raw-host-glue`).
+
+**Phase:** introduced 1.4
+
+**Caveats:** per-facility байты приближённые (pre-opt доля × точный production-тотал; wasm-opt сжимает категории неравномерно) — порядок надёжен, production-тотал точен. unattributed растёт на крошечных бинарях (interop_calls cpp/wasi-sdk ~24%, shape_dispatch 11–27%): мало именованных символов → структурный overhead занимает бóльшую долю; на rich-workload'ах <3%. `panic-fmt ~0%` у cpp — следствие флагов сборки ЭТОГО репо (`-fno-exceptions -fno-rtti`); cpp с включёнными исключениями понесёт свою долю. Glue gzip-floor почти не зависит от key-type (см. no-glue claim выше). Production-бинари byte-идентичны Phase 1.1–1.3 (атрибуция read-only; cpp wasm-opt сейчас неявный авто-пасс — → roadmap `cpp-wasm-opt-explicit`).
 
 ### Один примитив может молча залинковать multi-KB фиксированную таблицу, доминирующую над размером маленького wasm — аудируй примитивы, не алгоритм
 **Status:** confirmed

@@ -1,8 +1,18 @@
 # Bug report — cpp/wasi-sdk size-attribution: name section drops out (anonymous `code[N]`) when built via `build-wasi-sdk.sh`
 
-**Status:** mechanism **NOT isolated** (open) · impact **contained** via graceful degradation. Phase 1.3 Plan 1/3, Task 1.9.
+**Status:** **RESOLVED (Phase 1.4)** — root cause isolated + fixed (see § Resolution). Was: mechanism NOT isolated · impact contained via graceful degradation (Phase 1.3 Plan 1/3, Task 1.9).
 **Discovered:** 2026-06-21 wiring cpp/wasi-sdk size attribution.
 **Affected:** size-attribution path only — `benches/hashmap_string/cpp/build-wasi-sdk.sh` (`SIZE_ATTR=1` build) + `scripts/lib/size-attr-build.ts` (`attributeWasiSdk`). **Production `module.wasm` is unaffected** (smoke green, checksums intact). rust/raw attribution is unaffected (works: unattributed 0.1–2.2% on the exemplars).
+
+---
+
+## Resolution (Phase 1.4)
+
+**Root cause:** the diagnosis compared **argv** but not **environment** — specifically `PATH`. `build-cpp.ts buildWasiSdk` prepended `.tools/bin` to `PATH` (so the script could call `wasm-opt` for the production build). With `wasm-opt` on `PATH`, the **wasi-sdk clang `-flto` driver auto-discovers it and runs it post-link** (`clang -###` shows `.tools/bin/wasm-opt` in the link plan), and `wasm-opt` without `-g` strips the name section. Standalone repros ran with the default `PATH` (no `.tools/bin`) → no auto-`wasm-opt` → names present. The argv was identical; the discriminator lived in `PATH`. (The earlier "file-script vs `bash -c`" discriminator was a red herring.) Full forensics: `docs/pitfalls/2026-06-25-cpp-wasi-sdk-name-section-env-diff.md`.
+
+**Fix:** PATH hygiene per-invocation in the build scripts. The SIZE_ATTR attr `clang++` runs with the **clean inherited PATH** (no `.tools/bin`) → the driver does NOT auto-run `wasm-opt` → the name section survives. The production `clang++` keeps `.tools/bin` via a dedicated `PROD_PATH` env (deliberate auto-`wasm-opt`) so the production binary stays **byte-identical** to Phase 1.1–1.3. Confirmed end-to-end: all cpp/wasi-sdk + cpp/emscripten binaries attributed (unattributed 0.6–0.7% on hashmap_string; <50% everywhere), all 32 cpp production hashes byte-identical to baseline.
+
+**Follow-ups (roadmap, linked to `path-hygiene-build-isolation`):** make cpp `wasm-opt` explicit + deterministic like rust (`cpp-wasm-opt-explicit`); fully isolate PATH so the attr clang can't pick up a stray user-machine `wasm-opt`.
 
 ---
 
