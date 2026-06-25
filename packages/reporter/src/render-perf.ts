@@ -1,5 +1,5 @@
 import type { Aggregated } from "./aggregate.js";
-import { buildPerfModel, type PerfDetailRow, type PerfImplMultiple, type PerfSlice, type ShapeCell } from "./perf-view-model.js";
+import { buildPerfModel, type PerfDetailRow, type PerfImplMultiple, type PerfSlice, type ShapeCell, type ShapeSlice } from "./perf-view-model.js";
 
 const ESCAPES: Record<string, string> = {
     "&": "&amp;",
@@ -18,7 +18,7 @@ export function escape(s: string): string {
 // ---------------------------------------------------------------------------
 
 export const PERF_CSS = `
-.perf-tray{background:#f6f8fb;border-top:1px solid #eef1f5;border-bottom:1px solid #eef1f5;padding:10px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:0}
+.perf-tray{background:#f6f8fb;border-top:1px solid #eef1f5;border-bottom:1px solid #eef1f5;padding:10px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:0;position:sticky;top:0;z-index:10}
 .perf-gl{font:700 9px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#8a93a0;margin-right:6px}
 .perf-grp{display:flex;align-items:center;gap:6px;padding:0 13px}
 .perf-grp:first-child{padding-left:0}
@@ -162,7 +162,7 @@ function renderDetailRow(row: PerfDetailRow, maxInit: number, maxWarm: number): 
     const initCell = `<td>${renderDataBar(row.initTotal, maxInit, "")}</td>`;
     const warmCell = `<td>${renderDataBar(row.warmMedian, maxWarm, warmFillClass)}</td>`;
 
-    return `<tr${trClass}><td>${escape(row.impl)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td${cvClass}>${row.cv.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
+    return `<tr${trClass}><td>${escape(row.impl)}</td><td>${escape(row.env)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td${cvClass}>${row.cv.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
 }
 
 function renderPerfDetail(slice: PerfSlice): string {
@@ -173,9 +173,9 @@ function renderPerfDetail(slice: PerfSlice): string {
     const maxWarm = slice.detail.reduce((m, r) => Math.max(m, r.warmMedian), 0);
     const rows = slice.detail.map((row) => renderDetailRow(row, maxInit, maxWarm)).join("\n");
     return `<details>
-<summary class="pf-tg">детали · node</summary>
+<summary class="pf-tg">детали · все среды</summary>
 <table class="pf-t">
-<thead><tr><th>impl</th><th>init</th><th>first</th><th>warm med</th><th>p95</th><th>cv</th><th>ok</th></tr></thead>
+<thead><tr><th>impl</th><th>env</th><th>init</th><th>first</th><th>warm med</th><th>p95</th><th>cv</th><th>ok</th></tr></thead>
 <tbody>
 ${rows}
 </tbody>
@@ -203,7 +203,7 @@ function shapeBucket(value: number, max: number): number {
     return Math.min(5, Math.max(1, Math.round((value / max) * 5)));
 }
 
-function renderShapeHeatmap(cells: ShapeCell[]): string {
+function renderShapeHeatTable(cells: ShapeCell[]): string {
     const max = cells.reduce((m, c) => (c.warmMedian != null ? Math.max(m, c.warmMedian) : m), 0);
     const at = (layout: string, dispatch: string): ShapeCell | undefined =>
         cells.find((c) => c.layout === layout && c.dispatch === dispatch);
@@ -224,13 +224,25 @@ function renderShapeHeatmap(cells: ShapeCell[]): string {
     };
     const row = (layout: string): string =>
         `<tr><th class="rh">${escape(layout)}</th>${renderCellTd(layout, "static")}${renderCellTd(layout, "dynamic")}</tr>`;
-    return `<div class="perf-wl">
-  <div class="perf-wlh">shape_dispatch <small>node · rust/raw · speed · L</small></div>
-  <table class="shape-heat">
+    return `<table class="shape-heat">
     <thead><tr><th></th><th>static</th><th>dynamic</th></tr></thead>
     <tbody>${row("homo")}${row("mixed")}</tbody>
-  </table>
+  </table>`;
+}
+
+function renderShapeSection(slices: ShapeSlice[], defaultSize: string, defaultProfile: string): string {
+    const blocks = slices.map((slice) => {
+        const isActive = slice.size === defaultSize && slice.profile === defaultProfile;
+        const display = isActive ? "" : ' style="display:none"';
+        return `<div class="perf-slice"${display} data-size="${escape(slice.size)}" data-profile="${escape(slice.profile)}">
+  <div class="perf-wlh">shape_dispatch <small>node · rust/raw · ${escape(slice.profile)} · ${escape(slice.size)}</small></div>
+  ${renderShapeHeatTable(slice.cells)}
   <p class="shape-cap">цвет = относительная warm-медиана (темнее = медленнее) · +Δ = dynamic vs static</p>
+</div>`;
+    }).join("\n");
+    return `<div class="perf-wl">
+  <span class="perf-eyebrow">warm-median (ms) · node · rust/raw · следует выбранным size/profile</span>
+${blocks}
 </div>`;
 }
 
@@ -269,7 +281,7 @@ ${sliceBlocks}
 </div>`;
     }).join("\n");
 
-    const shapeSection = model.shapeDispatch ? renderShapeHeatmap(model.shapeDispatch) : "";
+    const shapeSection = model.shapeDispatch ? renderShapeSection(model.shapeDispatch, defaultSize, defaultProfile) : "";
 
     return `${controls}
 <div class="perf-body">

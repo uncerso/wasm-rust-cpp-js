@@ -49,14 +49,42 @@ describe("buildPerfModel", () => {
         expect(row.byEnv.chromium).toBeCloseTo(0.072);
         expect(slice.envs).toEqual(["node", "chromium"]);
     });
-    it("isolates shape_dispatch into the pinned 2x2 grid", () => {
+    it("isolates shape_dispatch into per-(size,profile) 2x2 grids", () => {
         const mk = (id: string, wm: number) => fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, wm, "node");
         const m = buildPerfModel(aggregate([
             mk("shape_dispatch_homo_static", 0.58), mk("shape_dispatch_homo_dyn", 0.74),
             mk("shape_dispatch_mixed_static", 0.61), mk("shape_dispatch_mixed_dyn", 1.31),
         ]));
         expect(m.workloads.some((w) => w.id.startsWith("shape_dispatch"))).toBe(false);
-        expect(m.shapeDispatch).toHaveLength(4);
-        expect(m.shapeDispatch!.find((c) => c.layout === "mixed" && c.dispatch === "dynamic")!.warmMedian).toBeCloseTo(1.31);
+        expect(m.shapeDispatch).not.toBeNull();
+        const slice = m.shapeDispatch!.find((s) => s.size === "L" && s.profile === "speed")!;
+        expect(slice).toBeDefined();
+        expect(slice.cells).toHaveLength(4);
+        expect(slice.cells.find((c) => c.layout === "mixed" && c.dispatch === "dynamic")!.warmMedian).toBeCloseTo(1.31);
+    });
+    it("emits a shape slice per (size, profile) present in shape data", () => {
+        const mk = (id: string, size: "S" | "M" | "L", wm: number) =>
+            fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: size }, wm, "node");
+        const m = buildPerfModel(aggregate([
+            mk("shape_dispatch_homo_static", "L", 0.58), mk("shape_dispatch_mixed_dyn", "L", 1.31),
+            mk("shape_dispatch_homo_static", "S", 0.20), mk("shape_dispatch_mixed_dyn", "S", 0.41),
+        ]));
+        expect(m.shapeDispatch!.map((s) => s.size).sort()).toEqual(["L", "S"]);
+        // shape sizes/profiles flow into the control unions
+        expect(m.sizes).toContain("L");
+        expect(m.sizes).toContain("S");
+        expect(m.profiles).toContain("speed");
+    });
+    it("builds detail rows per (impl, env) present in a slice", () => {
+        const results = [
+            fakeResult({ id: "hashmap_int", language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, 0.051, "node"),
+            fakeResult({ id: "hashmap_int", language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, 0.072, "chromium"),
+        ];
+        const m = buildPerfModel(aggregate(results));
+        const wl = m.workloads.find((w) => w.id === "hashmap_int")!;
+        const slice = wl.slices.find((s) => s.size === "L" && s.profile === "speed")!;
+        expect(slice.detail.some((r) => r.env === "node")).toBe(true);
+        expect(slice.detail.some((r) => r.env === "chromium")).toBe(true);
+        expect(slice.detail).toHaveLength(2);
     });
 });

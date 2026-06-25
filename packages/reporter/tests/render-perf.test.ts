@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aggregate } from "../src/aggregate.js";
-import { renderPerfView } from "../src/render-perf.js";
+import { PERF_CSS, renderPerfView } from "../src/render-perf.js";
 import type { BenchResult } from "@bench/result-schema";
 
 function fakeResult(
@@ -131,6 +131,25 @@ describe("renderPerfView", () => {
         expect(html).toContain('class="hatch"');
         expect(html).toContain('tr class="fail"');
         expect(html).toContain('class="hatch-fail"');
+    });
+
+    it("renders the detail table with an env column showing every env", () => {
+        const results = [
+            fakeResult({ language: "rust", toolchain: "raw" }, 1.0, "node"),
+            fakeResult({ language: "rust", toolchain: "raw" }, 2.0, "chromium"),
+        ];
+        const html = renderPerfView(aggregate(results));
+        expect(html).toContain('class="pf-t"');
+        // env header cell + value cells inside the detail table
+        expect(html).toContain(">env<");
+        expect(html).toContain(">node<");
+        expect(html).toContain(">chromium<");
+        // summary now reflects all envs, not just node
+        expect(html).toContain("детали · все среды");
+    });
+
+    it("makes the filter tray sticky", () => {
+        expect(PERF_CSS).toContain("position:sticky");
     });
 
     it("renders shape_dispatch as a 2x2 heatmap with deltas", () => {
