@@ -14,6 +14,7 @@ export const SIZE_CSS = `
   .seg { height: 100%; box-sizing: border-box; border-right: 1px solid rgba(255,255,255,0.85); }
   .seg:last-child { border-right: none; }
   .seg-floor { background: #b9c6d6; }
+  .seg-glue { background: #d8c27a; }
   .seg-observed { background: #2f6f4f; }
   .seg-unattributed { background: #e0a0a0; }
   .seg-unknown { background: #cfcfcf; }
@@ -117,7 +118,7 @@ function controls(toolchains: string[]): string {
     </fieldset>
     <fieldset><legend>toolchains</legend>${tcBoxes}</fieldset>
     <label><input type="checkbox" name="observedOnly"> только наблюдаемое</label>
-    <span class="size-note"><span class="legend-band" style="background:#b9c6d6"></span>floor (paid-once) <span class="legend-band" style="background:#2f6f4f"></span>observed/marginal <span class="legend-band" style="background:#cfcfcf"></span>не атрибутировано — доли по raw, абсолют ≈, шкала баров — на workload</span>
+    <span class="size-note"><span class="legend-band" style="background:#b9c6d6"></span>floor (paid-once) <span class="legend-band" style="background:#d8c27a"></span>glue (JS) <span class="legend-band" style="background:#2f6f4f"></span>observed/marginal <span class="legend-band" style="background:#cfcfcf"></span>не атрибутировано — доли по raw, абсолют ≈, шкала баров — на workload</span>
   </div>`;
 }
 

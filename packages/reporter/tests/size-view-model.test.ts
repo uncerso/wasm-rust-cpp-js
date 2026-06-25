@@ -7,7 +7,7 @@ function bin(over: Partial<SizeBinary> = {}): SizeBinary {
         id: "hashmap_int", language: "rust", toolchain: "raw", profile: "size",
         label: "rust/raw/size",
         totals: { rawBytes: 1000, gzipBytes: 500, brotliBytes: 450 },
-        composition: null, isJs: false,
+        glue: null, composition: null, isJs: false,
         ...over,
     };
 }
@@ -99,4 +99,24 @@ describe("buildCrossLangTables", () => {
         expect(cpp.toolchain).toBe("wasi-sdk");
         expect(cpp.profile).toBe("size");
     });
+});
+
+it("adds a glue band from measured jsGlue (not derived from wasm)", () => {
+    const data = { binaries: [{
+        id: "x", language: "rust", toolchain: "bindgen", profile: "size",
+        label: "rust/bindgen/size", isJs: false,
+        totals: { rawBytes: 1000, gzipBytes: 500, brotliBytes: 400 },     // wasm only
+        glue: { rawBytes: 5000, gzipBytes: 1500, brotliBytes: 1300 },     // measured glue
+        composition: {
+            source: "pre-opt-twiggy", productionTotal: { rawBytes: 1000, gzipBytes: 500, brotliBytes: 400 },
+            preOptTotalBytes: 1000, calibrationFactor: 1, unattributedShare: 0,
+            facilities: [{ facility: "observed", scaling: "observed", share: 1, approxBytes: 1000 }],
+        },
+    }] };
+    const vm = buildSizeViewModel(data as never);
+    const glue = vm.binaries[0]!.segments.find((s) => s.facility === "glue (JS)");
+    expect(glue).toBeDefined();
+    expect(glue!.band).toBe("glue");
+    expect(glue!.rawBytes).toBe(5000);     // measured, not 1000*ratio
+    expect(glue!.gzBytes).toBe(1500);
 });

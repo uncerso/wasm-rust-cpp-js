@@ -7,6 +7,7 @@ export interface SizeBinary {
     profile: string;
     label: string; // `${language}/${toolchain}/${profile}`
     totals: { rawBytes: number; gzipBytes: number; brotliBytes: number };
+    glue: { rawBytes: number; gzipBytes: number; brotliBytes: number } | null;
     composition: ArtifactMeta["composition"];
     isJs: boolean;
 }
@@ -34,6 +35,7 @@ export function buildSizeData(metas: readonly ArtifactMeta[]): SizeData {
             profile,
             label: `${language}/${toolchain}/${profile}`,
             totals: { rawBytes: stat.rawBytes, gzipBytes: stat.gzipBytes, brotliBytes: stat.brotliBytes },
+            glue: m.jsGlue ? { rawBytes: m.jsGlue.rawBytes, gzipBytes: m.jsGlue.gzipBytes, brotliBytes: m.jsGlue.brotliBytes } : null,
             composition: m.composition,
             isJs: language === "js",
         });
