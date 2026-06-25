@@ -33,10 +33,22 @@ describe("renderSizeView", () => {
 
     it("emits floor and observed segments with byte data attributes", () => {
         const html = renderSizeView(data);
-        expect(html).toContain('class="seg seg-floor"');
-        expect(html).toContain('class="seg seg-observed"');
+        expect(html).toContain('class="seg"');
+        expect(html).toContain('style="background:#6e7b8c"');  // allocator floor shade
+        expect(html).toContain('style="background:#34b88a"');  // observed accent
         expect(html).toContain('data-raw="600"');
         expect(html).toContain('data-raw="400"');
+    });
+
+    it("emits facility-colored segments with inline labels", () => {
+        const html = renderSizeView(data);
+        // per-facility color comes from theme, not a single seg-floor class:
+        expect(html).toContain("background:#6e7b8c");   // allocator floor shade
+        expect(html).toContain("background:#34b88a");   // observed accent
+        // inline label on a wide segment (raw bytes + facility):
+        expect(html).toContain("600 B");                // allocator approxBytes label
+        // tooltip still present:
+        expect(html).toContain("title=");
     });
 
     it("escapes the binary label", () => {

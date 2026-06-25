@@ -1,6 +1,7 @@
 import type { SizeData } from "./size-data.js";
 import { buildSizeViewModel, buildCrossLangTables, type BinaryViewModel, type Segment, type WorkloadTable } from "./size-view-model.js";
 import { escape } from "./render-perf.js";
+import { segmentColor } from "./theme.js";
 
 export const SIZE_CSS = `
   .size-controls { display: flex; flex-wrap: wrap; gap: 1.2em; margin: 1em 0; font-size: 13px; align-items: center; }
@@ -10,14 +11,10 @@ export const SIZE_CSS = `
   .size-row { display: grid; grid-template-columns: 16em 1fr 8em; gap: 0.6em; align-items: center; margin: 0.3em 0; }
   .size-row .lbl { font-size: 12px; text-align: left; }
   .size-row .total { font-size: 12px; text-align: right; color: #333; }
-  .size-bar { display: flex; height: 1.4em; background: #f6f6f6; border: 1px solid #ddd; overflow: hidden; }
-  .seg { height: 100%; box-sizing: border-box; border-right: 1px solid rgba(255,255,255,0.85); }
+  .size-bar { height: 26px; border-radius: 5px; background: #eef2f6; display: flex; overflow: hidden; }
+  .seg { height: 100%; box-sizing: border-box; border-right: 1px solid #fff; display: flex; align-items: center; padding: 0 6px; }
   .seg:last-child { border-right: none; }
-  .seg-floor { background: #b9c6d6; }
-  .seg-glue { background: #d8c27a; }
-  .seg-observed { background: #2f6f4f; }
-  .seg-unattributed { background: #e0a0a0; }
-  .seg-unknown { background: #cfcfcf; }
+  .seg-lbl { font: 600 9.5px ui-monospace,monospace; color: #fff; white-space: nowrap; overflow: hidden; }
   .size-row.no-comp .size-bar { opacity: 0.6; }
   .size-note { font-size: 11px; color: #888; }
   .legend-band { display: inline-block; width: 0.9em; height: 0.9em; vertical-align: middle; margin-right: 0.3em; }
@@ -86,6 +83,11 @@ export const SIZE_JS = `
   });
 `;
 
+/** Mirror of SIZE_JS fmtBytes — static raw-based label for inline segment text. */
+function fmtBytes(n: number): string {
+    return n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`;
+}
+
 function renderSegment(s: Segment): string {
     // Glue bytes are measured exactly (not a pre-opt share estimate), so show them without
     // the "≈" and without a share % (glue's share is 0 — it is not a wasm facility, it is
@@ -93,7 +95,9 @@ function renderSegment(s: Segment): string {
     const pct = s.share > 0 ? ` (${(s.share * 100).toFixed(1)}%)` : "";
     const approx = s.band === "glue" ? "" : "≈";
     const title = `${s.facility} ${approx}${s.rawBytes} B${pct}`;
-    return `<span class="seg seg-${s.band}" data-band="${s.band}" data-raw="${s.rawBytes}" data-gz="${s.gzBytes}" data-brotli="${s.brotliBytes}" title="${escape(title)}"></span>`;
+    const color = segmentColor(s);
+    const label = `${fmtBytes(s.rawBytes)} ${s.facility}`;
+    return `<span class="seg" data-band="${s.band}" data-raw="${s.rawBytes}" data-gz="${s.gzBytes}" data-brotli="${s.brotliBytes}" style="background:${color}" title="${escape(title)}"><span class="seg-lbl">${escape(label)}</span></span>`;
 }
 
 function renderRow(b: BinaryViewModel): string {
@@ -123,7 +127,7 @@ function controls(toolchains: string[]): string {
     </fieldset>
     <fieldset><legend>toolchains</legend>${tcBoxes}</fieldset>
     <label><input type="checkbox" name="observedOnly"> только наблюдаемое</label>
-    <span class="size-note"><span class="legend-band" style="background:#b9c6d6"></span>floor (paid-once) <span class="legend-band" style="background:#d8c27a"></span>glue (JS) <span class="legend-band" style="background:#2f6f4f"></span>observed/marginal <span class="legend-band" style="background:#cfcfcf"></span>не атрибутировано — доли по raw, абсолют ≈, шкала баров — на workload</span>
+    <span class="size-note"><span class="legend-band" style="background:#6e7b8c"></span>floor (paid-once) <span class="legend-band" style="background:#d8be73"></span>glue (JS) <span class="legend-band" style="background:#34b88a"></span>observed/marginal <span class="legend-band" style="background:#e0a8a8"></span>не атрибутировано — доли по raw, абсолют ≈, шкала баров — на workload</span>
   </div>`;
 }
 
