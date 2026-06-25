@@ -1,5 +1,5 @@
 import type { Aggregated } from "./aggregate.js";
-import { buildPerfModel, type PerfDetailRow, type PerfImplMultiple, type PerfSlice } from "./perf-view-model.js";
+import { buildPerfModel, type PerfDetailRow, type PerfImplMultiple, type PerfSlice, type ShapeCell } from "./perf-view-model.js";
 
 const ESCAPES: Record<string, string> = {
     "&": "&amp;",
@@ -57,6 +57,19 @@ export const PERF_CSS = `
 .cbox .v{flex:0 0 38px;text-align:right;font-weight:700}
 .hatch{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#ecd98c 5px 10px)!important}
 .hatch-fail{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#e0a0a0 5px 10px)!important}
+.shape-heat{border-collapse:separate;border-spacing:6px;margin-top:4px}
+.shape-heat th{font:700 9px ui-monospace;letter-spacing:.05em;text-transform:uppercase;color:#8a93a0;padding:2px 6px;text-align:center}
+.shape-heat th.rh{text-align:right}
+.shape-heat td{width:120px;height:48px;border-radius:7px;text-align:center;vertical-align:middle;font:700 15px ui-monospace;position:relative}
+.shape-heat .dlt{font:600 8px ui-monospace;position:absolute;top:4px;right:7px}
+.shape-heat td.a1{background:#e9f0f6;color:#1f2530}
+.shape-heat td.a2{background:#cfe0ee;color:#1f2530}
+.shape-heat td.a3{background:#a7c4dd;color:#143049}
+.shape-heat td.a4{background:#7aa0c2;color:#fff}
+.shape-heat td.a5{background:#4f7ea6;color:#fff}
+.shape-heat td.a1 .dlt,.shape-heat td.a2 .dlt{color:#b5762f}
+.shape-heat td.a5 .dlt{color:#fff;opacity:.85}
+.shape-cap{font:400 11px ui-sans-serif;color:#9aa3b0;margin:7px 0 0}
 `.trim();
 
 // ---------------------------------------------------------------------------
@@ -179,6 +192,49 @@ function renderSegControl(ctrl: string, values: string[], active: string): strin
 }
 
 // ---------------------------------------------------------------------------
+// shape_dispatch 2×2 heatmap (pinned: node · rust/raw · speed · L)
+// ---------------------------------------------------------------------------
+
+/** Heat bucket 1..5 from a warm-median relative to the max of the 4 pinned cells. */
+function shapeBucket(value: number, max: number): number {
+    if (max <= 0) {
+        return 1;
+    }
+    return Math.min(5, Math.max(1, Math.ceil((value / max) * 5)));
+}
+
+function renderShapeHeatmap(cells: ShapeCell[]): string {
+    const max = cells.reduce((m, c) => (c.warmMedian != null ? Math.max(m, c.warmMedian) : m), 0);
+    const at = (layout: string, dispatch: string): ShapeCell | undefined =>
+        cells.find((c) => c.layout === layout && c.dispatch === dispatch);
+    const renderCellTd = (layout: string, dispatch: string): string => {
+        const wm = at(layout, dispatch)?.warmMedian ?? null;
+        if (wm == null) {
+            return "<td>—</td>";
+        }
+        let delta = "";
+        if (dispatch === "dynamic") {
+            const stat = at(layout, "static")?.warmMedian ?? null;
+            if (stat != null && stat > 0) {
+                const pct = Math.round(((wm - stat) / stat) * 100);
+                delta = `<span class="dlt">${pct >= 0 ? "+" : ""}${pct}%</span>`;
+            }
+        }
+        return `<td class="a${shapeBucket(wm, max)}">${wm.toFixed(2)}${delta}</td>`;
+    };
+    const row = (layout: string): string =>
+        `<tr><th class="rh">${escape(layout)}</th>${renderCellTd(layout, "static")}${renderCellTd(layout, "dynamic")}</tr>`;
+    return `<div class="perf-wl">
+  <div class="perf-wlh">shape_dispatch <small>node · rust/raw · speed · L</small></div>
+  <table class="shape-heat">
+    <thead><tr><th></th><th>static</th><th>dynamic</th></tr></thead>
+    <tbody>${row("homo")}${row("mixed")}</tbody>
+  </table>
+  <p class="shape-cap">цвет = относительная warm-медиана (темнее = медленнее) · +Δ = dynamic vs static</p>
+</div>`;
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -213,8 +269,11 @@ ${sliceBlocks}
 </div>`;
     }).join("\n");
 
+    const shapeSection = model.shapeDispatch ? renderShapeHeatmap(model.shapeDispatch) : "";
+
     return `${controls}
 <div class="perf-body">
 ${workloadSections}
+${shapeSection}
 </div>`;
 }

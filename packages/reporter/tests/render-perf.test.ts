@@ -132,4 +132,19 @@ describe("renderPerfView", () => {
         expect(html).toContain('tr class="fail"');
         expect(html).toContain('class="hatch-fail"');
     });
+
+    it("renders shape_dispatch as a 2x2 heatmap with deltas", () => {
+        const mk = (id: string, wm: number): BenchResult =>
+            fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, wm, "node");
+        const html = renderPerfView(aggregate([
+            mk("shape_dispatch_homo_static", 0.58),
+            mk("shape_dispatch_homo_dyn", 0.74),
+            mk("shape_dispatch_mixed_static", 0.61),
+            mk("shape_dispatch_mixed_dyn", 1.31),
+        ]));
+        expect(html).toContain('class="shape-heat"');
+        expect(html).toContain("static");
+        expect(html).toContain("dynamic");
+        expect(html).toMatch(/\+\d+%/);   // delta annotation on a dynamic cell
+    });
 });
