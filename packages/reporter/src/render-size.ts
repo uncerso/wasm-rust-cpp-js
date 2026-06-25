@@ -4,9 +4,8 @@ import { escape } from "./render-perf.js";
 import { segmentColor } from "./theme.js";
 
 export const SIZE_CSS = `
-  .size-controls { display: flex; flex-wrap: wrap; gap: 1.2em; margin: 1em 0; font-size: 13px; align-items: center; }
-  .size-controls fieldset { border: 1px solid #ccc; padding: 0.3em 0.6em; }
-  .size-controls legend { font-size: 11px; color: #555; }
+  .sh-sw.on .sh-track { background: #36506e; }
+  .sh-sw.on .sh-track::after { left: 16px; }
   .size-workload { margin: 1.2em 0; }
   .size-row { display: grid; grid-template-columns: 16em 1fr 8em; gap: 0.6em; align-items: center; margin: 0.3em 0; }
   .size-row .lbl { font-size: 12px; text-align: left; }
@@ -17,7 +16,6 @@ export const SIZE_CSS = `
   .seg-lbl { font: 600 9.5px ui-monospace,monospace; color: #fff; white-space: nowrap; overflow: hidden; }
   .size-row.no-comp .size-bar { opacity: 0.6; }
   .size-note { font-size: 11px; color: #888; }
-  .legend-band { display: inline-block; width: 0.9em; height: 0.9em; vertical-align: middle; margin-right: 0.3em; }
   table.xlang { border-collapse: collapse; font: 500 10.5px ui-monospace,monospace; width: 100%; margin: 0.5em 0 1em; }
   table.xlang th, table.xlang td { padding: 3px 8px; text-align: right; border-bottom: 1px solid #eef1f5; white-space: nowrap; }
   table.xlang th { font: 700 9px ui-monospace,monospace; letter-spacing: .04em; text-transform: uppercase; color: #8a93a0; border-bottom: 1px solid #d8dce3; }
@@ -37,11 +35,17 @@ export const SIZE_CSS = `
 export const SIZE_JS = `
   function fmtBytes(n) { return n >= 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B'; }
   function segBytes(seg, comp) { return Number(seg.dataset[comp]); }
+  function segValue(ctrl) {
+    var on = document.querySelector('.sh-seg[data-ctrl="' + ctrl + '"] span.on');
+    return on ? on.dataset.val : null;
+  }
   function applySizeFilters() {
-    var comp = document.querySelector('input[name="compression"]:checked').value;
-    var profile = document.querySelector('input[name="sizeProfile"]:checked').value;
-    var observedOnly = document.querySelector('input[name="observedOnly"]').checked;
-    var checkedTc = Array.from(document.querySelectorAll('input[name="toolchain"]:checked')).map(function (c) { return c.value; });
+    var comp = segValue('compression');
+    var profile = segValue('sizeProfile');
+    var observedOnly = document.querySelector('.sh-sw[data-sw="observedOnly"]').classList.contains('on');
+    var checkedTc = Array.prototype.slice.call(document.querySelectorAll('.sh-pill'))
+      .filter(function (p) { return !p.classList.contains('off'); })
+      .map(function (p) { return p.dataset.tc; });
     var key = comp === 'raw' ? 'raw' : (comp === 'gz' ? 'gz' : 'brotli');
     Array.from(document.querySelectorAll('tr.xlang-row')).forEach(function (tr) {
       var show = (profile === 'all' || tr.dataset.profile === profile) && checkedTc.indexOf(tr.dataset.toolchain) >= 0;
@@ -83,14 +87,36 @@ export const SIZE_JS = `
         segs.forEach(function (seg) {
           var b = segBytes(seg, key);
           seg.style.width = (sum > 0 && seg.style.display !== 'none') ? ((b / sum) * 100).toFixed(3) + '%' : '0';
+          // #9: rebuild the visible label in the selected compression's bytes so the
+          // label tracks the bar instead of staying frozen on raw KB.
+          var lbl = seg.querySelector('.seg-lbl');
+          if (lbl) { lbl.textContent = fmtBytes(b) + ' ' + seg.dataset.fac; }
         });
         row.querySelector('.total').textContent = fmtBytes(sum);
       });
     });
   }
   document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.size-controls input').forEach(function (el) {
-      el.addEventListener('change', applySizeFilters);
+    document.querySelectorAll('.sh-seg').forEach(function (seg) {
+      seg.querySelectorAll('span[data-val]').forEach(function (opt) {
+        opt.addEventListener('click', function () {
+          seg.querySelectorAll('span[data-val]').forEach(function (s) { s.classList.remove('on'); });
+          opt.classList.add('on');
+          applySizeFilters();
+        });
+      });
+    });
+    document.querySelectorAll('.sh-pill').forEach(function (pill) {
+      pill.addEventListener('click', function () {
+        pill.classList.toggle('off');
+        applySizeFilters();
+      });
+    });
+    document.querySelectorAll('.sh-sw').forEach(function (sw) {
+      sw.addEventListener('click', function () {
+        sw.classList.toggle('on');
+        applySizeFilters();
+      });
     });
     applySizeFilters();
   });
@@ -101,7 +127,35 @@ function fmtBytes(n: number): string {
     return n >= 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`;
 }
 
-function renderSegment(s: Segment): string {
+/**
+ * Pick a label text color that stays legible on the segment background. Light shades
+ * (luminance > 150) get dark ink (#1f2530); dark shades keep white. Luminance uses the
+ * standard perceptual weighting (0.299r+0.587g+0.114b). Mirrors mockup `.t-d` intent.
+ */
+function labelColor(hex: string): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+    return luminance > 150 ? "#1f2530" : "#fff";
+}
+
+/**
+ * A segment is a "story" segment (gets a visible label) iff its band is glue/observed/
+ * unattributed/unknown, OR it is the single largest-rawBytes floor segment in its bar.
+ * Narrow and other-floor segments render with no `.seg-lbl` so slivers don't clip
+ * mid-glyph; the `<title>` tooltip still carries full detail. (`unknown` is the single
+ * full-width segment of a not-yet-attributed binary — always wide, so keep it labeled.)
+ * `largestFloor` is the Segment reference of the labeled floor (or null if the bar has none).
+ */
+function isStorySegment(s: Segment, largestFloor: Segment | null): boolean {
+    if (s.band === "glue" || s.band === "observed" || s.band === "unattributed" || s.band === "unknown") {
+        return true;
+    }
+    return s.band === "floor" && s === largestFloor;
+}
+
+function renderSegment(s: Segment, largestFloor: Segment | null): string {
     // Glue bytes are measured exactly (not a pre-opt share estimate), so show them without
     // the "≈" and without a share % (glue's share is 0 — it is not a wasm facility, it is
     // the separate JS-glue artifact). Facility segments keep "≈<bytes> B (<share>%)".
@@ -109,38 +163,82 @@ function renderSegment(s: Segment): string {
     const approx = s.band === "glue" ? "" : "≈";
     const title = `${s.facility} ${approx}${s.rawBytes} B${pct}`;
     const color = segmentColor(s);
-    const label = `${fmtBytes(s.rawBytes)} ${s.facility}`;
-    return `<span class="seg" data-band="${s.band}" data-raw="${s.rawBytes}" data-gz="${s.gzBytes}" data-brotli="${s.brotliBytes}" style="background:${color}" title="${escape(title)}"><span class="seg-lbl">${escape(label)}</span></span>`;
+    // data-fac carries the facility text so SIZE_JS can rebuild the label
+    // (`<bytes> <facility>`) for the selected compression on every change (#9).
+    const facAttr = ` data-fac="${escape(s.facility)}"`;
+    let lbl = "";
+    if (isStorySegment(s, largestFloor)) {
+        const label = `${fmtBytes(s.rawBytes)} ${s.facility}`;
+        lbl = `<span class="seg-lbl" style="color:${labelColor(color)}">${escape(label)}</span>`;
+    }
+    return `<span class="seg" data-band="${s.band}" data-raw="${s.rawBytes}" data-gz="${s.gzBytes}" data-brotli="${s.brotliBytes}"${facAttr} style="background:${color}" title="${escape(title)}">${lbl}</span>`;
+}
+
+/** The single largest-rawBytes floor segment in a bar, or null if the bar has no floor. */
+function largestFloorSegment(segments: Segment[]): Segment | null {
+    let best: Segment | null = null;
+    for (const s of segments) {
+        if (s.band === "floor" && (best === null || s.rawBytes > best.rawBytes)) {
+            best = s;
+        }
+    }
+    return best;
 }
 
 function renderRow(b: BinaryViewModel): string {
     const noComp = b.hasComposition ? "" : " no-comp";
     const note = b.note ? ` <span class="size-note">${escape(b.note)}</span>` : "";
+    const largestFloor = largestFloorSegment(b.segments);
+    const bars = b.segments.map((s) => renderSegment(s, largestFloor)).join("");
     return `<div class="size-row${noComp}" data-toolchain="${escape(b.toolchain)}" data-profile="${escape(b.profile)}" data-lang="${escape(b.language)}">
       <div class="lbl">${escape(b.label)}${note}</div>
-      <div class="size-bar">${b.segments.map(renderSegment).join("")}</div>
+      <div class="size-bar">${bars}</div>
       <div class="total"></div>
     </div>`;
 }
 
+/** A segmented control: each value is a `<span data-val>`; the active one gets `.on`. */
+function segment(ctrl: string, values: { val: string; label: string }[], active: string): string {
+    const spans = values
+        .map((v) => {
+            const on = v.val === active ? ' class="on"' : "";
+            return `<span data-val="${escape(v.val)}"${on}>${escape(v.label)}</span>`;
+        })
+        .join("");
+    return `<span class="sh-seg" data-ctrl="${escape(ctrl)}">${spans}</span>`;
+}
+
 function controls(toolchains: string[]): string {
-    const tcBoxes = toolchains
-        .map((t) => `<label><input type="checkbox" name="toolchain" value="${escape(t)}" checked> ${escape(t)}</label>`)
-        .join(" ");
-    return `<div class="size-controls">
-    <fieldset><legend>compression</legend>
-      <label><input type="radio" name="compression" value="raw" checked> raw</label>
-      <label><input type="radio" name="compression" value="gz"> gzip</label>
-      <label><input type="radio" name="compression" value="brotli"> brotli</label>
-    </fieldset>
-    <fieldset><legend>profile</legend>
-      <label><input type="radio" name="sizeProfile" value="all" checked> all</label>
-      <label><input type="radio" name="sizeProfile" value="size"> size</label>
-      <label><input type="radio" name="sizeProfile" value="speed"> speed</label>
-    </fieldset>
-    <fieldset><legend>toolchains</legend>${tcBoxes}</fieldset>
-    <label><input type="checkbox" name="observedOnly"> только наблюдаемое</label>
-    <span class="size-note"><span class="legend-band" style="background:#6e7b8c"></span>floor (paid-once) <span class="legend-band" style="background:#d8be73"></span>glue (JS) <span class="legend-band" style="background:#34b88a"></span>observed/marginal <span class="legend-band" style="background:#e0a8a8"></span>не атрибутировано — доли по raw, абсолют ≈, шкала баров — на workload</span>
+    const compSeg = segment("compression", [
+        { val: "raw", label: "raw" },
+        { val: "gz", label: "gzip" },
+        { val: "brotli", label: "brotli" },
+    ], "raw");
+    const profileSeg = segment("sizeProfile", [
+        { val: "all", label: "all" },
+        { val: "size", label: "size" },
+        { val: "speed", label: "speed" },
+    ], "all");
+    const pills = toolchains
+        .map((t) => `<span class="sh-pill" data-tc="${escape(t)}">${escape(t)}</span>`)
+        .join("");
+    return `<div class="sh-tray">
+    <div class="sh-filt">
+      <div class="sh-grp"><span class="sh-gl">сжатие</span>${compSeg}</div>
+      <div class="sh-div"></div>
+      <div class="sh-grp"><span class="sh-gl">профиль</span>${profileSeg}</div>
+      <div class="sh-div"></div>
+      <div class="sh-grp"><span class="sh-gl">тулчейны</span>${pills}</div>
+      <div class="sh-div"></div>
+      <div class="sh-grp"><span class="sh-sw" data-sw="observedOnly"><span class="sh-track"></span>только наблюдаемое</span></div>
+    </div>
+    <div class="sh-legend">
+      <span class="sh-key"><span class="sh-sw2" style="background:#6e7b8c"></span>floor (slate-рамп по facility)</span>
+      <span class="sh-key"><span class="sh-sw2" style="background:#d8be73"></span>glue (JS)</span>
+      <span class="sh-key"><span class="sh-sw2" style="background:#34b88a"></span>observed / marginal</span>
+      <span class="sh-key"><span class="sh-sw2" style="background:#e0a8a8"></span>не атрибутировано</span>
+      <span class="sh-note">· доли по raw, абсолют ≈, шкала — на workload</span>
+    </div>
   </div>`;
 }
 
