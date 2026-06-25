@@ -161,12 +161,16 @@ function cell(c: { rawBytes: number; gzBytes: number; brotliBytes: number }, opt
 
 const ZERO_CELL = { rawBytes: 0, gzBytes: 0, brotliBytes: 0 };
 
-/** Heat bucket 1..5 from a raw value relative to its column max — deterministic, raw-based (spec §9.4). */
+/**
+ * Heat bucket 1..5 from a raw value relative to its column max — deterministic, raw-based (spec §9.4).
+ * `round` (not `ceil`) spreads the gradation evenly: the column max still lands in bucket 5, but values
+ * below it distribute across 1..4 instead of saturating the top bucket.
+ */
 function heatBucket(value: number, columnMax: number): number {
     if (columnMax <= 0 || value <= 0) {
         return 1;
     }
-    return Math.min(5, Math.max(1, Math.ceil((value / columnMax) * 5)));
+    return Math.min(5, Math.max(1, Math.round((value / columnMax) * 5)));
 }
 
 function renderTable(t: WorkloadTable): string {
