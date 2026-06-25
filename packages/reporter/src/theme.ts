@@ -69,13 +69,13 @@ export function segmentColor(seg: { band: Band; facility: string }): string {
 export const SHELL_CSS = `
 *{box-sizing:border-box}
 body{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;color:#1f2530;margin:0;padding:12px 16px;background:#fff}
-.sh-app{background:#fff;border:1px solid #e0e4ea;border-radius:9px;overflow:hidden;margin-top:8px}
+.app{background:#fff;border:1px solid #e0e4ea;border-radius:9px;overflow:hidden;margin-top:8px}
 .sh-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px 11px}
 .sh-ttl{font-weight:800;font-size:16px;letter-spacing:-.015em}
 .sh-ttl small{font-weight:500;font-size:11px;color:#9aa3b0;font-family:ui-monospace,monospace;margin-left:8px}
-.sh-tabs{display:flex;gap:18px}
-.sh-tab{font-weight:600;font-size:13px;color:#aab2bd;cursor:pointer;text-decoration:none;padding-bottom:0;border-bottom:2px solid transparent}
-.sh-tab.on{color:#1f2530;border-bottom:2px solid #36506e;padding-bottom:3px}
+.tabbar{display:flex;gap:18px}
+.tabbar button{font-weight:600;font-size:13px;color:#aab2bd;cursor:pointer;background:none;border:none;border-bottom:2px solid transparent;padding:0;font-family:inherit}
+.tabbar button.on{color:#1f2530;border-bottom:2px solid #36506e;padding-bottom:3px}
 .sh-tray{background:#f6f8fb;border-top:1px solid #eef1f5;border-bottom:1px solid #eef1f5;padding:10px 16px;position:sticky;top:0;z-index:10}
 .sh-filt{display:flex;flex-wrap:wrap;align-items:center;gap:8px 0}
 .sh-gl{font:700 9px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#8a93a0;margin-right:6px}

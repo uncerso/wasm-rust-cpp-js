@@ -44,11 +44,13 @@ describe("renderHtml", () => {
 
     it("renders a tabbed shell with Size and Perf panels", () => {
         const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
-        expect(html).toContain('<nav class="tabs">');
+        expect(html).toContain('class="app"');
+        expect(html).toContain('class="tabbar"');
         expect(html).toContain('data-tab="size"');
         expect(html).toContain('data-tab="perf"');
         expect(html).toContain('id="tab-size"');
         expect(html).toContain('id="tab-perf"');
+        expect(html).not.toContain("font-family: ui-monospace, monospace; max-width");
     });
 
     it("renders Perf-tab filters (env/size/profile) over filterable rows", () => {
