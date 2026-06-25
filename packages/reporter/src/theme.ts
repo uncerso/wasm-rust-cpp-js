@@ -69,7 +69,7 @@ export function segmentColor(seg: { band: Band; facility: string }): string {
 export const SHELL_CSS = `
 *{box-sizing:border-box}
 body{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;color:#1f2530;margin:0;padding:12px 16px;background:#fff}
-.app{background:#fff;border:1px solid #e0e4ea;border-radius:9px;overflow:hidden;margin-top:8px}
+.app{background:#fff;margin-top:8px}
 .sh-head{display:flex;align-items:center;justify-content:space-between;padding:13px 16px 11px}
 .sh-ttl{font-weight:800;font-size:16px;letter-spacing:-.015em}
 .sh-ttl small{font-weight:500;font-size:11px;color:#9aa3b0;font-family:ui-monospace,monospace;margin-left:8px}
