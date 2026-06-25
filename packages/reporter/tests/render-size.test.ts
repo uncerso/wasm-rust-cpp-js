@@ -6,7 +6,7 @@ const data: SizeData = {
     binaries: [
         {
             id: "hashmap_int", language: "rust", toolchain: "raw", profile: "size", label: "rust/raw/size",
-            totals: { rawBytes: 1000, gzipBytes: 500, brotliBytes: 450 }, isJs: false,
+            totals: { rawBytes: 1000, gzipBytes: 500, brotliBytes: 450 }, glue: null, isJs: false,
             composition: {
                 source: "pre-opt-twiggy",
                 productionTotal: { rawBytes: 1000, gzipBytes: 500, brotliBytes: 450 },

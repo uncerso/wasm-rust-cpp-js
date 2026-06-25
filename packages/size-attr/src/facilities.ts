@@ -23,7 +23,11 @@ const EXCLUDE_RE = /^custom section|names?" subsection|^producers$|^target_featu
 // Ordered: first match wins. Patterns grounded in W0 probe + Task 1.8 unattributed-cluster review.
 const RULES: Rule[] = [
     { facility: "panic-fmt", scaling: "paid-once", re: /panic|core::fmt|::fmt::|begin_panic|begin_unwind|__rust_start_panic|slice_index|panicking|unwrap_failed|__cxa_throw|__cxa_allocate_exception|__throw_/ },
-    { facility: "toolchain-runtime", scaling: "paid-once", re: /LazyLock|thread::local|LocalKey|FnOnce::call_once|core::cell::.*borrow|RefCell<.*borrow/ },
+    { facility: "toolchain-runtime", scaling: "paid-once", re: /__wbindgen|__wbg_|LazyLock|thread::local|LocalKey|FnOnce::call_once|core::cell::.*borrow|RefCell<.*borrow/ },
+    // Emscripten internal runtime symbols (probe-confirmed, Task 5): emscripten_timeout,
+    // action_terminate/abort (Emscripten async-unwind stubs), __wasm_call_ctors (Binaryen
+    // constructor init), stackSave/stackRestore/stackAlloc (Emscripten shadow stack glue).
+    { facility: "emscripten-runtime", scaling: "paid-once", re: /emscripten_|^action_terminate$|^action_abort$|^__wasm_call_ctors$|^stackSave$|^stackRestore$|^stackAlloc$|^dynCall_/ },
     { facility: "allocator", scaling: "paid-once", re: /dlmalloc|dlfree|dlrealloc|dlcalloc|__rust_alloc|__rust_realloc|__rust_dealloc|alloc::Global|alloc_impl|handle_alloc_error|rust_oom|sbrk|prepend_alloc|operator new|operator delete|^malloc$|^free$|get_new_handler/ },
     { facility: "hash-map", scaling: "paid-once", re: /HashMap|RandomState|SipHash|sip::|hashbrown|__hash_table|__hash_node|unordered_map|__next_prime|u8to64|BuildHasher|core::hash/ },
     { facility: "string", scaling: "paid-once", re: /alloc::string|::String|str::|from_utf8|basic_string|char_traits|__init_copy_ctor/ },

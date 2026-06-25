@@ -1,6 +1,6 @@
 import type { SizeBinary, SizeData } from "./size-data.js";
 
-export type Band = "floor" | "observed" | "unattributed" | "unknown";
+export type Band = "floor" | "glue" | "observed" | "unattributed" | "unknown";
 
 export interface Segment {
     facility: string;
@@ -33,7 +33,18 @@ export function bandOf(scaling: string): Band {
     return scaling === "observed" || scaling === "per-type" ? "observed" : "floor";
 }
 
-const BAND_ORDER: Record<Band, number> = { floor: 0, observed: 1, unattributed: 2, unknown: 3 };
+const BAND_ORDER: Record<Band, number> = { floor: 0, glue: 1, observed: 2, unattributed: 3, unknown: 4 };
+
+function withGlue(segments: Segment[], b: SizeBinary): Segment[] {
+    if (!b.glue) {
+        return segments;
+    }
+    return [...segments, {
+        facility: "glue (JS)", scaling: "paid-once", band: "glue" as const,
+        rawBytes: b.glue.rawBytes, gzBytes: b.glue.gzipBytes, brotliBytes: b.glue.brotliBytes,
+        share: 0,
+    }];
+}
 
 function modelFor(b: SizeBinary): BinaryViewModel {
     const base = {
@@ -41,19 +52,21 @@ function modelFor(b: SizeBinary): BinaryViewModel {
         label: b.label, isJs: b.isJs, totals: b.totals,
     };
     if (!b.composition) {
+        const noCompBand: Band = b.isJs ? "observed" : "unknown";
+        const segments = withGlue([{
+            facility: b.isJs ? "js-bundle" : "(не атрибутировано)",
+            scaling: b.isJs ? "observed" : "paid-once",
+            band: noCompBand,
+            rawBytes: b.totals.rawBytes,
+            gzBytes: b.totals.gzipBytes,
+            brotliBytes: b.totals.brotliBytes,
+            share: 1,
+        }], b);
         return {
             ...base,
             hasComposition: false,
             note: b.isJs ? "JS bundle — всё observed, floor≈0" : "facility-атрибуция пока только rust/raw",
-            segments: [{
-                facility: b.isJs ? "js-bundle" : "(не атрибутировано)",
-                scaling: b.isJs ? "observed" : "paid-once",
-                band: b.isJs ? "observed" : "unknown",
-                rawBytes: b.totals.rawBytes,
-                gzBytes: b.totals.gzipBytes,
-                brotliBytes: b.totals.brotliBytes,
-                share: 1,
-            }],
+            segments,
         };
     }
     const c = b.composition;
@@ -78,8 +91,9 @@ function modelFor(b: SizeBinary): BinaryViewModel {
             share: c.unattributedShare,
         });
     }
-    segments.sort((x, y) => BAND_ORDER[x.band] - BAND_ORDER[y.band] || y.rawBytes - x.rawBytes);
-    return { ...base, hasComposition: true, note: null, segments };
+    const allSegments = withGlue(segments, b);
+    allSegments.sort((x, y) => BAND_ORDER[x.band] - BAND_ORDER[y.band] || y.rawBytes - x.rawBytes);
+    return { ...base, hasComposition: true, note: null, segments: allSegments };
 }
 
 export function buildSizeViewModel(data: SizeData): SizeViewModel {

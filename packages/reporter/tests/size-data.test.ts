@@ -53,4 +53,18 @@ describe("buildSizeData", () => {
         const d = buildSizeData([meta({ wasm: null, jsModule: null })]);
         expect(d.binaries).toHaveLength(0);
     });
+
+    it("carries jsGlue bytes into SizeBinary.glue (not null when present)", () => {
+        const m = meta({
+            combination: { benchmarkId: "matmul", language: "rust", toolchain: "bindgen", profile: "size" },
+            jsGlue: { rawBytes: 5000, gzipBytes: 1500, brotliBytes: 1300, hashSha256: "c".repeat(64) },
+        });
+        const d = buildSizeData([m]);
+        expect(d.binaries[0]!.glue).toEqual({ rawBytes: 5000, gzipBytes: 1500, brotliBytes: 1300 });
+    });
+
+    it("sets glue to null when jsGlue is absent", () => {
+        const d = buildSizeData([meta()]);
+        expect(d.binaries[0]!.glue).toBeNull();
+    });
 });
