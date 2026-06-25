@@ -60,6 +60,12 @@ async function buildBindgen(c: BinaryCombination): Promise<void> {
 
     // wasm-pack has its internal wasm-opt disabled via Cargo metadata; we run
     // wasm-opt -Oz manually for the size profile after copying artifacts.
+    // NOTE: wasm-pack's CLI only offers --dev/--release/--profiling (no way to select a custom
+    // cargo profile), so BOTH profiles build via --release (opt-level=3 codegen) and the size
+    // profile gets its squeeze purely from the post-build wasm-opt -Oz. rust/raw, which calls
+    // cargo directly, uses the release-size profile (opt-level=z codegen) — so bindgen size and
+    // raw size differ at the codegen stage. Aligning them (CARGO_PROFILE_RELEASE_OPT_LEVEL=z env)
+    // is deferred: see docs/roadmap.md `bindgen-size-opt-level`.
     const pkgDir = join(crateDir, "pkg-tmp");
     await rm(pkgDir, { recursive: true, force: true });
     await run(wasmPackPath(), ["build", "--target=web", "--release", "--out-dir=pkg-tmp"], { cwd: crateDir });
