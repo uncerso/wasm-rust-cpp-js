@@ -18,7 +18,10 @@ export const SIZE_CSS = `
   .size-row.no-comp .size-bar { opacity: 0.6; }
   .size-note { font-size: 11px; color: #888; }
   .legend-band { display: inline-block; width: 0.9em; height: 0.9em; vertical-align: middle; margin-right: 0.3em; }
-  table.xlang { width: auto; margin: 0.5em 0 1em; font-size: 11px; }
+  table.xlang { border-collapse: collapse; font: 500 10.5px ui-monospace,monospace; width: 100%; margin: 0.5em 0 1em; }
+  table.xlang th, table.xlang td { padding: 3px 8px; text-align: right; border-bottom: 1px solid #eef1f5; white-space: nowrap; }
+  table.xlang th { font: 700 9px ui-monospace,monospace; letter-spacing: .04em; text-transform: uppercase; color: #8a93a0; border-bottom: 1px solid #d8dce3; }
+  table.xlang td:first-child, table.xlang th:first-child { text-align: left; color: #3a4555; }
   table.xlang tbody tr:nth-child(even) { background: #fafbfc; }
   table.xlang td.z { color: #c4ccd6; }
   table.xlang th.tot, table.xlang td.tot { border-left: 1px solid #e3e7ec; }

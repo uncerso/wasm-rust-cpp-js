@@ -4,22 +4,13 @@ import { renderPerfView, escape, PERF_JS } from "./render-perf.js";
 import { renderSizeView, SIZE_CSS, SIZE_JS } from "./render-size.js";
 import { SHELL_CSS } from "./theme.js";
 
-// Thin local CSS: tab-panel visibility (shell behaviour) plus the legacy
-// perf-table styling that still flows through the unchanged perf renderer.
-// The table rules migrate into PERF_CSS when the Perf tab is rebuilt (Tasks 6–7).
+// Thin local CSS: just tab-panel visibility (shell behaviour). Every table in
+// the report (.xlang / .pf-t / .shape-heat) now carries its own complete
+// styling in SIZE_CSS / PERF_CSS — no shared generic table rules, which would
+// otherwise paint stray #ccc borders onto the redesigned tables.
 const SHELL_LOCAL_CSS = `
 .tab-panel{display:none}
 .tab-panel.active{display:block}
-table { border-collapse: collapse; width: 100%; font-size: 12px; }
-th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: right; }
-th { background: #f0f0f0; }
-tr.noisy { background: #fff8d0; }
-tr.fail  { background: #ffd0d0; }
-td:first-child, td:nth-child(2), td:nth-child(3) { text-align: left; }
-table.grid { width: auto; margin: 0.5em 0 1em; }
-table.grid th { text-align: left; }
-table.grid td { text-align: right; min-width: 6em; }
-p.grid-label { font-size: 12px; color: #555; margin: 0.25em 0; }
 `;
 
 const TABS_JS = `
