@@ -173,7 +173,7 @@ function renderPerfDetail(slice: PerfSlice): string {
     const maxWarm = slice.detail.reduce((m, r) => Math.max(m, r.warmMedian), 0);
     const rows = slice.detail.map((row) => renderDetailRow(row, maxInit, maxWarm)).join("\n");
     return `<details>
-<summary class="pf-tg">детали · все среды</summary>
+<summary class="pf-tg">details · all envs</summary>
 <table class="pf-t">
 <thead><tr><th>impl</th><th>env</th><th>init</th><th>first</th><th>warm med</th><th>p95</th><th>cv</th><th>ok</th></tr></thead>
 <tbody>
@@ -237,11 +237,11 @@ function renderShapeSection(slices: ShapeSlice[], defaultSize: string, defaultPr
         return `<div class="perf-slice"${display} data-size="${escape(slice.size)}" data-profile="${escape(slice.profile)}">
   <div class="perf-wlh">shape_dispatch <small>node · rust/raw · ${escape(slice.profile)} · ${escape(slice.size)}</small></div>
   ${renderShapeHeatTable(slice.cells)}
-  <p class="shape-cap">цвет = относительная warm-медиана (темнее = медленнее) · +Δ = dynamic vs static</p>
+  <p class="shape-cap">color = relative warm-median (darker = slower) · +Δ = dynamic vs static</p>
 </div>`;
     }).join("\n");
     return `<div class="perf-wl">
-  <span class="perf-eyebrow">warm-median (ms) · node · rust/raw · следует выбранным size/profile</span>
+  <span class="perf-eyebrow">warm-median (ms) · node · rust/raw · follows selected size/profile</span>
 ${blocks}
 </div>`;
 }

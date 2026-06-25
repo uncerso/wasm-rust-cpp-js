@@ -54,7 +54,7 @@ function modelFor(b: SizeBinary): BinaryViewModel {
     if (!b.composition) {
         const noCompBand: Band = b.isJs ? "observed" : "unknown";
         const segments = withGlue([{
-            facility: b.isJs ? "js-bundle" : "(не атрибутировано)",
+            facility: b.isJs ? "js-bundle" : "(unattributed)",
             scaling: b.isJs ? "observed" : "paid-once",
             band: noCompBand,
             rawBytes: b.totals.rawBytes,
@@ -65,7 +65,7 @@ function modelFor(b: SizeBinary): BinaryViewModel {
         return {
             ...base,
             hasComposition: false,
-            note: b.isJs ? "JS bundle — всё observed, floor≈0" : "facility-атрибуция пока только rust/raw",
+            note: b.isJs ? "JS bundle — all observed, floor≈0" : "facility attribution unavailable",
             segments,
         };
     }
@@ -111,6 +111,7 @@ export interface CrossLangRow {
     label: string;
     toolchain: string;
     profile: string;
+    isJs: boolean;
     byFacility: Record<string, CellBytes>;
     total: CellBytes;
 }
@@ -145,7 +146,7 @@ export function buildCrossLangTables(vm: SizeViewModel): WorkloadTable[] {
                 total.brotliBytes += s.brotliBytes;
                 facilitySet.add(s.facility);
             }
-            return { id, label: b.label, toolchain: b.toolchain, profile: b.profile, byFacility, total };
+            return { id, label: b.label, toolchain: b.toolchain, profile: b.profile, isJs: b.isJs, byFacility, total };
         });
         tables.push({ id, facilities: [...facilitySet].sort(), rows });
     }

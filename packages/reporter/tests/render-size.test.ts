@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderSizeView } from "../src/render-size.js";
+import { renderSizeView, SIZE_JS } from "../src/render-size.js";
 import type { SizeData } from "../src/size-data.js";
 
 // Fixture: one rust/raw binary whose floor splits across three facilities so the
@@ -132,5 +132,28 @@ describe("renderSizeView", () => {
         expect(html).toContain("<details");
         expect(html).toContain("<summary");
         expect(html).toContain("xlang-heat-");   // heatmap bucket class on data cells
+    });
+
+    it("marks JS rows profile-agnostic so the profile filter never hides them", () => {
+        const js: SizeData = {
+            binaries: [{
+                id: "hashmap_int", language: "js", toolchain: "idiomatic", profile: "speed",
+                label: "js/idiomatic/speed",
+                totals: { rawBytes: 453, gzipBytes: 300, brotliBytes: 250 }, glue: null, isJs: true,
+                composition: null,
+            }],
+        };
+        const html = renderSizeView(js);
+        // both the bar row and the cross-lang table row carry data-agnostic:
+        expect(html).toMatch(/<div class="size-row[^"]*"[^>]*data-agnostic="1"/);
+        expect(html).toMatch(/<tr class="xlang-row"[^>]*data-agnostic="1"/);
+    });
+
+    it("renders labels with a runtime fit + resize pass (no mid-glyph clipping)", () => {
+        // The fit decision is pixel-based, so it lives in SIZE_JS (measure + hide on overflow,
+        // re-run on resize) rather than in the server-rendered markup.
+        expect(SIZE_JS).toContain("fitLabels");
+        expect(SIZE_JS).toContain("scrollWidth");
+        expect(SIZE_JS).toContain("addEventListener('resize'");
     });
 });

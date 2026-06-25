@@ -145,7 +145,7 @@ describe("renderPerfView", () => {
         expect(html).toContain(">node<");
         expect(html).toContain(">chromium<");
         // summary now reflects all envs, not just node
-        expect(html).toContain("детали · все среды");
+        expect(html).toContain("details · all envs");
     });
 
     it("makes the filter tray sticky", () => {

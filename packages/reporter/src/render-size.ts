@@ -48,7 +48,7 @@ export const SIZE_JS = `
       .map(function (p) { return p.dataset.tc; });
     var key = comp === 'raw' ? 'raw' : (comp === 'gz' ? 'gz' : 'brotli');
     Array.from(document.querySelectorAll('tr.xlang-row')).forEach(function (tr) {
-      var show = (profile === 'all' || tr.dataset.profile === profile) && checkedTc.indexOf(tr.dataset.toolchain) >= 0;
+      var show = (profile === 'all' || tr.dataset.profile === profile || tr.dataset.agnostic === '1') && checkedTc.indexOf(tr.dataset.toolchain) >= 0;
       tr.style.display = show ? '' : 'none';
     });
     Array.from(document.querySelectorAll('.xlang-cell')).forEach(function (td) {
@@ -61,7 +61,7 @@ export const SIZE_JS = `
       var rows = Array.from(wl.querySelectorAll('.size-row'));
       var visible = [];
       rows.forEach(function (row) {
-        var show = (profile === 'all' || row.dataset.profile === profile) && checkedTc.indexOf(row.dataset.toolchain) >= 0;
+        var show = (profile === 'all' || row.dataset.profile === profile || row.dataset.agnostic === '1') && checkedTc.indexOf(row.dataset.toolchain) >= 0;
         row.style.display = show ? '' : 'none';
         if (show) { visible.push(row); }
       });
@@ -95,6 +95,24 @@ export const SIZE_JS = `
         row.querySelector('.total').textContent = fmtBytes(sum);
       });
     });
+    fitLabels();
+  }
+  // #3: a segment label is only shown when its text actually fits the segment's current
+  // pixel width — segment widths are %-based, so the fit can only be known at runtime and
+  // changes with the window. Measuring (scrollWidth vs clientWidth) and hiding non-fitting
+  // labels avoids mid-glyph clipping; fitLabels re-runs on resize.
+  function fitLabels() {
+    Array.prototype.forEach.call(document.querySelectorAll('.size-row'), function (row) {
+      if (row.style.display === 'none') { return; }
+      Array.prototype.forEach.call(row.querySelectorAll('.seg'), function (seg) {
+        var lbl = seg.querySelector('.seg-lbl');
+        if (!lbl) { return; }
+        lbl.style.display = '';
+        if (seg.style.display === 'none' || lbl.scrollWidth > lbl.clientWidth + 1) {
+          lbl.style.display = 'none';
+        }
+      });
+    });
   }
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.sh-seg').forEach(function (seg) {
@@ -117,6 +135,11 @@ export const SIZE_JS = `
         sw.classList.toggle('on');
         applySizeFilters();
       });
+    });
+    var resizeTimer;
+    window.addEventListener('resize', function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(fitLabels, 100);
     });
     applySizeFilters();
   });
@@ -190,7 +213,10 @@ function renderRow(b: BinaryViewModel): string {
     const note = b.note ? ` <span class="size-note">${escape(b.note)}</span>` : "";
     const largestFloor = largestFloorSegment(b.segments);
     const bars = b.segments.map((s) => renderSegment(s, largestFloor)).join("");
-    return `<div class="size-row${noComp}" data-toolchain="${escape(b.toolchain)}" data-profile="${escape(b.profile)}" data-lang="${escape(b.language)}">
+    // JS has no size/speed build variant — it ships one bundle tagged with a single
+    // profile. Mark it profile-agnostic so the profile filter shows it under any profile.
+    const agnostic = b.isJs ? ' data-agnostic="1"' : "";
+    return `<div class="size-row${noComp}" data-toolchain="${escape(b.toolchain)}" data-profile="${escape(b.profile)}"${agnostic} data-lang="${escape(b.language)}">
       <div class="lbl">${escape(b.label)}${note}</div>
       <div class="size-bar">${bars}</div>
       <div class="total"></div>
@@ -224,20 +250,20 @@ function controls(toolchains: string[]): string {
         .join("");
     return `<div class="sh-tray">
     <div class="sh-filt">
-      <div class="sh-grp"><span class="sh-gl">сжатие</span>${compSeg}</div>
+      <div class="sh-grp"><span class="sh-gl">compression</span>${compSeg}</div>
       <div class="sh-div"></div>
-      <div class="sh-grp"><span class="sh-gl">профиль</span>${profileSeg}</div>
+      <div class="sh-grp"><span class="sh-gl">profile</span>${profileSeg}</div>
       <div class="sh-div"></div>
-      <div class="sh-grp"><span class="sh-gl">тулчейны</span>${pills}</div>
+      <div class="sh-grp"><span class="sh-gl">toolchains</span>${pills}</div>
       <div class="sh-div"></div>
-      <div class="sh-grp"><span class="sh-sw" data-sw="observedOnly"><span class="sh-track"></span>только наблюдаемое</span></div>
+      <div class="sh-grp"><span class="sh-sw" data-sw="observedOnly"><span class="sh-track"></span>observed only</span></div>
     </div>
     <div class="sh-legend">
-      <span class="sh-key"><span class="sh-sw2" style="background:#6e7b8c"></span>floor (slate-рамп по facility)</span>
+      <span class="sh-key"><span class="sh-sw2" style="background:#6e7b8c"></span>floor (slate ramp by facility)</span>
       <span class="sh-key"><span class="sh-sw2" style="background:#d8be73"></span>glue (JS)</span>
       <span class="sh-key"><span class="sh-sw2" style="background:#34b88a"></span>observed / marginal</span>
-      <span class="sh-key"><span class="sh-sw2" style="background:#e0a8a8"></span>не атрибутировано</span>
-      <span class="sh-note">· доли по raw, абсолют ≈, шкала — на workload</span>
+      <span class="sh-key"><span class="sh-sw2" style="background:#e0a8a8"></span>unattributed</span>
+      <span class="sh-note">· shares by raw, abs ≈, scale per workload</span>
     </div>
   </div>`;
 }
@@ -290,11 +316,12 @@ function renderTable(t: WorkloadTable): string {
                         : cell(c, { bucket: heatBucket(c.rawBytes, colMax.get(f) ?? 0) });
                 })
                 .join("");
-            return `<tr class="xlang-row" data-toolchain="${escape(r.toolchain)}" data-profile="${escape(r.profile)}"><td>${escape(r.label)}</td>${cells}${cell(r.total, { tot: true })}</tr>`;
+            const agnostic = r.isJs ? ' data-agnostic="1"' : "";
+            return `<tr class="xlang-row" data-toolchain="${escape(r.toolchain)}" data-profile="${escape(r.profile)}"${agnostic}><td>${escape(r.label)}</td>${cells}${cell(r.total, { tot: true })}</tr>`;
         })
         .join("\n");
-    return `<details class="xlang-wrap"><summary class="xlang-toggle">таблица · ${escape(t.id)} · байты</summary>
-    <p class="size-note">кросс-языковая таблица — байты по выбранному сжатию (доли по raw, абсолют ≈)</p>
+    return `<details class="xlang-wrap"><summary class="xlang-toggle">table · ${escape(t.id)} · bytes</summary>
+    <p class="size-note">cross-language table — bytes by selected compression (shares by raw, abs ≈)</p>
     <table class="xlang"><thead><tr><th>impl</th>${head}<th class="tot">total</th></tr></thead><tbody>${rows}</tbody></table></details>`;
 }
 
