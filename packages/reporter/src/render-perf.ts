@@ -1,5 +1,5 @@
 import type { Aggregated } from "./aggregate.js";
-import { buildPerfModel, type PerfImplMultiple, type PerfSlice } from "./perf-view-model.js";
+import { buildPerfModel, type PerfDetailRow, type PerfImplMultiple, type PerfSlice } from "./perf-view-model.js";
 
 const ESCAPES: Record<string, string> = {
     "&": "&amp;",
@@ -41,6 +41,22 @@ export const PERF_CSS = `
 .em-trk{flex:1;height:15px;background:#eef2f6;border:1px solid #dde4ec;border-radius:3px;overflow:hidden}
 .em-trk i{display:block;height:100%;background:#a7c8e3}
 .em-v{flex:0 0 42px;text-align:right;font:700 11px ui-monospace;color:#1f2530}
+.pf-tg{font:600 10px ui-monospace,monospace;color:#9aa3b0;margin:12px 0 5px;cursor:pointer}
+.pf-t{border-collapse:collapse;font:500 10.5px ui-monospace,monospace;width:100%}
+.pf-t th,.pf-t td{padding:5px 10px;text-align:right;border-bottom:1px solid #eef1f5;white-space:nowrap;border-left:1px solid #ebeef2}
+.pf-t th:first-child,.pf-t td:first-child{border-left:none;text-align:left;color:#3a4555}
+.pf-t th{font:700 9px ui-monospace;letter-spacing:.04em;text-transform:uppercase;color:#8a93a0;border-bottom:1px solid #d8dce3}
+.pf-t tbody tr:nth-child(even){background:#fafbfc}
+.pf-t tbody tr.noisy{background:#fdf6da}
+.pf-t tbody tr.fail{background:#fbe4e4}
+.pf-t tbody td.bad{background:#f6dd86;color:#6e5208;font-weight:700}
+.pf-t tbody td.failx{background:#f1b6b6;color:#7e2626;font-weight:700}
+.cbox{background:#f6f8fb;border:1px solid #e6ecf3;border-radius:5px;padding:2px 6px;display:inline-flex;align-items:center;gap:6px;width:118px}
+.cbox .tk{flex:1;height:12px;background:#eef2f6;border:1px solid #dde4ec;border-radius:3px;overflow:hidden}
+.cbox .tk i{display:block;height:100%;background:#cfe1f0}
+.cbox .v{flex:0 0 38px;text-align:right;font-weight:700}
+.hatch{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#ecd98c 5px 10px)!important}
+.hatch-fail{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#e0a0a0 5px 10px)!important}
 `.trim();
 
 // ---------------------------------------------------------------------------
@@ -111,7 +127,47 @@ function renderSlice(slice: PerfSlice): string {
         const cells = slice.envs.map((env) => renderCell(m.byEnv[env], max)).join("");
         return `<div class="em-row"><div class="em-impl">${escape(m.impl)}</div>${cells}</div>`;
     }).join("\n");
-    return `${head}\n${rows}`;
+    const detail = renderPerfDetail(slice);
+    return `${head}\n${rows}${detail ? "\n" + detail : ""}`;
+}
+
+function renderDataBar(value: number, max: number, fillClass: string): string {
+    const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+    return `<span class="cbox"><span class="tk"><i style="width:${pct}%" class="${fillClass}"></i></span><span class="v">${value.toFixed(3)}</span></span>`;
+}
+
+function renderDetailRow(row: PerfDetailRow, maxInit: number, maxWarm: number): string {
+    const isFail = row.correctnessFailed;
+    const isNoisy = !isFail && row.noisy;
+
+    const trClass = isFail ? ' class="fail"' : isNoisy ? ' class="noisy"' : "";
+    const warmFillClass = isFail ? "hatch-fail" : isNoisy ? "hatch" : "";
+    const cvClass = isNoisy ? ' class="bad"' : "";
+    const okClass = isFail ? ' class="failx"' : "";
+    const okMark = row.validated ? "✓" : "✗";
+
+    const initCell = `<td>${renderDataBar(row.initTotal, maxInit, "")}</td>`;
+    const warmCell = `<td>${renderDataBar(row.warmMedian, maxWarm, warmFillClass)}</td>`;
+
+    return `<tr${trClass}><td>${escape(row.impl)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td${cvClass}>${row.cv.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
+}
+
+function renderPerfDetail(slice: PerfSlice): string {
+    if (slice.detail.length === 0) {
+        return "";
+    }
+    const maxInit = slice.detail.reduce((m, r) => Math.max(m, r.initTotal), 0);
+    const maxWarm = slice.detail.reduce((m, r) => Math.max(m, r.warmMedian), 0);
+    const rows = slice.detail.map((row) => renderDetailRow(row, maxInit, maxWarm)).join("\n");
+    return `<details>
+<summary class="pf-tg">детали · node</summary>
+<table class="pf-t">
+<thead><tr><th>impl</th><th>init</th><th>first</th><th>warm med</th><th>p95</th><th>cv</th><th>ok</th></tr></thead>
+<tbody>
+${rows}
+</tbody>
+</table>
+</details>`;
 }
 
 function renderSegControl(ctrl: string, values: string[], active: string): string {

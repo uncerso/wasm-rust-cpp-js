@@ -116,4 +116,20 @@ describe("renderPerfView", () => {
         expect(html).toContain('class="em-head"');
         expect(html).toContain('class="eh"');
     });
+
+    it("flags noisy and fail rows", () => {
+        const results = [
+            fakeResult({ language: "rust", toolchain: "raw" }, 1.0, "node"),
+            fakeResult({ language: "rust", toolchain: "bindgen" }, 2.0, "node"),
+        ];
+        // Patch noisy onto first, correctnessFailed onto second
+        results[0]!.stats.noisy = true;
+        results[1]!.quality.correctnessFailed = true;
+        const html = renderPerfView(aggregate(results));
+        expect(html).toContain('class="cbox"');
+        expect(html).toContain('tr class="noisy"');
+        expect(html).toContain('class="hatch"');
+        expect(html).toContain('tr class="fail"');
+        expect(html).toContain('class="hatch-fail"');
+    });
 });
