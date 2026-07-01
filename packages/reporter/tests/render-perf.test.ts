@@ -9,7 +9,7 @@ function fakeResult(
     envName = "node",
 ): BenchResult {
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
         timestamp: "2026-05-01T00:00:00.000Z",
         machine: { os: "linux", cpu: "x", memoryGb: 32 },
         env: { kind: "node", name: envName, version: "v22.0.0", engine: "V8" },
@@ -26,10 +26,10 @@ function fakeResult(
         timingsMs: {
             fetch: 0, compile: 0, instantiate: 0, initTotal: 0, firstCall: 0,
             warmMedian, warmP95: 1.5, warmP99: 1.7, warmStddev: 0.05,
-            warmMin: 1.1, warmMax: 1.7, endToEndMedian: warmMedian,
+            warmMin: 1.1, warmMax: 1.7, warmMad: 0.04, endToEndMedian: warmMedian,
         },
         memory: { wasmMemoryBytesPeak: 0, wasmMemoryDeltaBytes: 0, jsHeapUsedAfter: null },
-        stats: { nSamples: 30, cv: 0.01, noisy: false },
+        stats: { nSamples: 30, cv: 0.01, relSem: 0.002, meanImprecise: false, subResolution: false },
         quality: { checksum: 0, validated: true, correctnessFailed: false },
         notes: { streamingInstantiation: false, worker: true, wasmFeatures: [] },
     };
@@ -130,20 +130,28 @@ describe("renderPerfView", () => {
         expect(html).toContain('class="eh"');
     });
 
-    it("flags noisy and fail rows", () => {
+    it("flags imprecise-mean (amber) and fail rows, and a sub-resolution badge", () => {
         const results = [
             fakeResult({ language: "rust", toolchain: "raw" }, 1.0, "node"),
             fakeResult({ language: "rust", toolchain: "bindgen" }, 2.0, "node"),
+            fakeResult({ language: "cpp", toolchain: "emscripten" }, 3.0, "node"),
         ];
-        // Patch noisy onto first, correctnessFailed onto second
-        results[0]!.stats.noisy = true;
+        results[0]!.stats.meanImprecise = true;
         results[1]!.quality.correctnessFailed = true;
+        results[2]!.stats.subResolution = true;
         const html = renderPerfView(aggregate(results));
-        expect(html).toContain('class="cbox"');
-        expect(html).toContain('tr class="noisy"');
+        expect(html).toContain('tr class="noisy"');   // imprecise mean → amber row
         expect(html).toContain('class="hatch"');
+        expect(html).toContain('td class="bad"');      // relSem cell (the gate) highlighted
         expect(html).toContain('tr class="fail"');
         expect(html).toContain('class="hatch-fail"');
+        expect(html).toContain("&lt;res");            // sub-resolution badge
+    });
+
+    it("renders relSem and mad columns in the detail table", () => {
+        const html = renderPerfView(aggregate([fakeResult({}, 1.0, "node")]));
+        expect(html).toContain(">relSem<");
+        expect(html).toContain(">mad<");
     });
 
     it("renders the detail table with an env column showing every env", () => {

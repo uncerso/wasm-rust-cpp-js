@@ -1,4 +1,5 @@
 import { ArtifactMetaSchema, type ArtifactMeta } from "@bench/result-schema";
+import { implOrderRank } from "./impl-order.js";
 
 export interface SizeBinary {
     id: string;
@@ -40,6 +41,9 @@ export function buildSizeData(metas: readonly ArtifactMeta[]): SizeData {
             isJs: language === "js",
         });
     }
-    binaries.sort((a, b) => a.id.localeCompare(b.id) || a.label.localeCompare(b.label));
+    binaries.sort((a, b) =>
+        a.id.localeCompare(b.id)
+        || implOrderRank(a.language, a.toolchain) - implOrderRank(b.language, b.toolchain)
+        || a.profile.localeCompare(b.profile));
     return { binaries };
 }

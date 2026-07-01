@@ -8,7 +8,7 @@ function fakeResult(
     warmMedian = 1.234,
 ): BenchResult {
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
         timestamp: "2026-05-01T00:00:00.000Z",
         machine: { os: "linux", cpu: "x", memoryGb: 32 },
         env: { kind: "node", name: "node", version: "v22.0.0", engine: "V8" },
@@ -25,10 +25,10 @@ function fakeResult(
         timingsMs: {
             fetch: 0, compile: 0, instantiate: 0, initTotal: 0, firstCall: 0,
             warmMedian, warmP95: 1.5, warmP99: 1.7, warmStddev: 0.05,
-            warmMin: 1.1, warmMax: 1.7, endToEndMedian: warmMedian,
+            warmMin: 1.1, warmMax: 1.7, warmMad: 0.04, endToEndMedian: warmMedian,
         },
         memory: { wasmMemoryBytesPeak: 0, wasmMemoryDeltaBytes: 0, jsHeapUsedAfter: null },
-        stats: { nSamples: 30, cv: 0.01, noisy: false },
+        stats: { nSamples: 30, cv: 0.01, relSem: 0.002, meanImprecise: false, subResolution: false },
         quality: { checksum: 0, validated: true, correctnessFailed: false },
         notes: { streamingInstantiation: false, worker: true, wasmFeatures: [] },
     };

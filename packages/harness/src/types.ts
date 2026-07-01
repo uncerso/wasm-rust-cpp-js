@@ -24,7 +24,8 @@ export interface MeasureConfig {
     innerIterations: number;
     minSamples: number;
     maxSamples: number;
-    cvThreshold: number;
+    semThreshold: number;
+    wallBudgetMs: number;
 }
 
 export interface MeasureInput {

@@ -67,4 +67,16 @@ describe("buildSizeData", () => {
         const d = buildSizeData([meta()]);
         expect(d.binaries[0]!.glue).toBeNull();
     });
+
+    it("orders same-workload binaries by IMPL_ORDER (js, rust, cpp), not alphabetically", () => {
+        const mk = (
+            language: ArtifactMeta["combination"]["language"],
+            toolchain: ArtifactMeta["combination"]["toolchain"],
+        ) =>
+            meta({ combination: { benchmarkId: "matmul", language, toolchain, profile: "speed" } });
+        const d = buildSizeData([mk("cpp", "wasi-sdk"), mk("rust", "raw"), mk("js", "idiomatic")]);
+        expect(d.binaries.map((x) => x.label)).toEqual([
+            "js/idiomatic/speed", "rust/raw/speed", "cpp/wasi-sdk/speed",
+        ]);
+    });
 });

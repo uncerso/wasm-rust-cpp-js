@@ -38,8 +38,8 @@ function parse(args: string[]): CliArgs {
 async function main() {
     const a = parse(argv.slice(2));
     const config = a.mode === "quick"
-        ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 10, cvThreshold: 0.05 }
-        : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 100, cvThreshold: 0.05 };
+        ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 20, semThreshold: 0.10, wallBudgetMs: 200 }
+        : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 200, semThreshold: 0.03, wallBudgetMs: 1000 };
     const r = await runCase({
         benchmarkId: a.benchmark,
         entry: a.entry,

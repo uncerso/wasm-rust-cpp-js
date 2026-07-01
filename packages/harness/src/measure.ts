@@ -46,6 +46,7 @@ export async function runMeasure(input: MeasureInput): Promise<MeasureOutput> {
 
     const samples: number[] = [];
     let lastChecksum: number | string = firstResult.checksum;
+    const loopStart = performance.now();
 
     while (samples.length < config.maxSamples) {
         module.reset?.();
@@ -70,7 +71,14 @@ export async function runMeasure(input: MeasureInput): Promise<MeasureOutput> {
 
         if (samples.length >= config.minSamples) {
             const stats = computeStats(samples);
-            if (stats.cv <= config.cvThreshold) {
+            // A sub-resolution cell (a sample rounded to 0) reports cv=0 → relSem=0,
+            // which would spuriously pass the precision gate. Guard: never accept on
+            // precision while min===0; keep sampling to pin the (nonzero) mean.
+            const subResolution = stats.min === 0;
+            if (!subResolution && stats.relSem <= config.semThreshold) {
+                break;
+            }
+            if (performance.now() - loopStart > config.wallBudgetMs) {
                 break;
             }
         }
