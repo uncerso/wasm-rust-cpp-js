@@ -1,3 +1,4 @@
+import { implOrderRank } from "./impl-order.js";
 import type { Aggregated } from "./aggregate.js";
 import type { BenchResult } from "@bench/result-schema";
 
@@ -16,8 +17,11 @@ export interface PerfDetailRow {
     firstCall: number;
     warmMedian: number;
     warmP95: number;
+    warmMad: number;
     cv: number;
-    noisy: boolean;
+    relSem: number;
+    meanImprecise: boolean;
+    subResolution: boolean;
     correctnessFailed: boolean;
     validated: boolean;
 }
@@ -72,6 +76,11 @@ function implKey(r: BenchResult): string {
     return `${r.benchmark.language}/${r.benchmark.toolchain}/${r.benchmark.profile}`;
 }
 
+function implKeyRank(implKey: string): number {
+    const [language, toolchain] = implKey.split("/");
+    return implOrderRank(language ?? "", toolchain ?? "");
+}
+
 function orderBy(values: string[], order: readonly string[]): string[] {
     const rank = (v: string): number => {
         const i = order.indexOf(v);
@@ -104,28 +113,10 @@ function buildSlice(
         multiples.push({ impl, byEnv });
     }
 
-    // Sort multiples by representative warmMedian (node first, fallback first present in ENV_ORDER)
-    multiples.sort((a, b) => {
-        const wmA = pickRepresentativeWm(a.byEnv, envs);
-        const wmB = pickRepresentativeWm(b.byEnv, envs);
-        return (wmA ?? Infinity) - (wmB ?? Infinity);
-    });
+    // Sort multiples by canonical IMPL_ORDER (js → rust → cpp), stable across cells.
+    multiples.sort((a, b) => implKeyRank(a.impl) - implKeyRank(b.impl) || a.impl.localeCompare(b.impl));
 
     // Build PerfDetailRow entries — one per (impl, env) present in this slice.
-    // Sort: group by impl in ascending representative warmMedian, then by ENV_ORDER within an impl.
-    const envRank = (env: string): number => {
-        const i = ENV_ORDER.indexOf(env);
-        return i < 0 ? ENV_ORDER.length : i;
-    };
-    const implRepWm = new Map<string, number>();
-    for (const [impl, entries] of casesByImpl) {
-        const byEnv: Record<string, number> = {};
-        for (const e of entries) {
-            byEnv[e.env] = e.result.timingsMs.warmMedian;
-        }
-        implRepWm.set(impl, pickRepresentativeWm(byEnv, envs) ?? Infinity);
-    }
-
     const detail: PerfDetailRow[] = [];
     for (const [impl, entries] of casesByImpl) {
         for (const { env, result: r } of entries) {
@@ -136,40 +127,28 @@ function buildSlice(
                 firstCall: r.timingsMs.firstCall,
                 warmMedian: r.timingsMs.warmMedian,
                 warmP95: r.timingsMs.warmP95,
+                warmMad: r.timingsMs.warmMad,
                 cv: r.stats.cv,
-                noisy: r.stats.noisy,
+                relSem: r.stats.relSem,
+                meanImprecise: r.stats.meanImprecise,
+                subResolution: r.stats.subResolution,
                 correctnessFailed: r.quality.correctnessFailed,
                 validated: r.quality.validated,
             });
         }
     }
-    detail.sort((a, b) => {
-        const repA = implRepWm.get(a.impl) ?? Infinity;
-        const repB = implRepWm.get(b.impl) ?? Infinity;
-        if (repA !== repB) {
-            return repA - repB;
-        }
-        if (a.impl !== b.impl) {
-            return a.impl.localeCompare(b.impl);
-        }
-        return envRank(a.env) - envRank(b.env) || a.env.localeCompare(b.env);
-    });
+    // Sort: group by canonical impl order, then by ENV_ORDER within an impl.
+    const envRankFor = (env: string): number => {
+        const i = ENV_ORDER.indexOf(env);
+        return i < 0 ? ENV_ORDER.length : i;
+    };
+    detail.sort((a, b) =>
+        implKeyRank(a.impl) - implKeyRank(b.impl)
+        || a.impl.localeCompare(b.impl)
+        || envRankFor(a.env) - envRankFor(b.env)
+        || a.env.localeCompare(b.env));
 
     return { size, profile, envs, multiples, detail };
-}
-
-function pickRepresentativeWm(byEnv: Record<string, number>, envs: string[]): number | null {
-    const nodeVal = byEnv["node"];
-    if (nodeVal !== undefined && nodeVal !== null) {
-        return nodeVal;
-    }
-    for (const env of envs) {
-        const v = byEnv[env];
-        if (v !== undefined && v !== null) {
-            return v;
-        }
-    }
-    return null;
 }
 
 const SHAPE_PINNED_PREFIX = "node|rust|raw";

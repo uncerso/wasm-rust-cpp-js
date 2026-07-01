@@ -9,7 +9,7 @@ function fakeResult(
     envName = "node",
 ): BenchResult {
     return {
-        schemaVersion: 1,
+        schemaVersion: 2,
         timestamp: "2026-05-01T00:00:00.000Z",
         machine: { os: "linux", cpu: "x", memoryGb: 32 },
         env: { kind: "node", name: envName, version: "v22.0.0", engine: "V8" },
@@ -26,10 +26,10 @@ function fakeResult(
         timingsMs: {
             fetch: 0, compile: 0, instantiate: 0, initTotal: 0, firstCall: 0,
             warmMedian, warmP95: 1.5, warmP99: 1.7, warmStddev: 0.05,
-            warmMin: 1.1, warmMax: 1.7, endToEndMedian: warmMedian,
+            warmMin: 1.1, warmMax: 1.7, warmMad: 0.04, endToEndMedian: warmMedian,
         },
         memory: { wasmMemoryBytesPeak: 0, wasmMemoryDeltaBytes: 0, jsHeapUsedAfter: null },
-        stats: { nSamples: 30, cv: 0.01, noisy: false },
+        stats: { nSamples: 30, cv: 0.01, relSem: 0.002, meanImprecise: false, subResolution: false },
         quality: { checksum: 0, validated: true, correctnessFailed: false },
         notes: { streamingInstantiation: false, worker: true, wasmFeatures: [] },
     };
@@ -101,5 +101,18 @@ describe("buildPerfModel", () => {
         expect(speed.multiples.some((m) => m.impl === "js/idiomatic")).toBe(true);
         expect(size.multiples.some((m) => m.impl === "js/idiomatic")).toBe(true);
         expect(wl.slices.some((s) => s.multiples.some((m) => m.impl === "js/idiomatic/speed"))).toBe(false);
+    });
+    it("orders impls canonically (js, rust, cpp) regardless of speed", () => {
+        // Input deliberately scrambled + slower js than rust: order must NOT follow warmMedian.
+        const results = [
+            fakeResult({ id: "matmul", language: "cpp", toolchain: "wasi-sdk", profile: "speed", inputSize: "L" }, 0.10, "node"),
+            fakeResult({ id: "matmul", language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, 0.30, "node"),
+            fakeResult({ id: "matmul", language: "cpp", toolchain: "emscripten", profile: "speed", inputSize: "L" }, 0.20, "node"),
+        ];
+        const wl = buildPerfModel(aggregate(results)).workloads.find((w) => w.id === "matmul")!;
+        const slice = wl.slices.find((s) => s.size === "L" && s.profile === "speed")!;
+        expect(slice.multiples.map((m) => m.impl)).toEqual([
+            "rust/raw/speed", "cpp/emscripten/speed", "cpp/wasi-sdk/speed",
+        ]);
     });
 });
