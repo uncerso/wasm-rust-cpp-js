@@ -59,8 +59,8 @@ export async function createDriverSession(
 
     async function runCase(input: CaseInput): Promise<CaseResult> {
         const baseMeasureConfig = input.mode === "quick"
-            ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 10, cvThreshold: 0.05 }
-            : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 100, cvThreshold: 0.05 };
+            ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 20, semThreshold: 0.10, wallBudgetMs: 300 }
+            : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 512, semThreshold: 0.03, wallBudgetMs: 2000 };
 
         const specPath = join(REPO_ROOT, `dist/${input.benchmark}/spec.json`);
         const spec = SpecSchema.parse(JSON.parse(await readFile(specPath, "utf8")));
