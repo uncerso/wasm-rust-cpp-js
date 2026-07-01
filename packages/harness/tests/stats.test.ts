@@ -24,3 +24,23 @@ describe("computeStats", () => {
         expect(r.cv).toBe(0);
     });
 });
+
+describe("computeStats robust fields", () => {
+    it("computes MAD as the median absolute deviation from the median", () => {
+        // [1,2,3,4,5] → median 3 → abs devs [2,1,0,1,2] → median 1
+        const s = computeStats([1, 2, 3, 4, 5]);
+        expect(s.median).toBe(3);
+        expect(s.mad).toBe(1);
+    });
+    it("computes relSem = stddev / (mean * sqrt(n))", () => {
+        const s = computeStats([10, 12, 14, 16, 18]);
+        expect(s.relSem).toBeCloseTo(s.stddev / (s.mean * Math.sqrt(s.n)), 12);
+    });
+    it("keeps relSem finite (0) when mean is 0 (all-zero sub-resolution samples)", () => {
+        const s = computeStats([0, 0, 0, 0]);
+        expect(s.mean).toBe(0);
+        expect(s.cv).toBe(0);
+        expect(s.relSem).toBe(0);
+        expect(s.min).toBe(0);
+    });
+});
