@@ -138,7 +138,7 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
 
         const stats = measure.warmSamplesMs.length > 0
             ? computeStats(measure.warmSamplesMs)
-            : { median: 0, p95: 0, p99: 0, stddev: 0, min: 0, max: 0, mean: 0, cv: 0, n: 0 };
+            : { median: 0, p95: 0, p99: 0, stddev: 0, min: 0, max: 0, mean: 0, cv: 0, mad: 0, relSem: 0, n: 0 };
 
         // NOTE A: derive postprocess from profile/language, not from toolchainVersions
         const ranWasmOpt =
@@ -208,6 +208,7 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
                 warmStddev: stats.stddev,
                 warmMin: stats.min,
                 warmMax: stats.max,
+                warmMad: stats.mad,
                 endToEndMedian: loaded.timings.initTotalMs + measure.firstCallMs + stats.median,
             },
             memory: {
@@ -219,7 +220,9 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
                 // NOTE C: clamp nSamples to at least 1
                 nSamples: Math.max(stats.n, 1),
                 cv: stats.cv,
-                noisy: stats.cv > i.measureConfig.cvThreshold,
+                relSem: stats.relSem,
+                meanImprecise: stats.relSem > i.measureConfig.semThreshold,
+                subResolution: stats.min === 0,
             },
             quality: {
                 checksum: measure.finalChecksum,

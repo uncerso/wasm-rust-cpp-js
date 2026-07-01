@@ -133,7 +133,7 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
 
     const stats = measure.warmSamplesMs.length > 0
         ? computeStats(measure.warmSamplesMs)
-        : { median: 0, p95: 0, p99: 0, stddev: 0, min: 0, max: 0, mean: 0, cv: 0, n: 0 };
+        : { median: 0, p95: 0, p99: 0, stddev: 0, min: 0, max: 0, mean: 0, cv: 0, mad: 0, relSem: 0, n: 0 };
 
     // Whether wasm-opt actually ran: only for size profile of rust/cpp.
     const ranWasmOpt =
@@ -183,6 +183,7 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
             warmStddev: stats.stddev,
             warmMin: stats.min,
             warmMax: stats.max,
+            warmMad: stats.mad,
             endToEndMedian: loaded.timings.initTotalMs + measure.firstCallMs + stats.median,
         },
         memory: {
@@ -193,7 +194,9 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
         stats: {
             nSamples: Math.max(stats.n, 1),
             cv: stats.cv,
-            noisy: stats.cv > input.measureConfig.cvThreshold,
+            relSem: stats.relSem,
+            meanImprecise: stats.relSem > input.measureConfig.semThreshold,
+            subResolution: stats.min === 0,
         },
         quality: {
             checksum: measure.finalChecksum,
