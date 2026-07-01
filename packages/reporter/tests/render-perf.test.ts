@@ -142,6 +142,7 @@ describe("renderPerfView", () => {
         const html = renderPerfView(aggregate(results));
         expect(html).toContain('tr class="noisy"');   // imprecise mean → amber row
         expect(html).toContain('class="hatch"');
+        expect(html).toContain('td class="bad"');      // relSem cell (the gate) highlighted
         expect(html).toContain('tr class="fail"');
         expect(html).toContain('class="hatch-fail"');
         expect(html).toContain("&lt;res");            // sub-resolution badge

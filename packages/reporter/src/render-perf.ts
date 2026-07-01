@@ -156,6 +156,9 @@ function renderDetailRow(row: PerfDetailRow, maxInit: number, maxWarm: number): 
 
     const trClass = isFail ? ' class="fail"' : isImprecise ? ' class="noisy"' : "";
     const warmFillClass = isFail ? "hatch-fail" : isImprecise ? "hatch" : "";
+    // relSem is the acceptance gate: highlight it as the cell that turned the row amber
+    // (the reader's cue for *why* the mean is flagged imprecise).
+    const relSemClass = isImprecise ? ' class="bad"' : "";
     const okClass = isFail ? ' class="failx"' : "";
     const okMark = row.validated ? "✓" : "✗";
     const badge = row.subResolution ? '<span class="subres">&lt;res</span>' : "";
@@ -163,7 +166,7 @@ function renderDetailRow(row: PerfDetailRow, maxInit: number, maxWarm: number): 
     const initCell = `<td>${renderDataBar(row.initTotal, maxInit, "")}</td>`;
     const warmCell = `<td>${renderDataBar(row.warmMedian, maxWarm, warmFillClass)}</td>`;
 
-    return `<tr${trClass}><td>${escape(row.impl)}${badge}</td><td>${escape(row.env)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td>${row.warmMad.toFixed(3)}</td><td>${row.cv.toFixed(3)}</td><td>${row.relSem.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
+    return `<tr${trClass}><td>${escape(row.impl)}${badge}</td><td>${escape(row.env)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td>${row.warmMad.toFixed(3)}</td><td>${row.cv.toFixed(3)}</td><td${relSemClass}>${row.relSem.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
 }
 
 function renderPerfDetail(slice: PerfSlice): string {
