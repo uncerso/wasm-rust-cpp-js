@@ -29,7 +29,7 @@
 - **Размер** артефакта: raw / gzip / brotli байты, sha256 хэш каждого файла.
 - **Init phases**: fetch, compile, instantiate, initTotal (мс).
 - **First call**: время первого вызова `run()` (мс) — ловит JIT warm-up.
-- **Warm samples**: median, p95, p99, stddev, min, max + n samples + cv (коэффициент вариации). Сэмплирование останавливается, когда cv ≤ 5% или достигнут лимит.
+- **Warm samples**: median, p95, p99, stddev, min, max, mad + n samples + cv + relSem. Сэмплирование останавливается, когда relSem (SEM среднего, = cv/√n) ≤ semThreshold (3% eval / 10% quick) или достигнут лимит; ячейка с min=0 помечается sub-resolution.
 - **Memory**: peak / delta wasm linear memory, jsHeapUsedAfter (если доступно).
 - **Quality**: validated checksum, флаг correctnessFailed.
 - **Окружение**: OS/CPU, JS-движок, версии тулчейнов, фичи wasm.
@@ -216,7 +216,7 @@ pnpm bench --envs=node,chromium,firefox --sizes=S,M --mode=quick --out=results/r
 
 - `--envs=node,chromium,firefox` (любая подмножество).
 - `--sizes=S,M,L` (любое подмножество; M ~50–100×S по нагрузке, L ~1000×).
-- `--mode=quick` (5–10 сэмплов) или `--mode=eval` (30–100 сэмплов с CV-стопом).
+- `--mode=quick` (5–20 сэмплов) или `--mode=eval` (30–200 node / до 512 browser, с SEM-стопом по relSem).
 - `--out=<dir>` (по умолчанию `results/raw/<ISO timestamp>`).
 - `--benchmarks=<id1,id2>` — фильтр по `spec.id` (по умолчанию все).
 - `--restart-every=N` — quit+relaunch browser session каждые N cases per env (default 0 = never; hedge на возможный V8 state drift в long runs).
@@ -267,7 +267,7 @@ pnpm report --in=results/raw/<run-name>
 Создаёт `results/summarized/<ISO timestamp>/index.html` — одну статическую страницу с двумя вкладками:
 
 - **Size** — композиция артефакта по facility-категориям (allocator / hash-map / string / panic-fmt / observed / …) композиционными bars (шкала баров — в пределах workload'а: 100% = его крупнейший бинарь, чтобы мелкие workload'ы оставались читаемыми; кросс-workload абсолют — в колонке total и таблице): floor-band (paid-once, slate-рамп по facility) + observed-band (изучаемый код, акцент), подпись (байты+facility) — прямо на сегменте где влезает (клиент прячет невлезающие при resize), полная — в hover-тултипе. Сегментные фильтры: сжатие raw/gzip/brotli, профиль, тулчейны, тумблер «только наблюдаемое» (JS — profile-agnostic, виден при любом профиле). Под барами — раскрывающаяся кросс-языковая таблица по категориям (heatmap-заливка по величине, численный per-facility разбор). Доли считаются по raw, абсолют помечен ≈ (pre-opt композиция × калибровка к точному production-тоталу — байт-точная символьная атрибуция post-opt невозможна; почему — раздел «Почему размеры приближённые» ниже).
-- **Perf** — на каждый workload: env small-multiples (warm-median по node/chromium/firefox) + раскрывающаяся detail-таблица по всем средам (init / first / warm-med / p95 / cv / ok с data-барами), плюс 2×2 heatmap для shape_dispatch. Сегментные контролы size (по умолчанию максимальный доступный) и профиль переключают активный срез; heatmap shape_dispatch следует выбранному size/профилю (pinned impl node·rust/raw). Шумные кейсы подсвечены жёлтым (штриховка на warm-баре), упавшие correctness — красным.
+- **Perf** — на каждый workload: env small-multiples (warm-median по node/chromium/firefox) + раскрывающаяся detail-таблица по всем средам (init / first / warm-med / p95 / mad / cv / relSem / ok с data-барами), плюс 2×2 heatmap для shape_dispatch. Impl'ы во всех ячейках идут в канонический порядок js → rust → cpp. Сегментные контролы size (по умолчанию максимальный доступный) и профиль переключают активный срез; heatmap shape_dispatch следует выбранному size/профилю (pinned impl node·rust/raw). Кейсы с неточным средним (relSem выше порога) подсвечены жёлтым (штриховка на warm-баре + подсветка relSem-ячейки), sub-resolution кейсы (min=0) — бейджем `<res`, упавшие correctness — красным.
 
 Size читает `composition` из `dist/*/meta.json` (атрибутированы все wasm-тулчейны: rust/raw+bindgen, cpp/wasi-sdk+emscripten; bindgen/emscripten дополнительно показывают измеренный сегмент «glue (JS)» = размер JS-glue-файла; js — один observed-бар, floor≈0). Каждый JSON-результат прогоняется через `BenchResultSchema.parse` перед агрегацией — невалидный файл будет ошибкой.
 
@@ -359,6 +359,6 @@ Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.j
 
 - **`navigator.platform` в Firefox.** Firefox 110+ выдаёт пустой `navigator.platform`; runner стампит `machine.os` со стороны Node host'а, чтобы не получать пустоту в результате.
 - **Таймеры `performance.now()` в браузере.** Без cross-origin isolation Chromium квантует до 100 µs, Firefox — до 1 ms (Spectre mitigation). Phase 1.0.5 Wave 4 включил COI (COOP+COEP headers в Vite dev/preview servers), что подняло precision до ~5 µs (Chromium) и ~20 µs (Firefox). На S-размере без COI samples были 0/1 ms binary — теперь видны реальные fractional values.
-- **Mac CPU без подавления throttling.** Никаких `cpuset`/`taskset`/turbo-boost lock'ов не делается; на лэптопе на батарее cv может вылетать выше 5%.
+- **Mac CPU без подавления throttling.** Никаких `cpuset`/`taskset`/turbo-boost lock'ов не делается; на лэптопе на батарее relSem может не дойти до порога (высокий разброс) — такие кейсы помечаются жёлтым (variance-as-finding, не ошибка измерения).
 - **wasm-pack 0.13.1 + Rust 1.95.0**: внутренний wasm-opt из wasm-pack отключён через Cargo metadata, потому что валится на современный output. Внешний `wasm-opt` запускается build-скриптом отдельно.
 - **Тег `phase-1-0` совпадает с именем удалённой ветки.** Технически это легально (refs/tags vs refs/heads), но git кидает `warning: refname 'phase-1-0' is ambiguous` при `git rev-parse phase-1-0`. Используйте `refs/tags/phase-1-0` если нужно однозначно.

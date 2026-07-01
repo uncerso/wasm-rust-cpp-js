@@ -26,7 +26,7 @@ Follow `docs/workflow.md` exactly:
 
 1. **Select** — scan `docs/roadmap.md` + `docs/tech_debt/`; if backlog stale → `/backlog-review`; propose a slice; confirm with the user.
 2. **Branch** — `feature/<phase>-<slug>` from master.
-3. **Design** — invoke `/brainstorming` → spec; commit spec to branch.
+3. **Design** — invoke `/brainstorming` → spec; commit spec to branch. **Verify empirical premises by measurement** (timer resolution, quantization, perf numbers) before designing on them — don't take them from general knowledge; cross-check `docs/superpowers/notes/` + `docs/guidelines.md`. Forensics: `docs/pitfalls/2026-07-01-spec-premises-unmeasured.md`.
 4. **Plan** — invoke `/writing-plans` → plan WITH the mandatory Execution Protocol section; commit plan to branch.
    - Break: recommend `/finish-session` (user decides).
 5. **Orient** — (fresh session) re-read the session-state.

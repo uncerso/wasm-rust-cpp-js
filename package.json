@@ -26,7 +26,7 @@
     "lint:all": "pnpm lint:ts && pnpm lint:rust",
     "bench": "tsx scripts/run-matrix.ts",
     "report": "tsx scripts/report.ts",
-    "bench:all": "pnpm setup-tools && pnpm build:all && pnpm bench --mode=eval && pnpm report"
+    "bench:all": "pnpm setup-tools && pnpm build:all && pnpm bench --mode=eval --sizes=S,M,L && pnpm report"
   },
   "devDependencies": {
     "@bench/reporter": "workspace:^",
