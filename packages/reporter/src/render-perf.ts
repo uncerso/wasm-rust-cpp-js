@@ -57,6 +57,7 @@ export const PERF_CSS = `
 .cbox .v{flex:0 0 38px;text-align:right;font-weight:700}
 .hatch{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#ecd98c 5px 10px)!important}
 .hatch-fail{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#e0a0a0 5px 10px)!important}
+.subres{font:600 8px ui-monospace,monospace;color:#8a93a0;margin-left:5px;vertical-align:super}
 .shape-heat{border-collapse:separate;border-spacing:6px;margin-top:4px}
 .shape-heat th{font:700 9px ui-monospace;letter-spacing:.05em;text-transform:uppercase;color:#8a93a0;padding:2px 6px;text-align:center}
 .shape-heat th.rh{text-align:right}
@@ -151,18 +152,18 @@ function renderDataBar(value: number, max: number, fillClass: string): string {
 
 function renderDetailRow(row: PerfDetailRow, maxInit: number, maxWarm: number): string {
     const isFail = row.correctnessFailed;
-    const isNoisy = !isFail && row.noisy;
+    const isImprecise = !isFail && row.meanImprecise;
 
-    const trClass = isFail ? ' class="fail"' : isNoisy ? ' class="noisy"' : "";
-    const warmFillClass = isFail ? "hatch-fail" : isNoisy ? "hatch" : "";
-    const cvClass = isNoisy ? ' class="bad"' : "";
+    const trClass = isFail ? ' class="fail"' : isImprecise ? ' class="noisy"' : "";
+    const warmFillClass = isFail ? "hatch-fail" : isImprecise ? "hatch" : "";
     const okClass = isFail ? ' class="failx"' : "";
     const okMark = row.validated ? "✓" : "✗";
+    const badge = row.subResolution ? '<span class="subres">&lt;res</span>' : "";
 
     const initCell = `<td>${renderDataBar(row.initTotal, maxInit, "")}</td>`;
     const warmCell = `<td>${renderDataBar(row.warmMedian, maxWarm, warmFillClass)}</td>`;
 
-    return `<tr${trClass}><td>${escape(row.impl)}</td><td>${escape(row.env)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td${cvClass}>${row.cv.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
+    return `<tr${trClass}><td>${escape(row.impl)}${badge}</td><td>${escape(row.env)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td>${row.warmMad.toFixed(3)}</td><td>${row.cv.toFixed(3)}</td><td>${row.relSem.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
 }
 
 function renderPerfDetail(slice: PerfSlice): string {
@@ -175,7 +176,7 @@ function renderPerfDetail(slice: PerfSlice): string {
     return `<details>
 <summary class="pf-tg">details · all envs</summary>
 <table class="pf-t">
-<thead><tr><th>impl</th><th>env</th><th>init</th><th>first</th><th>warm med</th><th>p95</th><th>cv</th><th>ok</th></tr></thead>
+<thead><tr><th>impl</th><th>env</th><th>init</th><th>first</th><th>warm med</th><th>p95</th><th>mad</th><th>cv</th><th>relSem</th><th>ok</th></tr></thead>
 <tbody>
 ${rows}
 </tbody>
