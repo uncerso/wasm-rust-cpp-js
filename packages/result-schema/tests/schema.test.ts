@@ -31,16 +31,16 @@ describe("BenchResultSchema", () => {
                 fetch: 1.2, compile: 3.4, instantiate: 0.5, initTotal: 5.1,
                 firstCall: 1.0,
                 warmMedian: 0.8, warmP95: 1.0, warmP99: 1.1,
-                warmStddev: 0.05, warmMin: 0.7, warmMax: 1.2,
+                warmStddev: 0.05, warmMin: 0.7, warmMax: 1.2, warmMad: 0.04,
                 endToEndMedian: 6.5,
             },
             memory: { wasmMemoryBytesPeak: 65536, wasmMemoryDeltaBytes: 0, jsHeapUsedAfter: null },
-            stats: { nSamples: 30, cv: 0.02, noisy: false },
+            stats: { nSamples: 30, cv: 0.02, relSem: 0.004, meanImprecise: false, subResolution: false },
             quality: { checksum: "abc123", validated: true, correctnessFailed: false },
             notes: { streamingInstantiation: false, worker: true, wasmFeatures: ["bulk-memory"] },
         };
         const parsed = BenchResultSchema.parse(sample);
-        expect(parsed.schemaVersion).toBe(1);
+        expect(parsed.schemaVersion).toBe(2);
     });
 
     it("rejects unknown env.kind", () => {

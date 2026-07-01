@@ -62,6 +62,7 @@ export const TimingsSchema = z.object({
     warmStddev: z.number().nonnegative(),
     warmMin: z.number().nonnegative(),
     warmMax: z.number().nonnegative(),
+    warmMad: z.number().nonnegative(),
     endToEndMedian: z.number().nonnegative(),
 });
 
@@ -74,7 +75,9 @@ export const MemorySchema = z.object({
 export const StatsSchema = z.object({
     nSamples: z.number().int().positive(),
     cv: z.number().nonnegative(),
-    noisy: z.boolean(),
+    relSem: z.number().nonnegative(),
+    meanImprecise: z.boolean(),
+    subResolution: z.boolean(),
 });
 
 export const QualitySchema = z.object({
