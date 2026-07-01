@@ -352,3 +352,29 @@ mixed_static = единый `TaggedShape` class (один hidden class → monom
 **Caveats:** `tentative` — single workload, single JS toolchain (idiomatic), и effect местами у timer-quantization floor (Chromium +0.6% — в пределах 5µs bin). JS absolute ~5–7× slower native static (node L 4.5 ms vs 0.58–0.88 ms) — IC-tuning не закрывает этот gap. Top-level `score()` function (не closure-const switch в hot loop) обязателен независимо — см. V8-deopt claim выше. Не переносить на не-V8/SpiderMonkey движки без проверки.
 
 Mechanism: V8/SpiderMonkey хранят inline-cache state per call site; polymorphic IC (≤4 hidden classes) резолвится через small dispatch table — cheap relative к wasm `call_indirect` (нет cross-table bounds check + indirect branch misprediction той же стоимости). Object-graph indirection присутствует в JS в обоих вариантах (всё heap-allocated boxed), поэтому mixed-vs-homo layout difference washed out — в противоположность native, где inline enum array (contiguous) vs boxed pointers (chase) даёт +50…105% (тот же layout-эффект, что доминирует native suite, в JS ≈ 0).
+
+## Measurement
+
+### Sub-10–20 µs operations are unmeasurable per-call in-browser — compare at M
+**Status:** confirmed
+**Evidence:** `docs/superpowers/specs/2026-06-30-benchmark-cv-stabilization-design.md` (measured `performance.now()` floors); `results/raw/2026-06-25T22-11-21-860Z`
+**Phase:** introduced 1.1 / refined (CV-stabilization)
+**Caveats:** applies to browser only; Node resolves ~40 ns.
+
+Cross-origin isolation (COOP+COEP) is already enabled, giving Chromium 5 µs and Firefox 20 µs
+`performance.now()` resolution — the floor cannot be lowered further (disabling `reduceTimerPrecision`
+has no effect; only a SharedArrayBuffer counter-thread beats it, not worth it). A single call below
+that floor is unmeasurable; only the mean is recoverable (averaging is unbiased under quantization).
+Use the M tier for these workloads.
+
+### Read measurement precision (SEM) separately from operation variance (spread)
+**Status:** confirmed
+**Evidence:** `results/raw/2026-06-25T22-11-21-860Z` (offline re-analysis: 47 % CV-flagged → 16 % under a 3 % SEM gate)
+**Phase:** introduced (CV-stabilization)
+**Caveats:** none — this is how to read the perf tab.
+
+A high run-to-run spread (CV) does not mean the *mean* is imprecise: with n samples the mean's error is
+`CV/√n`. The reporter accepts a cell on `relSem` (SEM of the mean) and reports the spread (MAD/CV) as a
+property of the operation, not a failure. Large wasm operations in-browser carry real run-to-run
+variance (GC / event-loop / scheduling) even when their mean is precise — budget for it; do not read it
+as measurement error.
