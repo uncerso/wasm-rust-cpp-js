@@ -187,4 +187,17 @@ describe("renderPerfView", () => {
         expect(html).toContain("dynamic");
         expect(html).toMatch(/\+\d+%/);   // delta annotation on a dynamic cell
     });
+
+    it("renders a clean tray legend decoding amber/red/<res (no word-labels)", () => {
+        const html = renderPerfView(aggregate([fakeResult({}, 1.0, "node")]));
+        expect(html).toContain('class="perf-legend"');
+        expect(html).toContain("mean not pinned to 3% → see mad/cv");
+        expect(html).toContain("correctness fail (ok ✗)");
+        expect(html).toContain("below timer resolution — only the mean is reliable");
+        expect(html).toContain("#fdf6da");   // amber swatch
+        expect(html).toContain("#fbe4e4");   // red swatch
+        // clean legend: the colour speaks, no "amber ="/"red =" word-labels
+        expect(html).not.toContain("amber =");
+        expect(html).not.toContain("red =");
+    });
 });

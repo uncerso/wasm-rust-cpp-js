@@ -71,6 +71,10 @@ export const PERF_CSS = `
 .shape-heat td.a1 .dlt,.shape-heat td.a2 .dlt{color:#b5762f}
 .shape-heat td.a5 .dlt{color:#fff;opacity:.85}
 .shape-cap{font:400 11px ui-sans-serif;color:#9aa3b0;margin:7px 0 0}
+.perf-legend{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:9px;font-size:10.5px;color:#56606e;align-items:center}
+.pl-key{display:flex;align-items:center;gap:6px}
+.pl-sw{width:14px;height:11px;border-radius:2px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+.pl-badge{font:600 8px ui-monospace,monospace;color:#8a93a0;border:1px solid #cfd6de;border-radius:3px;padding:0 3px}
 `.trim();
 
 // ---------------------------------------------------------------------------
@@ -187,6 +191,14 @@ ${rows}
 </details>`;
 }
 
+function renderPerfLegend(): string {
+    return `<div class="perf-legend">
+  <span class="pl-key"><span class="pl-sw" style="background:#fdf6da"></span>mean not pinned to 3% → see mad/cv</span>
+  <span class="pl-key"><span class="pl-sw" style="background:#fbe4e4"></span>correctness fail (ok ✗)</span>
+  <span class="pl-key"><span class="pl-badge">&lt;res</span>below timer resolution — only the mean is reliable</span>
+</div>`;
+}
+
 function renderSegControl(ctrl: string, values: string[], active: string): string {
     const spans = values.map((v) => {
         const cls = v === active ? ' class="on"' : "";
@@ -270,6 +282,7 @@ export function renderPerfView(agg: Aggregated): string {
   <div class="perf-grp"><span class="perf-gl">size</span>${sizeCtrl}</div>
   <div class="perf-div"></div>
   <div class="perf-grp"><span class="perf-gl">profile</span>${profileCtrl}</div>
+  ${renderPerfLegend()}
 </div>`;
 
     // Per-workload small-multiples blocks
