@@ -200,4 +200,25 @@ describe("renderPerfView", () => {
         expect(html).not.toContain("amber =");
         expect(html).not.toContain("red =");
     });
+
+    it("renders the open-by-default 'how to read this tab' glossary callout", () => {
+        const html = renderPerfView(aggregate([fakeResult({}, 1.0, "node")]));
+        expect(html).toContain('class="perf-guide"');
+        expect(html).toMatch(/<details class="perf-guide" open>/);   // open by default
+        expect(html).toContain("how to read this tab");
+        expect(html).toContain("timing · ms");
+        expect(html).toContain("spread · precision");
+        expect(html).toContain("correctness");
+        // relSem line carries the precision-vs-spread insight + the highlight clause
+        expect(html).toContain("cv / √n");
+        expect(html).toContain("the row turns amber");
+    });
+
+    it("glossary defines every metric column in the detail table", () => {
+        const html = renderPerfView(aggregate([fakeResult({}, 1.0, "node")]));
+        // identifier columns (impl, env) are self-evident and intentionally excluded
+        for (const m of ["init", "first", "warm med", "p95", "mad", "cv", "relSem", "ok"]) {
+            expect(html).toContain(`<dt>${m}</dt>`);
+        }
+    });
 });
