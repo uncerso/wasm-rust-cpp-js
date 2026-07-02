@@ -71,6 +71,21 @@ export const PERF_CSS = `
 .shape-heat td.a1 .dlt,.shape-heat td.a2 .dlt{color:#b5762f}
 .shape-heat td.a5 .dlt{color:#fff;opacity:.85}
 .shape-cap{font:400 11px ui-sans-serif;color:#9aa3b0;margin:7px 0 0}
+.perf-legend{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:9px;font-size:10.5px;color:#56606e;align-items:center}
+.pl-key{display:flex;align-items:center;gap:6px}
+.pl-sw{width:14px;height:11px;border-radius:2px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+.pl-badge{font:600 8px ui-monospace,monospace;color:#8a93a0;border:1px solid #cfd6de;border-radius:3px;padding:0 3px}
+.perf-guide{margin:2px 0 8px;border:1px solid #cdd9e6;background:#f3f8fc;border-radius:9px}
+.perf-guide>summary{font:700 10px ui-monospace,monospace;letter-spacing:.05em;text-transform:uppercase;color:#4a6c90;cursor:pointer;padding:10px 14px}
+.perf-guide>summary::before{content:"ⓘ "}
+.perf-guide[open]>summary{border-bottom:1px solid #e0e9f1;padding-bottom:8px}
+.pg-in{padding:11px 14px 13px}
+.grp-lab{font:700 8.5px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:#8a93a0;margin:11px 0 4px}
+.grp-lab:first-child{margin-top:0}
+.gl2{display:grid;grid-template-columns:92px 1fr;gap:4px 12px;align-items:baseline;margin:0}
+.gl2 dt{font:700 10.5px ui-monospace,monospace;color:#2f3a49;text-align:right;margin:0}
+.gl2 dd{margin:0;font-size:11px;color:#4a5563;line-height:1.5}
+.gl2 dd em{color:#6e5208;font-style:normal;font-weight:600}
 `.trim();
 
 // ---------------------------------------------------------------------------
@@ -187,6 +202,39 @@ ${rows}
 </details>`;
 }
 
+function renderPerfLegend(): string {
+    return `<div class="perf-legend">
+  <span class="pl-key"><span class="pl-sw" style="background:#fdf6da"></span>mean not pinned to 3% → see mad/cv</span>
+  <span class="pl-key"><span class="pl-sw" style="background:#fbe4e4"></span>correctness fail (ok ✗)</span>
+  <span class="pl-key"><span class="pl-badge">&lt;res</span>below timer resolution — only the mean is reliable</span>
+</div>`;
+}
+
+function renderPerfGuide(): string {
+    return `<details class="perf-guide" open>
+  <summary>how to read this tab</summary>
+  <div class="pg-in">
+    <div class="grp-lab">timing · ms</div>
+    <dl class="gl2">
+      <dt>init</dt><dd>load + compile + instantiate (cold start)</dd>
+      <dt>first</dt><dd>first call, incl. JIT warm-up</dd>
+      <dt>warm med</dt><dd>median of warm calls — <em>the headline</em>, lower = faster</dd>
+      <dt>p95</dt><dd>95th percentile (tail)</dd>
+    </dl>
+    <div class="grp-lab">spread · precision</div>
+    <dl class="gl2">
+      <dt>mad</dt><dd>median absolute deviation, ms — spread, robust to outliers</dd>
+      <dt>cv</dt><dd>coefficient of variation = σ / mean — relative run-to-run spread</dd>
+      <dt>relSem</dt><dd>rel. standard error of the mean = cv / √n — precision of the mean; accept gate ≤ 3% (above it, the cell is highlighted and the row turns amber)</dd>
+    </dl>
+    <div class="grp-lab">correctness</div>
+    <dl class="gl2">
+      <dt>ok</dt><dd>reference checksum matched (✓ / ✗)</dd>
+    </dl>
+  </div>
+</details>`;
+}
+
 function renderSegControl(ctrl: string, values: string[], active: string): string {
     const spans = values.map((v) => {
         const cls = v === active ? ' class="on"' : "";
@@ -270,6 +318,7 @@ export function renderPerfView(agg: Aggregated): string {
   <div class="perf-grp"><span class="perf-gl">size</span>${sizeCtrl}</div>
   <div class="perf-div"></div>
   <div class="perf-grp"><span class="perf-gl">profile</span>${profileCtrl}</div>
+  ${renderPerfLegend()}
 </div>`;
 
     // Per-workload small-multiples blocks
@@ -292,6 +341,7 @@ ${sliceBlocks}
 
     return `${controls}
 <div class="perf-body">
+${renderPerfGuide()}
 ${workloadSections}
 ${shapeSection}
 </div>`;

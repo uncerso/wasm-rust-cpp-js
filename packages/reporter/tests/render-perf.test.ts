@@ -187,4 +187,38 @@ describe("renderPerfView", () => {
         expect(html).toContain("dynamic");
         expect(html).toMatch(/\+\d+%/);   // delta annotation on a dynamic cell
     });
+
+    it("renders a clean tray legend decoding amber/red/<res (no word-labels)", () => {
+        const html = renderPerfView(aggregate([fakeResult({}, 1.0, "node")]));
+        expect(html).toContain('class="perf-legend"');
+        expect(html).toContain("mean not pinned to 3% → see mad/cv");
+        expect(html).toContain("correctness fail (ok ✗)");
+        expect(html).toContain("below timer resolution — only the mean is reliable");
+        expect(html).toContain("#fdf6da");   // amber swatch
+        expect(html).toContain("#fbe4e4");   // red swatch
+        // clean legend: the colour speaks, no "amber ="/"red =" word-labels
+        expect(html).not.toContain("amber =");
+        expect(html).not.toContain("red =");
+    });
+
+    it("renders the open-by-default 'how to read this tab' glossary callout", () => {
+        const html = renderPerfView(aggregate([fakeResult({}, 1.0, "node")]));
+        expect(html).toContain('class="perf-guide"');
+        expect(html).toMatch(/<details class="perf-guide" open>/);   // open by default
+        expect(html).toContain("how to read this tab");
+        expect(html).toContain("timing · ms");
+        expect(html).toContain("spread · precision");
+        expect(html).toContain("correctness");
+        // relSem line carries the precision-vs-spread insight + the highlight clause
+        expect(html).toContain("cv / √n");
+        expect(html).toContain("the row turns amber");
+    });
+
+    it("glossary defines every metric column in the detail table", () => {
+        const html = renderPerfView(aggregate([fakeResult({}, 1.0, "node")]));
+        // identifier columns (impl, env) are self-evident and intentionally excluded
+        for (const m of ["init", "first", "warm med", "p95", "mad", "cv", "relSem", "ok"]) {
+            expect(html).toContain(`<dt>${m}</dt>`);
+        }
+    });
 });
