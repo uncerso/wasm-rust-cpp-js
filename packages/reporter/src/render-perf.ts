@@ -76,9 +76,8 @@ export const PERF_CSS = `
 .pl-sw{width:14px;height:11px;border-radius:2px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
 .pl-badge{font:600 8px ui-monospace,monospace;color:#8a93a0;border:1px solid #cfd6de;border-radius:3px;padding:0 3px}
 .perf-guide{margin:2px 0 8px;border:1px solid #cdd9e6;background:#f3f8fc;border-radius:9px}
-.perf-guide>summary{font:700 10px ui-monospace,monospace;letter-spacing:.05em;text-transform:uppercase;color:#4a6c90;cursor:pointer;list-style:none;padding:10px 14px}
+.perf-guide>summary{font:700 10px ui-monospace,monospace;letter-spacing:.05em;text-transform:uppercase;color:#4a6c90;cursor:pointer;padding:10px 14px}
 .perf-guide>summary::before{content:"ⓘ "}
-.perf-guide>summary::after{content:" ▾";color:#9fb3c8}
 .perf-guide[open]>summary{border-bottom:1px solid #e0e9f1;padding-bottom:8px}
 .pg-in{padding:11px 14px 13px}
 .grp-lab{font:700 8.5px ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:#8a93a0;margin:11px 0 4px}
