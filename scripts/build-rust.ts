@@ -7,7 +7,9 @@ import {
 } from "./lib/matrix.js";
 import { statArtifact, writeMeta, type ArtifactMeta } from "./lib/meta.js";
 import { detectActual } from "./lib/tool-versions.js";
-import { wasmOptPath, wasmPackPath } from "./lib/tool-paths.js";
+import { wasmPackPath } from "./lib/tool-paths.js";
+import { optimizeWasm } from "./lib/wasm-opt.js";
+import { rustBuildPath } from "./lib/build-env.js";
 import { attributeRustRaw, attributeRustBindgen } from "./lib/size-attr-build.js";
 
 function metaFromBinary(c: BinaryCombination): ArtifactMeta["combination"] {
@@ -25,16 +27,18 @@ async function buildRaw(c: BinaryCombination): Promise<void> {
     const out = distDirFor(c);
     await mkdir(out, { recursive: true });
 
-    await run("cargo", ["build", `--profile=${profile}`, "--target=wasm32-unknown-unknown"], { cwd: crateDir });
+    await run("cargo", ["build", `--profile=${profile}`, "--target=wasm32-unknown-unknown"], {
+        cwd: crateDir,
+        env: { PATH: rustBuildPath() },
+    });
     // Cargo workspace puts artifacts at workspace root target/, not per-crate.
     const wasmName = `${c.sourceBench}_rust_raw.wasm`;
     const src = join("target", "wasm32-unknown-unknown", profile, wasmName);
     const dst = join(out, "module.wasm");
     await copyFile(src, dst);
 
-    if (c.profile === "size") {
-        await run(wasmOptPath(), ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", dst, "-o", dst]);
-    }
+    // Option B: wasm-opt on both profiles (speed -O3, size -Oz).
+    await optimizeWasm(dst, c.profile === "size" ? "Oz" : "O3");
 
     const wasmStat = await statArtifact(dst);
     const composition = await attributeRustRaw(c, {
@@ -59,7 +63,7 @@ async function buildBindgen(c: BinaryCombination): Promise<void> {
     await mkdir(out, { recursive: true });
 
     // wasm-pack has its internal wasm-opt disabled via Cargo metadata; we run
-    // wasm-opt -Oz manually for the size profile after copying artifacts.
+    // wasm-opt manually after copying artifacts — both profiles (Option B): -O3 speed, -Oz size.
     // NOTE: wasm-pack's CLI only offers --dev/--release/--profiling (no way to select a custom
     // cargo profile), so BOTH profiles build via --release (opt-level=3 codegen) and the size
     // profile gets its squeeze purely from the post-build wasm-opt -Oz. rust/raw, which calls
@@ -68,7 +72,10 @@ async function buildBindgen(c: BinaryCombination): Promise<void> {
     // is deferred: see docs/roadmap.md `bindgen-size-opt-level`.
     const pkgDir = join(crateDir, "pkg-tmp");
     await rm(pkgDir, { recursive: true, force: true });
-    await run(wasmPackPath(), ["build", "--target=web", "--release", "--out-dir=pkg-tmp"], { cwd: crateDir });
+    await run(wasmPackPath(), ["build", "--target=web", "--release", "--out-dir=pkg-tmp"], {
+        cwd: crateDir,
+        env: { PATH: rustBuildPath() },
+    });
 
     const files = await readdir(pkgDir);
     const wasmFile = files.find((f) => f.endsWith("_bg.wasm"));
@@ -85,9 +92,7 @@ async function buildBindgen(c: BinaryCombination): Promise<void> {
     await copyFile(join(pkgDir, wasmFile), wasmDst);
     await copyFile(join(pkgDir, jsFile), glueDst);
 
-    if (c.profile === "size") {
-        await run(wasmOptPath(), ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", wasmDst, "-o", wasmDst]);
-    }
+    await optimizeWasm(wasmDst, c.profile === "size" ? "Oz" : "O3");
 
     const wasmStat = await statArtifact(wasmDst);
     const glueStat = await statArtifact(glueDst);

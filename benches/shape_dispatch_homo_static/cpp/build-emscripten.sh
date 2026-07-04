@@ -43,7 +43,7 @@ emcc \
 # Emscripten emits i32.trunc_sat_f64_u + memory.fill in current toolchains, so
 # we have to opt those features into wasm-opt explicitly.
 if [[ "$PROFILE" == "size" ]]; then
-  wasm-opt -Oz \
+  "${WASM_OPT:-wasm-opt}" -Oz \
     --enable-bulk-memory \
     --enable-nontrapping-float-to-int \
     "$OUT_DIR/glue.wasm" -o "$OUT_DIR/glue.wasm"

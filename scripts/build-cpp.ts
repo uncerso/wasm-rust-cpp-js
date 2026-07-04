@@ -10,6 +10,8 @@ import { statArtifact, writeMeta, type ArtifactMeta } from "./lib/meta.js";
 import { detectActual } from "./lib/tool-versions.js";
 import { wasiSdkPath, wasmOptPath } from "./lib/tool-paths.js";
 import { emsdkEnv } from "./lib/emsdk-env.js";
+import { optimizeWasm } from "./lib/wasm-opt.js";
+import { wasiSdkBuildPath } from "./lib/build-env.js";
 import { attributeWasiSdk, attributeEmscripten } from "./lib/size-attr-build.js";
 
 function metaFromBinary(c: BinaryCombination): ArtifactMeta["combination"] {
@@ -28,12 +30,13 @@ async function buildEmscripten(c: BinaryCombination): Promise<void> {
     // Fall back to system emsdk on PATH when .tools/emsdk is absent (dev convenience;
     // pnpm setup populates the dir, after which emsdkEnv() is the source of truth).
     const emsdk = existsSync(resolve(".tools/emsdk")) ? await emsdkEnv() : {};
-    const toolsBin = resolve(".tools/bin");
-    const mergedPath = `${toolsBin}:${emsdk["PATH"] ?? process.env["PATH"] ?? ""}`;
+    // emcc runs its own bundled binaryen internally; it needs only the emsdk environment.
+    // Dropping .tools/bin keeps emcc from ever shadowing its wasm-opt with the pinned one.
+    const emsdkPath = emsdk["PATH"] ?? process.env["PATH"] ?? "";
     const attrDir = resolve("target/attr-cpp", `${c.sourceBench}-${c.toolchain}-${c.profile}`);
     await mkdir(attrDir, { recursive: true });
     await run("bash", [script, c.profile, resolve(out)], {
-        env: { ...emsdk, PATH: mergedPath, SIZE_ATTR: "1", ATTR_OUT: attrDir },
+        env: { ...emsdk, PATH: emsdkPath, WASM_OPT: wasmOptPath(), SIZE_ATTR: "1", ATTR_OUT: attrDir },
     });
 
     // Emscripten emits glue.mjs + glue.wasm side-by-side; glue.mjs hardcodes
@@ -62,22 +65,19 @@ async function buildWasiSdk(c: BinaryCombination): Promise<void> {
     const script = resolve(`benches/${c.sourceBench}/cpp/build-wasi-sdk.sh`);
     const attrDir = resolve("target/attr-cpp", `${c.sourceBench}-${c.toolchain}-${c.profile}`);
     await mkdir(attrDir, { recursive: true });
+    // Empty PATH: the wasi-sdk clang -flto driver cannot auto-discover any wasm-opt, so the
+    // build is deterministic regardless of the user's machine. The shell only links (module.wasm
+    // stripped, module.attr.wasm name-bearing); the explicit wasm-opt pass below owns optimization.
     await run("bash", [script, c.profile, resolve(out)], {
         env: {
+            PATH: wasiSdkBuildPath(),
             WASI_SDK_PATH: wasiSdkPath(),
             SIZE_ATTR: "1",
-            WASM_OPT: wasmOptPath(), // absolute path for the explicit size wasm-opt pass
             ATTR_OUT: attrDir, // name-bearing attr.wasm goes here, not dist
-            // PROD_PATH carries .tools/bin for the PRODUCTION clang++ invocation ONLY, so the
-            // wasi-sdk clang -flto driver auto-finds + runs wasm-opt post-link — reproducing the
-            // size/perf baseline measured since Phase 1.1 (byte-identical production binary).
-            // The attr clang++ runs WITHOUT it (clean inherited PATH) so the name section survives.
-            // Making cpp wasm-opt explicit + fully isolating PATH (so wasi-sdk clang can't pick up
-            // a stray wasm-opt from the user's machine) is deferred — see docs/roadmap.md
-            // path-hygiene-build-isolation.
-            PROD_PATH: resolve(".tools/bin"),
         },
     });
+    // Explicit, deterministic wasm-opt (Option B: all profiles — speed -O3, size -Oz).
+    await optimizeWasm(join(out, "module.wasm"), c.profile === "speed" ? "O3" : "Oz");
 
     const wasmStat = await statArtifact(join(out, "module.wasm"));
     const composition = await attributeWasiSdk(c, attrDir, {

@@ -41,7 +41,7 @@ emcc \
 
 # Apply wasm-opt -Oz on size profile (in addition to closure).
 if [[ "$PROFILE" == "size" ]]; then
-  wasm-opt -Oz \
+  "${WASM_OPT:-wasm-opt}" -Oz \
     --enable-bulk-memory \
     --enable-nontrapping-float-to-int \
     "$OUT_DIR/glue.wasm" -o "$OUT_DIR/glue.wasm"

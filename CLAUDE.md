@@ -62,7 +62,7 @@ Build, test, typecheck, lint, bench, and report commands live in `README.md` (§
 
 - **Retry budget** — ≤2 attempts at the same approach; then STOP and rethink, don't keep hammering.
 - **Subagent fan-out is not free** — dispatch a subagent only for heavy/large work, NOT "subagent everything".
-- **Read before edit / grep callers** — keep edit:read close to ~4:1; understand before changing.
+- **Read before edit / grep callers** — keep edit:read close to ~4:1; understand before changing. Changing a repeated invocation/convention? grep the **whole repo** for it first (esp. parallel per-workload build scripts / templates) — copy-paste siblings drift independently; don't design or plan from the focal file alone.
 
 ## Capture
 
@@ -81,7 +81,7 @@ When you notice tech-debt, a roadmap-scale idea, a confirmed guideline, an agent
 - **Pipe exit codes** — a pipeline's `$?` is the rightmost command's, hiding an earlier failure. Use `set -o pipefail` (bash + zsh), or read the producer's status: `${pipestatus[1]}` in zsh (the repo's shell), `${PIPESTATUS[0]}` in bash. Write logs to `$TMPDIR`, not `/tmp` (sandbox-blocked).
 - **`git stash`** — unreliable under sandbox here (partial stash, silent pop failures). Prefer `git diff <commit> -- <file>` / `git show <commit>:<file>`, or copy files to `$TMPDIR/`.
 - **Subagent-divergence check** — before reverting a subagent's divergence "for consistency," run the gate it might satisfy (lint/typecheck/test) on both versions; if the "consistent" version fails a gate the divergent one passed, keep + document why.
-- **Build differs pipeline-vs-standalone** — when a build/tool gives different output in the pipeline vs a standalone repro of the "same" command, diff the **environment** (esp. `PATH`), not just argv: a tool on `PATH` can be auto-invoked by the compiler driver (e.g. `.tools/bin` on PATH → wasi-sdk clang `-flto` auto-runs `wasm-opt`, stripping the wasm name section). Forensics: `docs/pitfalls/2026-06-25-cpp-wasi-sdk-name-section-env-diff.md`.
+- **Build differs pipeline-vs-standalone** — when a build/tool gives different output in the pipeline vs a standalone repro of the "same" command, diff the **environment** (esp. `PATH`), not just argv: a tool on `PATH` can be auto-invoked by the compiler driver (e.g. `.tools/bin` on PATH → wasi-sdk clang `-flto` auto-runs `wasm-opt`, stripping the wasm name section). That specific wasi-sdk case is resolved (build-hygiene, 2026-07-04: wasi-sdk build gets a wasm-opt-free PATH + explicit `optimizeWasm`), but the general lesson stands. Forensics: `docs/pitfalls/2026-06-25-cpp-wasi-sdk-name-section-env-diff.md`.
 - **`!` in inline Bash commands** — the harness escapes `!` → `\!` in command strings **even inside single/double quotes**, so a literal `\!` reaches the interpreter and breaks `node -e` / heredocs (`Expected unicode escape`). It is NOT zsh history-expansion (single-quoted `!` proves it's external escaping). Write JS to a file (`Write` tool) and run `node file.mjs`, or avoid `!` inline (`=== false`, `.length === 0`).
 
 ## Commits

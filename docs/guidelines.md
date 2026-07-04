@@ -48,24 +48,41 @@ Skill `/finish-session` напоминает обновлять файл при 
 
 ## Build flags
 
-<!-- empty — заполнится при появлении первого confirmed вывода из phases -->
+### Прогоняй `wasm-opt` и на speed-профиле, не только на size — он сжимает артефакт всех wasm-тулчейнов без измеримой потери runtime
+**Status:** confirmed
+**Evidence:** build-hygiene (2026-07-04). Size: `dist/*/{rust-raw,rust-bindgen,cpp-wasi-sdk}-speed/meta.json` до/после включения speed-wasm-opt. Perf: `results/raw/2026-07-04T12-06-07-626Z` (до) vs `results/raw/2026-07-04T14-56-02-425Z` (после), full matrix, 0 correctness-fail.
+
+Size (raw wasm, speed profile, включение `wasm-opt -O3`) — все 32 изменённых артефакта стали меньше, 0 больше:
+
+| toolchain | типичная Δ | экстремум |
+|---|---|---|
+| rust/raw (раньше БЕЗ wasm-opt на speed) | −6…−11% | hashmap_string **−28%**, hashmap_int **−18%** |
+| rust/bindgen (раньше БЕЗ) | −11…−17% | hashmap_string −23% |
+| cpp/wasi-sdk (раньше неявно через драйвер) | −0.6…−2% | interop −30%, matmul −11% (крошечные бинари) |
+
+Наибольший выигрыш — `rust/raw`-speed: раньше speed-профиль не получал `wasm-opt` вообще (только size). Perf-эффект тонет в run-to-run шуме (L-size cross-run: 21 быстрее / 16 медленнее / 89 в ±5%; знаки несогласованы между env'ами у одного workload'а → шум, не систематика).
+
+**Phase:** introduced build-hygiene (2026-07-04)
+**Caveats:** cpp/emscripten гоняет binaryen внутри emcc (`-O3`/`-Oz`), не отдельным явным пассом — уже оптимизирован. Perf-нейтральность — вывод из cross-run сравнения, где эффект <~3% неотделим от шума; контролируемый same-session A/B в дизайн-фазе показал cpp hashmap-speed −11…−14% (быстрее), rust ~0 → на allocator-тяжёлом коде wasm-opt может и ускорять. Speed остаётся `-O3` (не `-Oz`): оптимизируем скорость, размер — бонус.
 
 ## Artifact size
 
+> **Заметка (build-hygiene, 2026-07-04):** с этой даты `wasm-opt` гоняется на обоих профилях у всех явно-эмитящих wasm тулчейнов (см. claim в § Build flags). Две size-байт-таблицы, где speed-числа сдвинулись (no-glue transfer выше, monomorphization ниже), **пересчитаны** на прогон 2026-07-04. Size-профиль в остальных claim'ах: rust без изменений (уже `-Oz`), cpp/wasi-sdk −0.7…−2.3% (один явный `-Oz` вместо driver+double), emscripten без изменений — в пределах order-of-magnitude-оговорок этих claim'ов. Perf-claim'ы (§ Toolchain choice) не затронуты: perf-сдвиг тонет в run-to-run шуме. **Направления и выводы всех claim'ов сохраняются.**
+
 ### Для минимального transfer size при простых экспортах выбирай no-glue (`rust/raw` extern "C" / `cpp/wasi-sdk`) — auto-glue добавляет фиксированный gzip-floor независимо от контейнера/ключа
 **Status:** confirmed
-**Evidence:** Phase 1.2, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/hashmap_{int,string}_*__{rust-raw,rust-bindgen,cpp-wasi-sdk,cpp-emscripten}-{speed,size}__*__node.json`. Artifact bytes (env/size-invariant). Total gzipped transfer (wasm.gz + glue.gz):
+**Evidence:** Phase 1.2 (направление) + re-baseline build-hygiene 2026-07-04 (`dist/*/meta.json`, `totalTransferGzipBytes`, post wasm-opt-on-speed). Artifact bytes (env/size-invariant). Total gzipped transfer (wasm.gz + glue.gz):
 
 | workload | profile | rust/raw | rust/bindgen | Δ | cpp/wasi-sdk | cpp/emscripten | Δ |
 |---|---|---|---|---|---|---|---|
-| int | size | **7820** | 10173 | −23% | **5477** | 7695 | −29% |
-| int | speed | **9708** | 11624 | −16% | **5745** | 9312 | −38% |
-| str | size | **9159** | 11580 | −21% | **6507** | 8238 | −21% |
-| str | speed | **12454** | 14303 | −13% | **6979** | 9949 | −30% |
+| int | size | **7813** | 10173 | −23% | **5365** | 7695 | −30% |
+| int | speed | **8199** | 10155 | −19% | **5647** | 9312 | −39% |
+| str | size | **9153** | 11580 | −21% | **6396** | 8238 | −22% |
+| str | speed | **9576** | 11562 | −17% | **6878** | 9949 | −31% |
 
-Direction (no-glue < glue total transfer) consistent across 2 key-types × 2 profiles. JS-glue floor (gzipped) почти постоянен по key-type: wasm-bindgen ~1.6 KB (оба профиля); emscripten ~2.1 KB (size) / ~3.4 KB (speed). int≈str glue bytes (bindgen 1598≈1599; emscripten 2084≈2087) → floor зависит от toolchain+profile, НЕ от контейнера/ключа.
+Direction (no-glue < glue total transfer) consistent across 2 key-types × 2 profiles. JS-glue floor (gzipped) почти постоянен по key-type: wasm-bindgen ~1.6 KB (оба профиля); emscripten ~2.1 KB (size) / ~3.4 KB (speed). int≈str glue bytes (bindgen 1598≈1599; emscripten 2084≈2087) → floor зависит от toolchain+profile, НЕ от контейнера/ключа. Направление сохранилось после build-hygiene, магнитуды меньше (speed-профиль теперь тоже `wasm-opt`; см. § Build flags).
 
-**Phase:** introduced 1.2
+**Phase:** introduced 1.2 / re-baselined build-hygiene 2026-07-04
 
 **Caveats:** Применимо когда не нужны фичи bindgen/emscripten за пределами простых numeric-экспортов — нет marshalling'а JS-строк/объектов per-call, нет DOM/FS/env-доступа, нет auto-managed памяти. no-glue требует ручных `alloc`/`load_input` + инстанцирования с пустыми импортами `{}`. Часть выигрыша — сам wasm (no-glue wasm обычно тоже чуть меньше: bindgen/emscripten вшивают marshalling-код); floor — это JS-glue файл, который no-glue устраняет целиком. Для cpp `string` no-glue выигрыш меньше (libc++ `string.cpp.o` монолитен — тянет dead `to_string`/`stoX`, см. pitfall).
 
@@ -312,24 +329,24 @@ Direction (static < dynamic) consistent across 4 native toolchains × {M, L} siz
 
 Mechanism: static dispatch резолвится на compile-time — call inlines, no indirection. `homo_dyn` сохраняет vtable (`call_indirect` в wasm, verified > 0 во всех `*_dyn` артефактах), но call site monomorphic (один concrete тип на цикл) → BTB предсказывает target, cache locality сохранена. `mixed_dyn` — polymorphic-3 call site над interleaved heap objects: indirect-call target меняется per-iteration (BTB misses) + objects разбросаны по heap (worst-case Triangle-stride slots + pointer array → cache-line waste). Anti-devirt friction (`core::hint::black_box` / volatile sink) preventing compiler от devirtualizing обратно в static.
 
-### Monomorphization (N специализированных циклов под N типов) vs single tag-`switch`/enum-`match` loop — это size-за-locality trade: +440…540 B (cpp + rust/raw) .. +1.0–1.6 KB (rust/bindgen) на raw wasm
+### Monomorphization (N специализированных циклов под N типов) vs single tag-`switch`/enum-`match` loop — это size-за-locality trade: +370…535 B (cpp + rust/raw) .. ~1.06 KB (rust/bindgen) на raw wasm
 **Status:** confirmed
-**Evidence:** Phase 1.1.3, `dist/shape_dispatch_{homo,mixed}_static/*/` meta (artifact size env/size-invariant). `homo_static` эмитит 3 мономорфизированных копии loop body (по одной на Circle/Square/Triangle); `mixed_static` — один `switch(tag)`/`match` loop. Raw wasm bytes:
+**Evidence:** Phase 1.1.3 (направление) + re-baseline build-hygiene 2026-07-04, `dist/shape_dispatch_{homo,mixed}_static/*/meta.json` (`wasm.rawBytes`, env/size-invariant, post wasm-opt-on-speed). `homo_static` эмитит 3 мономорфизированных копии loop body (по одной на Circle/Square/Triangle); `mixed_static` — один `switch(tag)`/`match` loop. Raw wasm bytes:
 
 | toolchain | profile | homo_static | mixed_static | Δraw | Δ% |
 |---|---|---|---|---|---|
 | cpp-emscripten | speed | 6246 | 5802 | +444 | +7.7% |
 | cpp-emscripten | size | 1659 | 1178 | +481 | +41% |
-| cpp-wasi-sdk | speed | 6155 | 5661 | +494 | +8.7% |
-| cpp-wasi-sdk | size | 6024 | 5491 | +533 | +9.7% |
-| rust-raw | speed | 1839 | 1401 | +438 | +31% |
+| cpp-wasi-sdk | speed | 6050 | 5556 | +494 | +8.9% |
+| cpp-wasi-sdk | size | 5898 | 5365 | +533 | +9.9% |
+| rust-raw | speed | 1664 | 1293 | +371 | +29% |
 | rust-raw | size | 1522 | 1057 | +465 | +44% |
-| rust-bindgen | speed | 15027 | 13458 | +1569 | +12% |
+| rust-bindgen | speed | 12455 | 11394 | +1061 | +9.3% |
 | rust-bindgen | size | 12449 | 11392 | +1057 | +9.3% |
 
-Direction (monomorphized > switch) consistent across 4 toolchains × 2 profiles. Absolute Δraw стабилен (~440–540 B для cpp + rust/raw; bindgen +1.0–1.6 KB на своём большем baseline). `homo_dyn` vs `mixed_dyn` показывает тот же паттерн.
+Direction (monomorphized > switch) consistent across 4 toolchains × 2 profiles. Absolute Δraw стабилен (~370–535 B для cpp + rust/raw; bindgen ~1.06 KB на своём большем baseline). `homo_dyn` vs `mixed_dyn` показывает тот же паттерн. После build-hygiene rust-bindgen-speed Δ сжался (+1569→+1061 B: speed теперь тоже `wasm-opt`, сравнялся с size).
 
-**Phase:** introduced 1.1.3
+**Phase:** introduced 1.1.3 / re-baselined build-hygiene 2026-07-04
 
 **Caveats:** Single workload, K=3 типа. Δ% наибольший на малых baselines (rust/raw size +44%, cpp-emscripten size +41%) — fixed monomorphization cost доминирует tiny binaries; на больших baselines +7…12%. gzip/brotli premium меньше raw (компрессор folds duplicated loop bodies → для transfer-size бюджета эффект слабее). Trade важен когда K растёт ИЛИ per-type body большой; для K=2–3 малых тел дешевле один switch. Runtime homo_static vs mixed_static **не** clean A/B (отличаются и layout, и dispatch — см. dispatch claim выше); этот claim строго про artifact size.
 
