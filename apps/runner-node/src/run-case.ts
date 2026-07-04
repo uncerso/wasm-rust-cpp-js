@@ -135,9 +135,9 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
         ? computeStats(measure.warmSamplesMs)
         : { median: 0, p95: 0, p99: 0, stddev: 0, min: 0, max: 0, mean: 0, cv: 0, mad: 0, relSem: 0, n: 0 };
 
-    // Whether wasm-opt actually ran: only for size profile of rust/cpp.
-    const ranWasmOpt =
-        input.profile === "size" && (input.language === "rust" || input.language === "cpp");
+    // wasm-opt runs for every rust/cpp profile now (Option B): rust/cpp speed + size get an
+    // explicit pass; emscripten runs binaryen internally via emcc plus an explicit -Oz for size.
+    const ranWasmOpt = input.language === "rust" || input.language === "cpp";
 
     const artifactHashRaw = meta.wasm?.hashSha256 ?? meta.jsModule?.hashSha256;
 

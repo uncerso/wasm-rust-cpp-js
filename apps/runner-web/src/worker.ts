@@ -140,9 +140,9 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
             ? computeStats(measure.warmSamplesMs)
             : { median: 0, p95: 0, p99: 0, stddev: 0, min: 0, max: 0, mean: 0, cv: 0, mad: 0, relSem: 0, n: 0 };
 
-        // NOTE A: derive postprocess from profile/language, not from toolchainVersions
-        const ranWasmOpt =
-            i.profile === "size" && (i.language === "rust" || i.language === "cpp");
+        // NOTE A: derive postprocess from profile/language, not from toolchainVersions.
+        // Option B: wasm-opt runs for every rust/cpp profile (speed + size), not size-only.
+        const ranWasmOpt = i.language === "rust" || i.language === "cpp";
 
         const artifactHashRaw = meta.wasm?.hashSha256 ?? meta.jsModule?.hashSha256;
 
