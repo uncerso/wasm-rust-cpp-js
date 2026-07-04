@@ -15,4 +15,4 @@ Default standard for all prose humans read in this repo — docs, commit message
 
 ## Polish pass
 
-The cheat-sheet above is the inline standard. For a heavy edit, dispatch a subagent that loads the full `writing-clearly-and-concisely` skill — keep that load off the main per-turn context. The fuller distillation lives in tech-debt `writing-clearly-distillation`.
+The cheat-sheet above is the inline standard. For a heavy edit, dispatch a subagent that loads the full `writing-clearly-and-concisely` skill — keep that load off the main per-turn context.

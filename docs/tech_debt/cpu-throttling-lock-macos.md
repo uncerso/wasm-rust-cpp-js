@@ -4,7 +4,7 @@ title: На macOS нет CPU throttling lock — cv может вылетать 
 created: 2026-05-14
 source: docs/superpowers/specs/2026-05-04-housekeeping-design.md + README «Известные ограничения»
 category: known-limitation
-status: open
+status: wontfix
 priority: medium
 ---
 
@@ -37,3 +37,13 @@ single-threaded).
 - `docs/superpowers/specs/2026-05-04-housekeeping-design.md` (Phase 1.0.5 carry-over)
 - README.md «Известные ограничения» секция (user-facing acknowledgement)
 - `scripts/run-matrix.ts` (где можно добавить pre-flight)
+
+## Decision
+
+**Wontfix — 2026-07-04** (`/backlog-review`). Hardware-limitation: macOS не даёт
+`cpuset`/`taskset`. Run-to-run variance уже обрабатывается методологически —
+CV-stabilization (PR #10): SEM-of-mean gate (`relSem = cv/√n`, 3% порог) + variance-as-finding
+(amber). Ограничение остаётся задокументированным в README «Известные ограничения»
+(user-facing). Активная mitigation (`taskpolicy` / battery pre-flight warning) — низкий
+ROI поверх уже-shipped statistical gate. Пересмотреть, если появятся систематически noisy
+результаты, которые SEM-gate не ловит.

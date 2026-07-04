@@ -4,7 +4,7 @@ title: Add .clangd config so IDE diagnostics on benches/*/cpp/src/*.cpp use C++2
 created: 2026-05-23
 source: docs/pitfalls/2026-05-23-phase-1-1-2-execution.md § Tooling
 category: nice-to-have
-status: open
+status: wontfix
 priority: low
 ---
 
@@ -58,3 +58,11 @@ investigated.
 - `docs/pitfalls/2026-05-23-phase-1-1-2-execution.md` § Tooling > "Clangd diagnostics noise"
 - `benches/hashmap_int/cpp/src/hashmap_int.cpp` (Task 20)
 - `benches/hashmap_string/cpp/src/hashmap_string.cpp` (Task 19)
+
+## Decision
+
+**Wontfix — 2026-07-04** (`/backlog-review`). IDE-only diagnostics noise — не влияет на
+build/correctness (реальный `emcc -std=c++23 -Werror` проходит чисто). `.clangd` /
+`compile_flags.txt` — локальная dev-настройка, каждый настраивает под свой редактор; не
+repo-critical. Низкая ценность vs churn. Пересмотреть, если C++ surface существенно
+вырастет и IDE-friction станет систематической.
