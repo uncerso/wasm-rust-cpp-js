@@ -54,7 +54,7 @@ Via `AskUserQuestion` (single or multiSelect, depending on bucket size), offer p
 | defer | Move to a later bucket (e.g. Phase 1.1 → 1.2, or TBD → Phase 1.2). |
 | remove (done/spec'd) | Item finished, implemented, or graduated to a spec. Delete the line. If it references a tech-debt slug, ask whether to delete the tech-debt file (per the resolved → delete policy). |
 | move to Won't do | Explicit rejection. Ask for a rationale plus today's date; move the entry to `## Won't do` as `- **<name>** — <desc>; **Decided <YYYY-MM-DD>:** <rationale>`. |
-| skip | No change. |
+| skip | No change — reserve for the genuinely-undecided (see § Important → Disposition discipline). |
 
 With many items (>16), batch by bucket or cluster — NEVER more than 4 questions at once. Run several rounds for a large backlog.
 
@@ -97,7 +97,7 @@ Ask the user in a batch via `AskUserQuestion` (multiSelect=true) which items to 
 | resolved | Item fixed. Ask for a short note (1-2 lines), then **delete the file** (history via `git log --all --full-history -- docs/tech_debt/<slug>.md`). If linked from roadmap.md, also remove that line. |
 | wontfix | Item will not be fixed. Ask for a rationale, change frontmatter `status` to `wontfix`, add a `## Decision` section. The file **stays** in `docs/tech_debt/`. NEVER duplicate it into roadmap.md § Won't do — that section is for feature-level rejections only. |
 | moved-to-roadmap | Item folded into the next phase plan. Delete the file; note it in the commit message as `tech_debt: <slug> moved to <plan-file>`. If linked from roadmap.md, also remove the link. |
-| skip | Leave as is. |
+| skip | Leave as is — reserve for the genuinely-undecided (see § Important → Disposition discipline). |
 
 If all items are `status: open` and the user wants to batch-resolve by type, allow multiSelect.
 
@@ -116,6 +116,7 @@ Final report:
 
 ## Important
 
+- **Disposition discipline — `skip` / leaving an item `open` is for the genuinely-undecided ONLY** ("unclear if we even want this"). If an item is actionable and wanted → **promote to roadmap** (do it in an upcoming iteration); if it won't be pursued or is an accepted limitation → **wontfix** (tech-debt) / **Won't do** (roadmap feature); if its goal is already met → **resolved**. NEVER leave a wanted, actionable item languishing as `open` — that drains the backlog's signal. Frame every `AskUserQuestion` option set around this.
 - NEVER make file edits or deletions without explicit confirmation via `AskUserQuestion`.
 - Pass 1 format audit (step 2) MUST run before any triage. Fix formatting first.
 - Keep the two stores separate — NEVER merge roadmap.md and tech_debt/ into one file.

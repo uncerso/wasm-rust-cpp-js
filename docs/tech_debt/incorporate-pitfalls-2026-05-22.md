@@ -4,7 +4,7 @@ title: Bulk-defer pitfalls из /finish-session 2026-05-22 (Phase 1.1.1 Wave 1)
 created: 2026-05-22
 source: docs/pitfalls/2026-05-22-phase-1-1-1-w1.md
 category: process-gap
-status: open
+status: wontfix
 priority: low
 ---
 
@@ -46,3 +46,12 @@ Run `/backlog-review`; для этого item:
   закрыть этот item.
 - Если решено «skip» — пометить `status: wontfix` с rationale.
 - Если решено «hold» — оставить open, перепосмотреть после Wave 2/3 (если pattern повторится).
+
+## Decision
+
+**Wontfix — 2026-07-04** (`/backlog-review`). Single occurrence, trivial fix (bundle two
+tasks в один коммит), self-noted during execution. Coupled-task атомарность уже покрыта
+Execution-Protocol дисциплиной (`docs/workflow.md`), а durable-дома для правила нет:
+suggested target `superpowers:writing-plans` — vendored plugin (правка не переживёт
+update). Не повторяющийся источник → durable rule не оправдан. Пересмотреть, если pattern
+рецидивирует в будущих планах.

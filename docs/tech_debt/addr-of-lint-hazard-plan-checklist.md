@@ -4,7 +4,7 @@ title: Plan'ы с unsafe refactor должны учитывать dead_code lint
 created: 2026-05-22
 source: docs/pitfalls/2026-05-21-phase-1-1-0-execution.md (§2)
 category: process-gap
-status: open
+status: wontfix
 priority: low
 ---
 
@@ -41,3 +41,11 @@ unsafe refactor'е независимо от plan/spec.
 
 - `docs/pitfalls/2026-05-21-phase-1-1-0-execution.md` §2.
 - `benches/matmul/rust/raw/src/lib.rs` (current code с `addr_of!(HEAP.0)`).
+
+## Decision
+
+**Wontfix — 2026-07-04** (`/backlog-review`). Single occurrence (Phase 1.1.0 Wave 2),
+resolved in-place; текущий `addr_of!(HEAP.0)` уже корректен. Durable-target'ы
+(`superpowers:writing-plans` = vendored plugin; plan-checklist для «частых unsafe
+refactor'ов») не оправданы — unsafe-refactor'ы редки (только `raw`-crate), a lesson уже
+зафиксирован в pitfall'е. Пересмотреть, если новый unsafe refactor повторит грабли.

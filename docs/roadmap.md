@@ -26,19 +26,28 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 > Не committed; перетасуется при `/backlog-review`.
 
 ### CI & supporting infra
-- **ci-github-actions** — GitHub Actions integration для размер/perf baseline tracking. Требует cross-platform installer'а.
-- **cross-platform-installer** — `pnpm setup-tools` для Linux/Windows ([→ housekeeping spec § Out of scope](superpowers/specs/2026-05-04-housekeeping-design.md))
+- **ci-github-actions** — GitHub Actions integration для размер/perf baseline tracking. Требует cross-platform installer'а (deferred в Phase 2+).
 - **pnpm-typecheck-skips-scripts** — process gap, natural fit для CI ([→ tech_debt/pnpm-typecheck-skips-scripts](tech_debt/pnpm-typecheck-skips-scripts.md))
 - **cargo-lock-stage-discipline** — process gap, lockfile check в CI ([→ tech_debt/cargo-lock-stage-discipline](tech_debt/cargo-lock-stage-discipline.md))
+- **plan-authoring-lint-and-case-count** — из pitfall 2026-05-27: (1) добавить `argsIgnorePattern: "^_"` в `eslint.config.js` (`@typescript-eslint/no-unused-vars`), чтобы `_param`-идиома работала и для assigned-vars → plan-code-blocks проходят lint без ручных правок; (2) `scripts/lib/case-count.ts` helper, печатающий expected case-counts per (envs, sizes, benchmarks, filters) через `enumerateRunCases()` → plan-gate values не hand-derived (Phase 1.1.2.1: предсказал 810, actual 630). ([→ pitfall 2026-05-27](pitfalls/2026-05-27-phase-1-1-2-1-execution.md))
+- **bench-correctness-fail-surfacing** — bench run может писать `validated:false` / `correctnessFailed:true` результаты, но exit 0 + отсутствие их в `failures.txt` маскируют correctness-провал. Проверить, что `accumulateFailures` в `scripts/run-matrix.ts` включает validated:false кейсы; если нет — surface (запись в `failures.txt` + non-zero exit), чтобы тихий correctness-fail не проскочил.
+- **emscripten-wasm-opt-universality** — build-hygiene (PR #12) сделал `wasm-opt` универсальным через `scripts/lib/wasm-opt.ts` (`optimizeWasm`), но `benches/*/cpp/build-emscripten.sh` всё ещё содержат собственный inline `wasm-opt -Oz` на size-профиле (строки ~42-46). Разобраться: это double-opt (inline + universal) или emscripten исключён из universal-пути? Привести к единому механизму — убрать inline из emscripten-скриптов (если universal покрывает) ЛИБО задокументировать, почему emscripten особый (emcc-специфичный pipeline).
 
-### Browsers
-- **safari-implementation** — selenium-webdriver extension, macOS-only safaridriver ([→ web-pipeline-finalize spec § Future Safari](superpowers/specs/2026-05-12-web-pipeline-finalize-design.md))
+### Size methodology
+- **bindgen-size-opt-level** — rust/bindgen size-профиль использует `opt-level=3` cargo-codegen (`release`) + `wasm-opt -Oz`, тогда как rust/raw size — `opt-level="z"` codegen (`release-size`) + `wasm-opt -Oz`. Причина: wasm-pack CLI принимает только `--dev/--release/--profiling`, передать `--profile=release-size` нельзя. Выровнять методологию size-оси: для bindgen size-сборки выставить `CARGO_PROFILE_RELEASE_OPT_LEVEL=z` (+ `CODEGEN_UNITS`/прочее при нужде) при `wasm-pack --release` — тот же env-механизм, что `STRIP=false` в attr-сборке; потенциально уменьшит bindgen size-артефакты и сделает кросс-toolchain size-сравнение честнее. Ре-бейзлайн bindgen size. Captured Phase 1.4.
+- **size-view-toolchain-env-coverage** — Size-графики в reporter показывают только узкий срез (напр. `shape_dispatch node · rust/raw`) вместо всех доступных toolchain-вариантов (rust/raw, rust/bindgen, cpp/wasi-sdk, cpp/emscripten). Разобраться, почему view scoped, и расширить покрытие. NB: wasm size env-независим (артефакт один на `(binary, toolchain, profile)`) — «3 среды» для size скорее про UI-фильтр или смешение с perf-view; investigation должно уточнить, нужно ли env-измерение на Size-табе вообще.
 
 ### Workload expansion
 - **hashmap-raw-shared-crate** — DRY raw+bindgen hashmap logic into a shared crate per binary; adopt only if measurement shows unification does NOT regress size/perf (currently duplicated to keep variants isolated). ([→ spec § Scope](superpowers/specs/2026-06-13-hashmap-stdlib-no-glue-design.md))
+- **stdlib-containers** — vector, string, sorted map, set ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
+- **academic-algos** — sort, parsing, mandelbrot, hash ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 
-### Agent workflow
-- **sessionstart-hook-insurance** — deterministic SessionStart hook that bootstraps `/iterate`; add only if `/iterate`-invocation drift recurs (deferred 2026-06-12, [→ spec § D2](superpowers/specs/2026-06-12-workflow-trigger-landing-design.md))
+### Correctness & C++ tooling
+- **hashmap-string-cpp-emplace-latent** — `benches/hashmap_string/cpp/src/hashmap_string.cpp` резолвит dup-keys через `unordered_map::emplace` (first-wins) в `parse_pairs` + lookup, тогда как reference (`Map.set`/`HashMap::insert`) — last-wins; int-аналог починен Phase 1.2 (`operator[]`), string остался латентным. Fix: `emplace` → `operator[]` + re-bench hashmap_string cpp. ([→ pitfall/bug parallel](superpowers/bug-reports/2026-06-13-hashmap-int-emplace-dupkey.md))
+- **clang-tidy-cpp** — C++ linter не настроен (ESLint для TS + clippy для Rust есть, C++ нет). Добавить clang-tidy config для `benches/*/cpp/src/*.cpp` + integration в `lint:all` для паритета toolchain-дисциплины.
+
+### Docs & conventions
+- **docs-language-consistency** — repo prose мешает RU/EN без stated convention. Зафиксировать canonical-language правило в `docs/writing-standard.md` (напр.: RU для internal docs/specs/plans/pitfalls, EN для user-facing README + code identifiers/technical terms); опционально lightweight consistency-check.
 
 ## Phase 2+
 
@@ -49,9 +58,9 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 - **node-jitless** — Node `--jitless` mode как low-level controlpoint ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 - **webdriver-bidi** — WebDriver BiDi protocol вместо classic W3C WebDriver ([→ web-pipeline-finalize spec § Out of scope](superpowers/specs/2026-05-12-web-pipeline-finalize-design.md))
 
-### Workload expansion
-- **stdlib-containers** — vector, string, sorted map, set ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
-- **academic-algos** — sort, parsing, mandelbrot, hash ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
+### Infra & browsers
+- **cross-platform-installer** — `pnpm setup-tools` для Linux/Windows ([→ housekeeping spec § Out of scope](superpowers/specs/2026-05-04-housekeeping-design.md))
+- **safari-implementation** — selenium-webdriver extension, macOS-only safaridriver ([→ web-pipeline-finalize spec § Future Safari](superpowers/specs/2026-05-12-web-pipeline-finalize-design.md))
 
 ## TBD
 
@@ -59,7 +68,6 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 > не уверен. `/backlog-review` периодически перетасовывает в Phase X.Y или Won't do.
 
 - **size-attr-math-table** — отщепить math primitive-таблицы (`math-table:isqrt` / `math-table:log`) из `data`/`compiler-rt`-категорий в свой facility. isqrt анонимна (`.rodata`-сегмент) → нужен content-ID через `wasm-tools print` (+ пин wasm-tools); большая musl `__log_data` (cpp ~4.2 KB) — за heisenbug'ом из `size-attr-toolchain-coverage`. Отложено из Phase 1.3 (низкий ROI без cpp-атрибуции; guideline-числа про примитив-таблицы уже есть, Phase 1.2). ([→ guidelines § Artifact size](guidelines.md))
-- **bindgen-size-opt-level** — rust/bindgen size-профиль использует `opt-level=3` cargo-codegen (`release`) + `wasm-opt -Oz`, тогда как rust/raw size — `opt-level="z"` codegen (`release-size`) + `wasm-opt -Oz`. Причина: wasm-pack CLI принимает только `--dev/--release/--profiling`, передать `--profile=release-size` нельзя. Выровнять методологию size-оси: для bindgen size-сборки выставить `CARGO_PROFILE_RELEASE_OPT_LEVEL=z` (+ `CODEGEN_UNITS`/прочее при нужде) при `wasm-pack --release` — тот же env-механизм, что `STRIP=false` в attr-сборке; потенциально уменьшит bindgen size-артефакты и сделает кросс-toolchain size-сравнение честнее. Ре-бейзлайн bindgen size. Captured Phase 1.4.
 - **size-attr-raw-host-glue** — оценить размер самописного host-glue (`rawWasmLoader`, общий для rust/raw + cpp/wasi-sdk): эти тулчейны эмитят только wasm, но требуют рукописного generic-loader'а для вызова из JS. Сейчас он не учитывается на Size-баре (генерируемый glue bindgen/emscripten — учитывается). Оценить «минимальный продуктовый» размер loader'а per marshalling-pattern (number-only vs buffer-маршалинг) и показать отдельным помеченным reference для честного кросс-сравнения. Captured Phase 1.4 (отложено: judgment-артефакт, не измеряемый эмитируемый файл).
 
 ## Won't do

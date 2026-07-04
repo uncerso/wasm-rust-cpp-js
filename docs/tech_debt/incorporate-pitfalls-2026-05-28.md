@@ -4,7 +4,7 @@ title: Bulk-defer pitfalls из /finish-session 2026-05-28 (Phase 1.1.3 brainsto
 created: 2026-05-28
 source: docs/pitfalls/2026-05-28-phase-1-1-3-brainstorm.md
 category: process-gap
-status: open
+status: wontfix
 priority: low
 ---
 
@@ -58,3 +58,11 @@ Run `/backlog-review`; для item:
   весь bulk file если все items skipped).
 - Если решено «hold» — оставить open до следующей phase, перепосмотреть если
   pattern повторится.
+
+## Decision
+
+**Wontfix — 2026-07-04** (`/backlog-review`). Single occurrence, self-caught во время
+spec self-review (процесс сработал как задумано). Паттерн overlaps существующую память
+[[feedback_grep_before_scope]] (grep файла на related terms перед lock'ом scope) — durable
+rule дублировал бы её. Suggested CLAUDE.md target (§ Spec & plan conventions) к тому же
+переехал в `docs/workflow.md`. Пересмотреть, если invariant-contradiction рецидивирует.
