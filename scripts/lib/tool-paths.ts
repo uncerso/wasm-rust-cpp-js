@@ -34,11 +34,14 @@ export function emccPath(): string {
     return preferLocal("emcc");
 }
 
-export function wasiSdkPath(): string {
+function wasiSdkVersion(): string {
     const raw = readFileSync("tool-versions.json", "utf8");
     const tv = JSON.parse(raw) as ToolVersionsFile;
-    const version = tv.tools["wasi-sdk"].version;
-    const local = resolve(".tools", `wasi-sdk-${version}`);
+    return tv.tools["wasi-sdk"].version;
+}
+
+export function wasiSdkPath(): string {
+    const local = resolve(".tools", `wasi-sdk-${wasiSdkVersion()}`);
     if (existsSync(local)) {
         return local;
     }
@@ -47,4 +50,21 @@ export function wasiSdkPath(): string {
         return envPath;
     }
     throw new Error("wasi-sdk not found in .tools/ and WASI_SDK_PATH not set");
+}
+
+/**
+ * Canonical wasm disassembler for devirt / codegen inspection (R1 checks).
+ * Hard-errors if absent so a missing tool never silently yields a false
+ * "0 call_indirect" reading (see tech-debt r1-devirt-objdump-tooling).
+ */
+export function wasmDisasmPath(): string {
+    const llvmObjdump = resolve(".tools", `wasi-sdk-${wasiSdkVersion()}`, "bin", "llvm-objdump");
+    if (existsSync(llvmObjdump)) {
+        return llvmObjdump;
+    }
+    const wasmDis = toolsBinPath("wasm-dis");
+    if (existsSync(wasmDis)) {
+        return wasmDis;
+    }
+    throw new Error("wasm disassembler not found (.tools/wasi-sdk-*/bin/llvm-objdump or .tools/bin/wasm-dis)");
 }
