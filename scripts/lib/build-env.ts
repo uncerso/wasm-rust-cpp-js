@@ -23,10 +23,12 @@ export function rustBuildPath(): string {
 }
 
 /**
- * PATH for the wasi-sdk clang invocation. clang is called by absolute path
- * and finds wasm-ld relative to itself; an empty PATH guarantees the -flto
- * driver cannot auto-discover any wasm-opt (verified: builds with PATH="").
+ * PATH for the wasi-sdk build (a `bash` script that invokes clang by absolute
+ * path). Must be non-empty so `bash` + coreutils resolve, but must exclude any
+ * wasm-opt so the clang -flto driver can't auto-run one — the explicit pass in
+ * build-cpp.ts owns optimization. `/usr/bin:/bin` holds bash/mkdir/etc. and no
+ * wasm-opt (homebrew installs to /opt/homebrew/bin or /usr/local/bin, excluded).
  */
 export function wasiSdkBuildPath(): string {
-    return "";
+    return "/usr/bin:/bin";
 }
