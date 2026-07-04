@@ -48,9 +48,26 @@ Skill `/finish-session` напоминает обновлять файл при 
 
 ## Build flags
 
-<!-- empty — заполнится при появлении первого confirmed вывода из phases -->
+### Прогоняй `wasm-opt` и на speed-профиле, не только на size — он сжимает артефакт всех wasm-тулчейнов без измеримой потери runtime
+**Status:** confirmed
+**Evidence:** build-hygiene (2026-07-04). Size: `dist/*/{rust-raw,rust-bindgen,cpp-wasi-sdk}-speed/meta.json` до/после включения speed-wasm-opt. Perf: `results/raw/2026-07-04T12-06-07-626Z` (до) vs `results/raw/2026-07-04T14-56-02-425Z` (после), full matrix, 0 correctness-fail.
+
+Size (raw wasm, speed profile, включение `wasm-opt -O3`) — все 32 изменённых артефакта стали меньше, 0 больше:
+
+| toolchain | типичная Δ | экстремум |
+|---|---|---|
+| rust/raw (раньше БЕЗ wasm-opt на speed) | −6…−11% | hashmap_string **−28%**, hashmap_int **−18%** |
+| rust/bindgen (раньше БЕЗ) | −11…−17% | hashmap_string −23% |
+| cpp/wasi-sdk (раньше неявно через драйвер) | −0.6…−2% | interop −30%, matmul −11% (крошечные бинари) |
+
+Наибольший выигрыш — `rust/raw`-speed: раньше speed-профиль не получал `wasm-opt` вообще (только size). Perf-эффект тонет в run-to-run шуме (L-size cross-run: 21 быстрее / 16 медленнее / 89 в ±5%; знаки несогласованы между env'ами у одного workload'а → шум, не систематика).
+
+**Phase:** introduced build-hygiene (2026-07-04)
+**Caveats:** cpp/emscripten гоняет binaryen внутри emcc (`-O3`/`-Oz`), не отдельным явным пассом — уже оптимизирован. Perf-нейтральность — вывод из cross-run сравнения, где эффект <~3% неотделим от шума; контролируемый same-session A/B в дизайн-фазе показал cpp hashmap-speed −11…−14% (быстрее), rust ~0 → на allocator-тяжёлом коде wasm-opt может и ускорять. Speed остаётся `-O3` (не `-Oz`): оптимизируем скорость, размер — бонус.
 
 ## Artifact size
+
+> **Заметка (build-hygiene, 2026-07-04):** с этой даты `wasm-opt` гоняется на обоих профилях у всех явно-эмитящих wasm тулчейнов (см. claim в § Build flags). Числа speed-профиля в claim'ах ниже, датированных ранее, — **pre-revision** (теперь меньше: rust/raw-speed до −28%, rust/bindgen-speed до −23%, cpp/wasi-sdk-speed до −30% на крошечных). Size-профиль: rust без изменений (уже `-Oz`), cpp/wasi-sdk −0.7…−2.3% (один явный `-Oz` вместо driver+double), emscripten без изменений. **Направления и выводы claim'ов сохраняются**, сдвинулись только магнитуды speed-байт; полный пересчёт исторических таблиц — отдельный refresh.
 
 ### Для минимального transfer size при простых экспортах выбирай no-glue (`rust/raw` extern "C" / `cpp/wasi-sdk`) — auto-glue добавляет фиксированный gzip-floor независимо от контейнера/ключа
 **Status:** confirmed

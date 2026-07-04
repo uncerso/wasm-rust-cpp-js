@@ -160,10 +160,12 @@ Spec нового workload'а **обязан** явно проговорить �
 
 | Язык/тулчейн | `speed` | `size` |
 |---|---|---|
-| Rust (оба тулчейна) | `opt-level=3`, LTO=fat, `codegen-units=1`, `panic=abort` | `opt-level="z"`, LTO=fat, `codegen-units=1`, `panic=abort`, strip, `wasm-opt -Oz` |
-| C++ Emscripten | `-O3 -flto`, `-fno-exceptions -fno-rtti`, `-s MODULARIZE=1 -s ENVIRONMENT=web,worker,node` | `-Oz -flto`, `-fno-exceptions -fno-rtti`, `--closure 1`, `wasm-opt -Oz` |
-| C++ wasi-sdk | `-O3 -flto`, `-fno-exceptions -fno-rtti` | `-Oz -flto`, `--strip-all`, `wasm-opt -Oz` |
+| Rust (оба тулчейна) | `opt-level=3`, LTO=fat, `codegen-units=1`, `panic=abort`, `wasm-opt -O3` | `opt-level="z"`, LTO=fat, `codegen-units=1`, `panic=abort`, strip, `wasm-opt -Oz` |
+| C++ Emscripten | `-O3 -flto`, `-fno-exceptions -fno-rtti`, `-s MODULARIZE=1 -s ENVIRONMENT=web,worker,node` (binaryen через emcc `-O3`) | `-Oz -flto`, `-fno-exceptions -fno-rtti`, `--closure 1`, `wasm-opt -Oz` |
+| C++ wasi-sdk | `-O3 -flto`, `-fno-exceptions -fno-rtti`, `wasm-opt -O3` | `-Oz -flto`, `--strip-all`, `wasm-opt -Oz` |
 | JS | `esbuild --minify --target=es2022 --format=esm` (один профиль) | — |
+
+> **Ревизия (build-hygiene, 2026-07-04):** `wasm-opt` применяется к обоим профилям — speed `-O3`, size `-Oz` — у всех тулчейнов, эмитящих wasm явно (rust/raw, rust/bindgen, cpp/wasi-sdk); emscripten гоняет binaryen внутри emcc `-O3`/`-Oz` (+ явный `-Oz` для size). Ранее `wasm-opt` числился только в size-профиле, а cpp/wasi-sdk-speed получал его непреднамеренно через авто-запуск драйвера. Все `wasm-opt`-вызовы — явные, детерминированные, с абсолютным путём к пиннутому binaryen + `--enable-bulk-memory --enable-nontrapping-float-to-int`. Обоснование (эмпирика влияния на speed): `specs/2026-07-04-build-hygiene-design.md` § Root-cause findings finding 5.
 
 ### Жёсткие правила
 
