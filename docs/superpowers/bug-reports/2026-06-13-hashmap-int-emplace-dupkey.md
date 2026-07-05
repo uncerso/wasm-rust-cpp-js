@@ -56,6 +56,40 @@ All `validated: true, correctnessFailed: false`. Browser cases (chromium/firefox
 - **Cross-toolchain porting lesson:** `unordered_map::emplace`/`insert` and Rust `HashMap::entry().or_insert()` are **first-wins**; `operator[]=`/`insert_or_assign`, JS `Map.set`, Rust `HashMap::insert` are **last-wins**. Porting a hashmap workload across languages must fix one duplicate-key policy explicitly, or large-N fixtures (birthday-paradox collisions) silently diverge.
 - **Diagnostic lesson:** an exact small-integer ratio between two "wrong" sums (here 2:1) is a strong tell for a deterministic semantic mismatch on a few elements — investigate the source logic before assuming toolchain/UB.
 
+## hashmap_string resolution (2026-07-05, Phase 1.2 pipeline-hygiene)
+
+The parallel `hashmap_string` cpp had the same `map.emplace(k, v)` first-wins in `parse_pairs`
+(line 51) and `hashmap_string_delete_reset` (line 107); `hashmap_string_insert` already used
+`operator[]=`. Fixed identically → `state().map[k] = v;`.
+
+**Why it stayed latent (unlike int):** hashmap_string keys are 16 ASCII-hex chars = **2⁶⁴**
+key space (`genAsciiHexKeys`, two u32 rng → 8 hex each). At N≈10⁵ the birthday-collision
+expectation is ~10⁻¹⁰ → **zero duplicate keys** in S/M/L fixtures. So first-wins ≡ last-wins on
+the actual data; the checksum never diverged and the bug never surfaced. int diverged because its
+key space is smaller (4 dup keys at L). Post-fix re-bench (node, both toolchains × both profiles ×
+S/M/L): **all 12 `validated: true`** — checksums unchanged, as predicted.
+
+**Unexpected size win (measured, not predicted):** replacing `emplace` with `operator[]` — which
+was *already* instantiated (line 67 `hashmap_string_insert`) — removes the separate `emplace`
+insert-path template instantiation. Rebuilt artifact sizes dropped **~4–6% across all four**:
+
+| artifact | emplace (orig) | operator[] (fixed) | Δ |
+|---|---|---|---|
+| cpp-emscripten-speed | 15950 | 14982 | −968 B (−6.1%) |
+| cpp-emscripten-size | 14786 | 14205 | −581 B (−3.9%) |
+| cpp-wasi-sdk-speed | 18384 | 17237 | −1147 B (−6.2%) |
+| cpp-wasi-sdk-size | 16154 | 15510 | −644 B (−4.0%) |
+
+Perf-neutral by construction: the measured entry loops (`insert`/`lookup`/`delete`) are byte-identical;
+only setup (`parse_pairs`/`delete_reset`) changed. **Guideline nugget:** prefer `operator[]=` over
+`emplace` for last-wins map fills — besides matching cross-language semantics, if `operator[]` is
+already used elsewhere in the TU, `emplace` adds a redundant template instantiation that inflates
+the wasm (~5% here).
+
+**Gate gap now closed:** the "still open" gate gap noted below (`bench-run-correctness-fail-not-surfaced`
+→ roadmap `bench-correctness-fail-surfacing`) is resolved this same phase (Task C): runner-node exits
+non-zero + run-matrix records correctness fails to `failures.txt` (node + browser).
+
 ## Related artifacts
 
 - Prior (mis-diagnosed) tech-debt: `docs/tech_debt/hashmap-int-emscripten-L-correctness.md` (resolved → deleted with this fix; history via `git log`).

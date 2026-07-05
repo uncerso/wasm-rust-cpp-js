@@ -48,7 +48,7 @@ void parse_pairs(const uint8_t* buf, size_t len) {
     state().map.clear();
     state().map.reserve(n);
     for (const auto& [k, v] : state().pairs) {
-        state().map.emplace(k, v);
+        state().map[k] = v;
     }
 }
 
@@ -104,6 +104,6 @@ extern "C" void hashmap_string_delete_reset() {
     state().map.clear();
     state().map.reserve(state().pairs.size());
     for (const auto& [k, v] : state().pairs) {
-        state().map.emplace(k, v);
+        state().map[k] = v;
     }
 }
