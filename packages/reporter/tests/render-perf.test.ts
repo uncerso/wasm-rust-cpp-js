@@ -173,6 +173,14 @@ describe("renderPerfView", () => {
         expect(PERF_CSS).toContain("position:sticky");
     });
 
+    it("pins the detail-table impl + ms columns via min-width (layout stable across filters)", () => {
+        // impl column min-width and the ms-text columns (first/p95/mad) via nth-child, in ch
+        expect(PERF_CSS).toMatch(/\.pf-t (td|th):first-child\{[^}]*min-width:\d+ch/);
+        expect(PERF_CSS).toMatch(/\.pf-t td:nth-child\(4\)[^{]*\{[^}]*min-width:\d+ch/);
+        expect(PERF_CSS).toMatch(/\.pf-t td:nth-child\(6\)[^{]*\{[^}]*min-width:\d+ch/);
+        expect(PERF_CSS).toMatch(/\.pf-t td:nth-child\(7\)[^{]*\{[^}]*min-width:\d+ch/);
+    });
+
     it("renders shape_dispatch as an impl×env cbox-bar grid with per-env scale, deltas + 4 combo detail tables", () => {
         const rr = (id: string, wm: number, env: string): BenchResult =>
             fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, wm, env);

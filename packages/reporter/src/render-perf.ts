@@ -44,7 +44,8 @@ export const PERF_CSS = `
 .pf-tg{font:600 10px ui-monospace,monospace;color:#9aa3b0;margin:12px 0 5px;cursor:pointer}
 .pf-t{border-collapse:collapse;font:500 10.5px ui-monospace,monospace;width:100%}
 .pf-t th,.pf-t td{padding:5px 10px;text-align:right;border-bottom:1px solid #eef1f5;white-space:nowrap;border-left:1px solid #ebeef2}
-.pf-t th:first-child,.pf-t td:first-child{border-left:none;text-align:left;color:#3a4555}
+.pf-t th:first-child,.pf-t td:first-child{border-left:none;text-align:left;color:#3a4555;min-width:23ch}
+.pf-t td:nth-child(4),.pf-t th:nth-child(4),.pf-t td:nth-child(6),.pf-t th:nth-child(6),.pf-t td:nth-child(7),.pf-t th:nth-child(7){min-width:8ch}
 .pf-t th{font:700 9px ui-monospace;letter-spacing:.04em;text-transform:uppercase;color:#8a93a0;border-bottom:1px solid #d8dce3}
 .pf-t tbody tr:nth-child(even){background:#fafbfc}
 .pf-t tbody tr.noisy{background:#fdf6da}
