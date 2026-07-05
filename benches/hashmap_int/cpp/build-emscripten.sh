@@ -39,14 +39,6 @@ emcc \
   -s "EXPORTED_RUNTIME_METHODS=$RT_METHODS" \
   -o "$OUT_DIR/glue.mjs"
 
-# Apply wasm-opt -Oz on size profile (in addition to closure).
-if [[ "$PROFILE" == "size" ]]; then
-  "${WASM_OPT:-wasm-opt}" -Oz \
-    --enable-bulk-memory \
-    --enable-nontrapping-float-to-int \
-    "$OUT_DIR/glue.wasm" -o "$OUT_DIR/glue.wasm"
-fi
-
 # Name-bearing build for size attribution (opt-in via SIZE_ATTR=1). Mirrors the
 # production emcc invocation but adds -g2 which tells emscripten/Binaryen to keep
 # the wasm "function names" subsection so twiggy can attribute by symbol name.
