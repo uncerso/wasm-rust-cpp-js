@@ -147,7 +147,7 @@ Workload-level (no-glue, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/…`)
 
 **Phase:** introduced 1.4
 
-**Caveats:** per-facility байты приближённые (pre-opt доля × точный production-тотал; wasm-opt сжимает категории неравномерно) — порядок надёжен, production-тотал точен. unattributed растёт на крошечных бинарях (interop_calls cpp/wasi-sdk ~24%, shape_dispatch 11–27%): мало именованных символов → структурный overhead занимает бóльшую долю; на rich-workload'ах <3%. `panic-fmt ~0%` у cpp — следствие флагов сборки ЭТОГО репо (`-fno-exceptions -fno-rtti`); cpp с включёнными исключениями понесёт свою долю. Glue gzip-floor почти не зависит от key-type (см. no-glue claim выше). Production-бинари byte-идентичны Phase 1.1–1.3 (атрибуция read-only; cpp wasm-opt сейчас неявный авто-пасс — → roadmap `cpp-wasm-opt-explicit`).
+**Caveats:** per-facility байты приближённые (pre-opt доля × точный production-тотал; wasm-opt сжимает категории неравномерно) — порядок надёжен, production-тотал точен. unattributed растёт на крошечных бинарях (interop_calls cpp/wasi-sdk ~24%, shape_dispatch 11–27%): мало именованных символов → структурный overhead занимает бóльшую долю; на rich-workload'ах <3%. `panic-fmt ~0%` у cpp — следствие флагов сборки ЭТОГО репо (`-fno-exceptions -fno-rtti`); cpp с включёнными исключениями понесёт свою долю. Glue gzip-floor почти не зависит от key-type (см. no-glue claim выше). Атрибуция read-only (не меняет production-байты). cpp wasm-opt теперь **явный**: wasi-sdk через `optimizeWasm` (build-hygiene, PR #12), emscripten — emcc-internal binaryen (Phase 1.2 pipeline-hygiene: inline-пасс убран). Production-байты ре-бейзлайнены после build-hygiene (уже не byte-идентичны Phase 1.1–1.3).
 
 ### Один примитив может молча залинковать multi-KB фиксированную таблицу, доминирующую над размером маленького wasm — аудируй примитивы, не алгоритм
 **Status:** confirmed
@@ -284,11 +284,13 @@ Mechanism (confirmed, V8 12.4 deopt-eager codegen bug): turbofan компили�
 
 ### При портировании hashmap/словаря между языками явно фиксируй duplicate-key policy — last-wins (`operator[]=`/`Map.set`/`HashMap::insert`), не first-wins (`emplace`/`entry().or_insert()`)
 **Status:** confirmed
-**Evidence:** Phase 1.2, `docs/superpowers/bug-reports/2026-06-13-hashmap-int-emplace-dupkey.md`; fix `benches/hashmap_int/cpp/src/hashmap_int.cpp` (commit `8cf09e3`); reference `benches/hashmap_int/validate/reference.ts`. C++ `unordered_map::emplace` тихо расходился с JS `Map.set` / Rust `HashMap::insert` на 4 дубль-ключах L-fixture → lookup checksum `213953188581571` вместо `213944096178963`.
+**Evidence:** Phase 1.2, `docs/superpowers/bug-reports/2026-06-13-hashmap-int-emplace-dupkey.md`; fix `benches/hashmap_int/cpp/src/hashmap_int.cpp` (commit `8cf09e3`); reference `benches/hashmap_int/validate/reference.ts`. C++ `unordered_map::emplace` тихо расходился с JS `Map.set` / Rust `HashMap::insert` на 4 дубль-ключах L-fixture → lookup checksum `213953188581571` вместо `213944096178963`. 2-й пример: `hashmap_string` cpp (commit `90573f2`, тот же `emplace`→`operator[]=` в строках 51/107) — но keyspace 2⁶⁴ (16 hex-символов) → дублей нет → checksum не расходился (латентно, паритет восстановлен upfront).
 **Phase:** introduced 1.2
 **Caveats:** Проявляется только когда ключ повторяется во входе — на uniform/малых fixtures дубликатов может не быть (hashmap_int: дубли только на L, N=100k; S/M чисты). first-wins контейнеры: C++ `emplace`/`insert`, Rust `entry().or_insert()`. last-wins: C++ `operator[]=`/`insert_or_assign`, Rust `HashMap::insert`, JS `Map.set`. Расхождение тихое (нет ошибки) — результат отличается лишь на дубль-ключах, потому всплывает только на больших N.
 
 Mechanism: `std::unordered_map::emplace` по стандарту НЕ перезаписывает существующий ключ (no-op, если ключ уже есть) — остаётся первое вставленное значение. Reference-контейнеры (last-wins) перезаписывают. Отсюда тихое расхождение значений строго на повторяющихся ключах; на L каждый дубль-ключ читается дважды при lookup, но удаляется один раз при delete (lookup-diff = 2× delete-diff).
+
+Побочный size-эффект (замерено, Phase 1.2 pipeline-hygiene): если `operator[]` уже инстанцирован в TU (как в `hashmap_string_insert`), замена `emplace`→`operator[]=` убирает отдельную template-инстанциацию insert-пути — `hashmap_string` cpp сжался на **−4…6%** по всем 4 артефактам (emscripten/wasi-sdk × speed/size; commit `90573f2`). Т.е. `operator[]=` предпочтителен и для корректности, и для размера.
 
 ### Не используй `thread_local!` для глобального состояния в wasm32 cdylib — бери `static SyncCell<T>` с vacuous `Sync` impl
 **Status:** tentative
