@@ -1,5 +1,5 @@
 import type { Aggregated } from "./aggregate.js";
-import { buildPerfModel, SIZE_ORDER, type PerfDetailRow, type PerfImplMultiple, type PerfSlice, type ShapeCell, type ShapeSlice } from "./perf-view-model.js";
+import { buildPerfModel, SIZE_ORDER, type PerfDetailRow, type PerfImplMultiple, type PerfSlice, type ShapeComboDetail, type ShapeGridCell, type ShapeGridRow, type ShapeSection } from "./perf-view-model.js";
 
 const ESCAPES: Record<string, string> = {
     "&": "&amp;",
@@ -58,19 +58,26 @@ export const PERF_CSS = `
 .hatch{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#ecd98c 5px 10px)!important}
 .hatch-fail{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#e0a0a0 5px 10px)!important}
 .subres{font:600 8px ui-monospace,monospace;color:#8a93a0;margin-left:5px;vertical-align:super}
-.shape-heat{border-collapse:separate;border-spacing:6px;margin-top:4px}
-.shape-heat th{font:700 9px ui-monospace;letter-spacing:.05em;text-transform:uppercase;color:#8a93a0;padding:2px 6px;text-align:center}
-.shape-heat th.rh{text-align:right}
-.shape-heat td{width:120px;height:48px;border-radius:7px;text-align:center;vertical-align:middle;font:700 15px ui-monospace;position:relative}
-.shape-heat .dlt{font:600 8px ui-monospace;position:absolute;top:4px;right:7px}
-.shape-heat td.a1{background:#e9f0f6;color:#1f2530}
-.shape-heat td.a2{background:#cfe0ee;color:#1f2530}
-.shape-heat td.a3{background:#a7c4dd;color:#143049}
-.shape-heat td.a4{background:#7aa0c2;color:#fff}
-.shape-heat td.a5{background:#4f7ea6;color:#fff}
-.shape-heat td.a1 .dlt,.shape-heat td.a2 .dlt{color:#b5762f}
-.shape-heat td.a5 .dlt{color:#fff;opacity:.85}
-.shape-cap{font:400 11px ui-sans-serif;color:#9aa3b0;margin:7px 0 0}
+.shape-grid{border-collapse:separate;border-spacing:5px;margin-top:8px}
+.shape-grid th{font:700 9px ui-monospace;letter-spacing:.05em;text-transform:uppercase;color:#8a93a0;padding:2px 6px;text-align:center}
+.shape-grid th.env{border-bottom:1px solid #e0e5ec;padding-bottom:4px;font-size:10px}
+.shape-grid th.sub{font-size:11px;font-weight:600;color:#9aa3b0;text-transform:none;letter-spacing:0}
+.shape-grid th.impl{text-align:right;text-transform:none;letter-spacing:0;font:600 12px ui-monospace;color:#3a4555;vertical-align:middle;white-space:nowrap;padding-right:10px}
+.shape-grid th.lay{text-align:right;text-transform:none;letter-spacing:0;font-size:11px;font-weight:600;color:#9aa3b0;padding-right:6px}
+.shape-grid td{width:84px;height:46px;border-radius:7px;text-align:center;vertical-align:middle;font:700 15px ui-monospace;position:relative}
+.shape-grid td.e{background:#f4f6f9;color:#c2c9d2;font-weight:400}
+.shape-grid td.gap,.shape-grid th.gap{width:16px;padding:0;background:none}
+.shape-grid tr.ig td{height:7px;padding:0;background:none}
+.shape-grid .dlt{font:600 9.5px ui-monospace;position:absolute;top:3px;right:6px}
+.shape-grid td.a1{background:#e9f0f6;color:#1f2530}
+.shape-grid td.a2{background:#cfe0ee;color:#1f2530}
+.shape-grid td.a3{background:#a7c4dd;color:#143049}
+.shape-grid td.a4{background:#7aa0c2;color:#fff}
+.shape-grid td.a5{background:#4f7ea6;color:#fff}
+.shape-grid td.a1 .dlt,.shape-grid td.a2 .dlt{color:#b5762f}
+.shape-grid td.a5 .dlt{color:#fff;opacity:.85}
+.shape-cap{font:400 11px ui-sans-serif;color:#9aa3b0;margin:9px 0 2px;max-width:760px;line-height:1.5}
+.shape-cap code{font:600 10px ui-monospace;background:#eef2f6;border-radius:3px;padding:0 3px}
 .perf-legend{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:9px;font-size:10.5px;color:#56606e;align-items:center}
 .pl-key{display:flex;align-items:center;gap:6px}
 .pl-sw{width:14px;height:11px;border-radius:2px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
@@ -244,10 +251,10 @@ function renderSegControl(ctrl: string, values: string[], active: string): strin
 }
 
 // ---------------------------------------------------------------------------
-// shape_dispatch 2×2 heatmap (pinned: node · rust/raw · speed · L)
+// shape_dispatch impl×env heatmap grid + 4 collapsed per-combo detail tables
 // ---------------------------------------------------------------------------
 
-/** Heat bucket 1..5 from a warm-median relative to the max of the 4 pinned cells. */
+/** Heat bucket 1..5 from a warm-median relative to the max of the section's cells. */
 function shapeBucket(value: number, max: number): number {
     if (max <= 0) {
         return 1;
@@ -255,45 +262,108 @@ function shapeBucket(value: number, max: number): number {
     return Math.min(5, Math.max(1, Math.round((value / max) * 5)));
 }
 
-function renderShapeHeatTable(cells: ShapeCell[]): string {
-    const max = cells.reduce((m, c) => (c.warmMedian != null ? Math.max(m, c.warmMedian) : m), 0);
-    const at = (layout: string, dispatch: string): ShapeCell | undefined =>
-        cells.find((c) => c.layout === layout && c.dispatch === dispatch);
-    const renderCellTd = (layout: string, dispatch: string): string => {
-        const wm = at(layout, dispatch)?.warmMedian ?? null;
-        if (wm == null) {
-            return "<td>—</td>";
+// The 4 grid cells per env are in SHAPE_DISPATCH_GRID order:
+// [0] homo·static, [1] homo·dynamic, [2] mixed·static, [3] mixed·dynamic.
+// Each grid row shows two sub-rows (H, M); each carries a static + dynamic cell.
+const SHAPE_LAYOUT_ROWS: { label: string; staticIdx: number; dynIdx: number }[] = [
+    { label: "homo", staticIdx: 0, dynIdx: 1 },
+    { label: "mixed", staticIdx: 2, dynIdx: 3 },
+];
+
+const SHAPE_CAPTION =
+    "<p class=\"shape-cap\">color = relative warm-median (darker = slower) · +Δ% = dynamic vs static · — = not applicable. "
+    + "Static/dynamic dispatch is a static-typing concept; for a dynamically-typed language (js) the static form of "
+    + "homogeneous data is identical to the dynamic form, so <code>homo_static·js</code> does not exist.</p>";
+
+function renderShapeCell(cell: ShapeGridCell | undefined, staticSibling: ShapeGridCell | undefined, max: number): string {
+    const wm = cell?.warmMedian ?? null;
+    if (wm == null) {
+        return "<td class=\"e\">—</td>";
+    }
+    let delta = "";
+    if (cell?.dispatch === "dynamic") {
+        const stat = staticSibling?.warmMedian ?? null;
+        if (stat != null && stat > 0) {
+            const pct = Math.round(((wm - stat) / stat) * 100);
+            delta = `<span class="dlt">${pct >= 0 ? "+" : ""}${pct}%</span>`;
         }
-        let delta = "";
-        if (dispatch === "dynamic") {
-            const stat = at(layout, "static")?.warmMedian ?? null;
-            if (stat != null && stat > 0) {
-                const pct = Math.round(((wm - stat) / stat) * 100);
-                delta = `<span class="dlt">${pct >= 0 ? "+" : ""}${pct}%</span>`;
+    }
+    return `<td class="a${shapeBucket(wm, max)}">${wm.toFixed(2)}${delta}</td>`;
+}
+
+function renderShapeGridRows(row: ShapeGridRow, envs: string[], max: number): string {
+    return SHAPE_LAYOUT_ROWS.map((lr, i) => {
+        const cells = envs.map((env) => {
+            const arr = row.byEnv[env] ?? [];
+            const stat = arr[lr.staticIdx];
+            const dyn = arr[lr.dynIdx];
+            return renderShapeCell(stat, undefined, max) + renderShapeCell(dyn, stat, max);
+        }).join("<td class=\"gap\"></td>");
+        const implTh = i === 0 ? `<th class="impl" rowspan="2">${escape(row.impl)}</th>` : "";
+        return `<tr>${implTh}<th class="lay">${lr.label}</th>${cells}</tr>`;
+    }).join("");
+}
+
+function renderShapeGrid(section: ShapeSection): string {
+    // Shared heat scale across the whole (size,profile) section so colours are
+    // comparable across impls and envs (matches the tab's "shared scale" theme).
+    let max = 0;
+    for (const row of section.rows) {
+        for (const env of section.envs) {
+            for (const cell of row.byEnv[env] ?? []) {
+                if (cell.warmMedian != null && cell.warmMedian > max) {
+                    max = cell.warmMedian;
+                }
             }
         }
-        return `<td class="a${shapeBucket(wm, max)}">${wm.toFixed(2)}${delta}</td>`;
-    };
-    const row = (layout: string): string =>
-        `<tr><th class="rh">${escape(layout)}</th>${renderCellTd(layout, "static")}${renderCellTd(layout, "dynamic")}</tr>`;
-    return `<table class="shape-heat">
-    <thead><tr><th></th><th>static</th><th>dynamic</th></tr></thead>
-    <tbody>${row("homo")}${row("mixed")}</tbody>
+    }
+    const envHead = section.envs.map((env) => `<th class="env" colspan="2">${escape(env)}</th>`).join("<th class=\"gap\"></th>");
+    const subHead = section.envs.map(() => "<th class=\"sub\">static</th><th class=\"sub\">dynamic</th>").join("<th class=\"gap\"></th>");
+    // 2 lead cols (impl + layout) + 2 cells/env + a 1-col gap between env groups.
+    const totalCols = 2 + section.envs.length * 2 + Math.max(0, section.envs.length - 1);
+    const gapRow = `<tr class="ig"><td colspan="${totalCols}"></td></tr>`;
+    const body = section.rows.map((row) => renderShapeGridRows(row, section.envs, max)).join(gapRow);
+    return `<table class="shape-grid">
+    <thead>
+      <tr><th></th><th></th>${envHead}</tr>
+      <tr><th></th><th></th>${subHead}</tr>
+    </thead>
+    <tbody>${body}</tbody>
   </table>`;
 }
 
-function renderShapeSection(slices: ShapeSlice[], defaultSize: string, defaultProfile: string): string {
-    const blocks = slices.map((slice) => {
-        const isActive = slice.size === defaultSize && slice.profile === defaultProfile;
+function renderShapeComboDetail(combo: ShapeComboDetail): string {
+    if (combo.rows.length === 0) {
+        return "";
+    }
+    const maxInit = combo.rows.reduce((m, r) => Math.max(m, r.initTotal), 0);
+    const maxWarm = combo.rows.reduce((m, r) => Math.max(m, r.warmMedian), 0);
+    const rows = combo.rows.map((r) => renderDetailRow(r, maxInit, maxWarm)).join("\n");
+    return `<details>
+<summary class="pf-tg">details · ${escape(combo.layout)}·${escape(combo.dispatch)}</summary>
+<table class="pf-t">
+<thead><tr><th>impl</th><th>env</th><th>init</th><th>first</th><th>warm med</th><th>p95</th><th>mad</th><th>cv</th><th>relSem</th><th>ok</th></tr></thead>
+<tbody>
+${rows}
+</tbody>
+</table>
+</details>`;
+}
+
+function renderShapeSection(sections: ShapeSection[], defaultSize: string, defaultProfile: string): string {
+    const blocks = sections.map((section) => {
+        const isActive = section.size === defaultSize && section.profile === defaultProfile;
         const display = isActive ? "" : ' style="display:none"';
-        return `<div class="perf-slice"${display} data-size="${escape(slice.size)}" data-profile="${escape(slice.profile)}">
-  <div class="perf-wlh">shape_dispatch <small>node · rust/raw · ${escape(slice.profile)} · ${escape(slice.size)}</small></div>
-  ${renderShapeHeatTable(slice.cells)}
-  <p class="shape-cap">color = relative warm-median (darker = slower) · +Δ = dynamic vs static</p>
+        const details = section.detail.map(renderShapeComboDetail).join("\n");
+        return `<div class="perf-slice"${display} data-size="${escape(section.size)}" data-profile="${escape(section.profile)}">
+  <div class="perf-wlh">shape_dispatch <small>${escape(section.profile)} · ${escape(section.size)}</small></div>
+  ${renderShapeGrid(section)}
+  ${SHAPE_CAPTION}
+${details}
 </div>`;
     }).join("\n");
     return `<div class="perf-wl">
-  <span class="perf-eyebrow">warm-median (ms) · node · rust/raw · follows selected size/profile</span>
+  <span class="perf-eyebrow">warm-median (ms) · impl × env · lower/darker = faster · +Δ% = dynamic vs static</span>
 ${blocks}
 </div>`;
 }

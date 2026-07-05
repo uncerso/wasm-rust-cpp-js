@@ -49,20 +49,62 @@ describe("buildPerfModel", () => {
         expect(row.byEnv.chromium).toBeCloseTo(0.072);
         expect(slice.envs).toEqual(["node", "chromium"]);
     });
-    it("isolates shape_dispatch into per-(size,profile) 2x2 grids", () => {
-        const mk = (id: string, wm: number) => fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, wm, "node");
+    it("isolates shape_dispatch into a per-(size,profile) impl×env grid + 4 combo detail slices", () => {
+        // rust/raw has all 4 combos; js/idiomatic has 3 (no homo_static — language property).
+        const rr = (id: string, wm: number, env: string) =>
+            fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, wm, env);
+        const js = (id: string, wm: number, env: string) =>
+            fakeResult({ id, language: "js", toolchain: "idiomatic", profile: "speed", inputSize: "L" }, wm, env);
         const m = buildPerfModel(aggregate([
-            mk("shape_dispatch_homo_static", 0.58), mk("shape_dispatch_homo_dyn", 0.74),
-            mk("shape_dispatch_mixed_static", 0.61), mk("shape_dispatch_mixed_dyn", 1.31),
+            rr("shape_dispatch_homo_static", 1.20, "node"), rr("shape_dispatch_homo_dyn", 1.40, "node"),
+            rr("shape_dispatch_mixed_static", 1.30, "node"), rr("shape_dispatch_mixed_dyn", 1.90, "node"),
+            rr("shape_dispatch_homo_static", 1.26, "chromium"), rr("shape_dispatch_homo_dyn", 1.47, "chromium"),
+            rr("shape_dispatch_mixed_static", 1.36, "chromium"), rr("shape_dispatch_mixed_dyn", 1.99, "chromium"),
+            js("shape_dispatch_homo_dyn", 1.55, "node"), js("shape_dispatch_mixed_static", 1.60, "node"),
+            js("shape_dispatch_mixed_dyn", 2.10, "node"),
+            js("shape_dispatch_homo_dyn", 1.62, "chromium"), js("shape_dispatch_mixed_static", 1.66, "chromium"),
+            js("shape_dispatch_mixed_dyn", 2.18, "chromium"),
         ]));
+        // shape_dispatch is not a normal small-multiples workload
         expect(m.workloads.some((w) => w.id.startsWith("shape_dispatch"))).toBe(false);
         expect(m.shapeDispatch).not.toBeNull();
-        const slice = m.shapeDispatch!.find((s) => s.size === "L" && s.profile === "speed")!;
-        expect(slice).toBeDefined();
-        expect(slice.cells).toHaveLength(4);
-        expect(slice.cells.find((c) => c.layout === "mixed" && c.dispatch === "dynamic")!.warmMedian).toBeCloseTo(1.31);
+
+        const section = m.shapeDispatch!.find((s) => s.size === "L" && s.profile === "speed")!;
+        expect(section).toBeDefined();
+        expect(section.envs).toEqual(["node", "chromium"]);
+
+        // impls ordered rust/raw before js? No — js/idiomatic ranks first in IMPL_ORDER.
+        const rustRow = section.rows.find((r) => r.impl === "rust/raw")!;
+        const jsRow = section.rows.find((r) => r.impl === "js/idiomatic")!;
+        expect(rustRow).toBeDefined();
+        expect(jsRow).toBeDefined();
+
+        // rust/raw: all 4 node cells numeric, in SHAPE_DISPATCH_GRID order.
+        expect(rustRow.byEnv["node"]).toHaveLength(4);
+        expect(rustRow.byEnv["node"]!.every((c) => c.warmMedian != null)).toBe(true);
+        const rrHomoStatic = rustRow.byEnv["node"]!.find((c) => c.layout === "homo" && c.dispatch === "static")!;
+        expect(rrHomoStatic.warmMedian).toBeCloseTo(1.20);
+
+        // js: 4 cells, homo·static is null (no impl); homo·dynamic numeric.
+        expect(jsRow.byEnv["node"]).toHaveLength(4);
+        const jsHomoStatic = jsRow.byEnv["node"]!.find((c) => c.layout === "homo" && c.dispatch === "static")!;
+        const jsHomoDyn = jsRow.byEnv["node"]!.find((c) => c.layout === "homo" && c.dispatch === "dynamic")!;
+        expect(jsHomoStatic.warmMedian).toBeNull();
+        expect(jsHomoDyn.warmMedian).toBeCloseTo(1.55);
+
+        // 4 combo detail slices, each with PerfDetailRow[].
+        expect(section.detail).toHaveLength(4);
+        const homoStatic = section.detail.find((d) => d.layout === "homo" && d.dispatch === "static")!;
+        expect(homoStatic.benchId).toBe("shape_dispatch_homo_static");
+        // homo_static has rust/raw (node+chromium) but no js row.
+        expect(homoStatic.rows.some((r) => r.impl === "rust/raw")).toBe(true);
+        expect(homoStatic.rows.some((r) => r.impl === "js/idiomatic")).toBe(false);
+        const homoDyn = section.detail.find((d) => d.layout === "homo" && d.dispatch === "dynamic")!;
+        expect(homoDyn.rows.some((r) => r.impl === "js/idiomatic" && r.env === "node")).toBe(true);
+        // detail rows carry the full PerfDetailRow shape (relSem present).
+        expect(typeof homoDyn.rows[0]!.relSem).toBe("number");
     });
-    it("emits a shape slice per (size, profile) present in shape data", () => {
+    it("emits a shape section per (size, profile) present in shape data + flows into control unions", () => {
         const mk = (id: string, size: "S" | "M" | "L", wm: number) =>
             fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: size }, wm, "node");
         const m = buildPerfModel(aggregate([

@@ -2,6 +2,7 @@ import { argv, exit } from "node:process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runCase } from "./run-case.js";
+import { isCorrectnessFailure } from "@bench/result-schema";
 import type { Language, Toolchain, Profile, InputSize } from "@bench/result-schema";
 
 interface CliArgs {
@@ -54,6 +55,12 @@ async function main() {
     const fname = `${a.entry}__${a.language}-${a.toolchain}-${a.profile}__${a.size}__node.json`;
     await writeFile(join(a.outDir, fname), JSON.stringify(r, null, 2));
     console.log(`wrote ${join(a.outDir, fname)}`);
+    // Surface silent correctness fails: the result is written for inspection,
+    // then we signal failure via exit code so run-matrix records it.
+    if (isCorrectnessFailure(r)) {
+        console.error(`correctness fail (validated=${String(r.quality.validated)}): ${fname}`);
+        exit(1);
+    }
 }
 
 main().catch((e) => {

@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, access, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { execa, type ResultPromise } from "execa";
-import { SpecSchema, type Spec } from "@bench/result-schema";
+import { SpecSchema, isCorrectnessFailure, type Spec } from "@bench/result-schema";
 import { enumerateBinaries } from "./lib/matrix.js";
 import { run } from "./lib/exec.js";
 import { createDriverSession, type CaseInput, type DriverSession } from "../apps/runner-web/src/driver.js";
@@ -151,7 +151,17 @@ async function main() {
                                 `--out=${args.out}`,
                                 `--mode=${args.mode}`,
                             ];
-                            await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
+                            const caseId = `${entry}__${c.language}-${c.toolchain}-${c.profile}__${sz}`;
+                            try {
+                                // runner-node exits non-zero on correctness fail (and any error);
+                                // accumulate per-case instead of aborting the whole run.
+                                await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
+                            } catch (e) {
+                                const msg = e instanceof Error ? e.message : String(e);
+                                console.error(`[fail] node ${caseId}: ${msg}`);
+                                accumulateFailures.push({ env: "node", caseId, error: msg });
+                                ranOK = false;
+                            }
                         }
                     }
                 }
@@ -222,6 +232,15 @@ async function main() {
                     const outPath = join(args.out, result.fileName);
                     await writeFile(outPath, JSON.stringify(result.result, null, 2));
                     console.log(`wrote ${outPath}`);
+                    // Result is written for inspection; a correctness fail is still a
+                    // failure — surface it (not a session-restart trigger).
+                    if (isCorrectnessFailure(result.result)) {
+                        const c = cases[i]!;
+                        const caseId = `${c.entry}__${c.language}-${c.toolchain}-${c.profile}__${c.size}`;
+                        console.error(`[fail] ${env} ${caseId}: correctness fail (validated=${String(result.result.quality.validated)})`);
+                        accumulateFailures.push({ env, caseId, error: "correctness fail (validated=false)" });
+                        ranOK = false;
+                    }
                 }
             }
 

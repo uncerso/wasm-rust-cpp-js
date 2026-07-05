@@ -8,7 +8,7 @@ import {
 } from "./lib/matrix.js";
 import { statArtifact, writeMeta, type ArtifactMeta } from "./lib/meta.js";
 import { detectActual } from "./lib/tool-versions.js";
-import { wasiSdkPath, wasmOptPath } from "./lib/tool-paths.js";
+import { wasiSdkPath } from "./lib/tool-paths.js";
 import { emsdkEnv } from "./lib/emsdk-env.js";
 import { optimizeWasm } from "./lib/wasm-opt.js";
 import { wasiSdkBuildPath } from "./lib/build-env.js";
@@ -30,13 +30,14 @@ async function buildEmscripten(c: BinaryCombination): Promise<void> {
     // Fall back to system emsdk on PATH when .tools/emsdk is absent (dev convenience;
     // pnpm setup populates the dir, after which emsdkEnv() is the source of truth).
     const emsdk = existsSync(resolve(".tools/emsdk")) ? await emsdkEnv() : {};
-    // emcc runs its own bundled binaryen internally; it needs only the emsdk environment.
-    // Dropping .tools/bin keeps emcc from ever shadowing its wasm-opt with the pinned one.
+    // emcc runs its own bundled binaryen internally (its -O3/-Oz), so emscripten needs NO
+    // external wasm-opt pass — unlike wasi-sdk (see buildWasiSdk's optimizeWasm). It needs
+    // only the emsdk environment; dropping .tools/bin keeps emcc from ever shadowing its wasm-opt.
     const emsdkPath = emsdk["PATH"] ?? process.env["PATH"] ?? "";
     const attrDir = resolve("target/attr-cpp", `${c.sourceBench}-${c.toolchain}-${c.profile}`);
     await mkdir(attrDir, { recursive: true });
     await run("bash", [script, c.profile, resolve(out)], {
-        env: { ...emsdk, PATH: emsdkPath, WASM_OPT: wasmOptPath(), SIZE_ATTR: "1", ATTR_OUT: attrDir },
+        env: { ...emsdk, PATH: emsdkPath, SIZE_ATTR: "1", ATTR_OUT: attrDir },
     });
 
     // Emscripten emits glue.mjs + glue.wasm side-by-side; glue.mjs hardcodes
