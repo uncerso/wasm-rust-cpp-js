@@ -125,6 +125,21 @@ export const PERF_JS = `
       activateSlice(curSize, curProfile);
     });
   });
+
+  // Spoiler state is shared across (size,profile) slices by semantic data-sync key,
+  // so toggling a detail in one filter keeps it open/closed in every other filter.
+  var syncing = false;
+  document.querySelectorAll('.perf-body details[data-sync]').forEach(function (d) {
+    d.addEventListener('toggle', function () {
+      if (syncing) { return; }
+      syncing = true;
+      var key = d.dataset.sync;
+      document.querySelectorAll('details[data-sync="' + CSS.escape(key) + '"]').forEach(function (o) {
+        if (o !== d && o.open !== d.open) { o.open = d.open; }
+      });
+      syncing = false;
+    });
+  });
 }());
 `;
 
@@ -152,7 +167,7 @@ function renderCell(value: number | null | undefined, max: number): string {
     return `<div class="em-cell"><span class="em-trk"><i style="width:${pct}%"></i></span><span class="em-v">${value.toFixed(3)}</span></div>`;
 }
 
-function renderSlice(slice: PerfSlice): string {
+function renderSlice(slice: PerfSlice, workloadId: string): string {
     const max = computeGlobalMax(slice.multiples);
     const headCols = slice.envs.map((env) => `<span class="eh">${escape(env)}</span>`).join("");
     const head = `<div class="em-head"><span class="sp"></span>${headCols}</div>`;
@@ -160,7 +175,7 @@ function renderSlice(slice: PerfSlice): string {
         const cells = slice.envs.map((env) => renderCell(m.byEnv[env], max)).join("");
         return `<div class="em-row"><div class="em-impl">${escape(m.impl)}</div>${cells}</div>`;
     }).join("\n");
-    const detail = renderPerfDetail(slice);
+    const detail = renderPerfDetail(slice, workloadId);
     return `${head}\n${rows}${detail ? "\n" + detail : ""}`;
 }
 
@@ -188,14 +203,14 @@ function renderDetailRow(row: PerfDetailRow, maxInit: number, maxWarm: number): 
     return `<tr${trClass}><td>${escape(row.impl)}${badge}</td><td>${escape(row.env)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td>${row.warmMad.toFixed(3)}</td><td>${row.cv.toFixed(3)}</td><td${relSemClass}>${row.relSem.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
 }
 
-function renderPerfDetail(slice: PerfSlice): string {
+function renderPerfDetail(slice: PerfSlice, workloadId: string): string {
     if (slice.detail.length === 0) {
         return "";
     }
     const maxInit = slice.detail.reduce((m, r) => Math.max(m, r.initTotal), 0);
     const maxWarm = slice.detail.reduce((m, r) => Math.max(m, r.warmMedian), 0);
     const rows = slice.detail.map((row) => renderDetailRow(row, maxInit, maxWarm)).join("\n");
-    return `<details>
+    return `<details data-sync="${escape(workloadId)}:all">
 <summary class="pf-tg">details · all envs</summary>
 <table class="pf-t">
 <thead><tr><th>impl</th><th>env</th><th>init</th><th>first</th><th>warm med</th><th>p95</th><th>mad</th><th>cv</th><th>relSem</th><th>ok</th></tr></thead>
@@ -334,7 +349,7 @@ function renderShapeComboDetail(combo: ShapeComboDetail): string {
     const maxInit = combo.rows.reduce((m, r) => Math.max(m, r.initTotal), 0);
     const maxWarm = combo.rows.reduce((m, r) => Math.max(m, r.warmMedian), 0);
     const rows = combo.rows.map((r) => renderDetailRow(r, maxInit, maxWarm)).join("\n");
-    return `<details>
+    return `<details data-sync="shape:${escape(combo.layout)}:${escape(combo.dispatch)}">
 <summary class="pf-tg">details · ${escape(combo.layout)}·${escape(combo.dispatch)}</summary>
 <table class="pf-t">
 <thead><tr><th>impl</th><th>env</th><th>init</th><th>first</th><th>warm med</th><th>p95</th><th>mad</th><th>cv</th><th>relSem</th><th>ok</th></tr></thead>
@@ -392,7 +407,7 @@ export function renderPerfView(agg: Aggregated): string {
             const isActive = slice.size === defaultSize && slice.profile === defaultProfile;
             const display = isActive ? "" : ' style="display:none"';
             return `<div class="perf-slice"${display} data-size="${escape(slice.size)}" data-profile="${escape(slice.profile)}">
-${renderSlice(slice)}
+${renderSlice(slice, wl.id)}
 </div>`;
         }).join("\n");
         return `<div class="perf-wl">

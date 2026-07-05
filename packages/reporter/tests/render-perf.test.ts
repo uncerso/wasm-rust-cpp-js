@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aggregate } from "../src/aggregate.js";
-import { PERF_CSS, renderPerfView } from "../src/render-perf.js";
+import { PERF_CSS, PERF_JS, renderPerfView } from "../src/render-perf.js";
 import type { BenchResult } from "@bench/result-schema";
 
 function fakeResult(
@@ -179,6 +179,27 @@ describe("renderPerfView", () => {
         expect(PERF_CSS).toMatch(/\.pf-t td:nth-child\(4\)[^{]*\{[^}]*min-width:\d+ch/);
         expect(PERF_CSS).toMatch(/\.pf-t td:nth-child\(6\)[^{]*\{[^}]*min-width:\d+ch/);
         expect(PERF_CSS).toMatch(/\.pf-t td:nth-child\(7\)[^{]*\{[^}]*min-width:\d+ch/);
+    });
+
+    it("tags detail spoilers with a filter-stable data-sync key", () => {
+        const html = renderPerfView(aggregate([fakeResult({ id: "hashmap_int" }, 1.0, "node")]));
+        expect(html).toContain('data-sync="hashmap_int:all"');
+    });
+
+    it("tags shape_dispatch combo spoilers with a layout·dispatch data-sync key", () => {
+        const rr = (id: string, wm: number): BenchResult =>
+            fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, wm, "node");
+        const html = renderPerfView(aggregate([
+            rr("shape_dispatch_homo_static", 1.2), rr("shape_dispatch_homo_dyn", 1.4),
+            rr("shape_dispatch_mixed_static", 1.3), rr("shape_dispatch_mixed_dyn", 1.9),
+        ]));
+        expect(html).toContain('data-sync="shape:homo:dynamic"');
+        expect(html).toContain('data-sync="shape:mixed:static"');
+    });
+
+    it("PERF_JS syncs data-sync spoiler state with a re-entry guard", () => {
+        expect(PERF_JS).toContain("data-sync");
+        expect(PERF_JS).toContain("CSS.escape");
     });
 
     it("renders shape_dispatch as an impl×env cbox-bar grid with per-env scale, deltas + 4 combo detail tables", () => {
