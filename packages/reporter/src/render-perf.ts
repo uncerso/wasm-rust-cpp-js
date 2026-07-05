@@ -77,8 +77,8 @@ export const PERF_CSS = `
 .sh-c.sh-na .sh-v{color:#c2c9d2}
 .sh-trk{flex:1;height:12px;background:#eef2f6;border:1px solid #dde4ec;border-radius:3px;overflow:hidden}
 .sh-trk i{display:block;height:100%;background:#a7c8e3}
-.sh-v{flex:0 0 32px;text-align:right;font:700 10.5px ui-monospace;color:#1f2530}
-.sh-d{flex:0 0 28px;text-align:left;font:600 8px ui-monospace;color:#b5762f}
+.sh-v{flex:0 0 22px;text-align:right;font:700 10.5px ui-monospace;color:#1f2530}
+.sh-d{flex:0 0 25px;text-align:left;font:600 8px ui-monospace;color:#b5762f}
 .shape-cap{font:400 11px ui-sans-serif;color:#9aa3b0;margin:9px 0 2px;line-height:1.5}
 .shape-cap code{font:600 10px ui-monospace;background:#eef2f6;border-radius:3px;padding:0 3px}
 .perf-legend{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:9px;font-size:10.5px;color:#56606e;align-items:center}
