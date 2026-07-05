@@ -173,19 +173,42 @@ describe("renderPerfView", () => {
         expect(PERF_CSS).toContain("position:sticky");
     });
 
-    it("renders shape_dispatch as a 2x2 heatmap with deltas", () => {
-        const mk = (id: string, wm: number): BenchResult =>
-            fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, wm, "node");
+    it("renders shape_dispatch as an impl×env heatmap grid with deltas + 4 combo detail tables", () => {
+        const rr = (id: string, wm: number, env: string): BenchResult =>
+            fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, wm, env);
+        const js = (id: string, wm: number, env: string): BenchResult =>
+            fakeResult({ id, language: "js", toolchain: "idiomatic", profile: "speed", inputSize: "L" }, wm, env);
         const html = renderPerfView(aggregate([
-            mk("shape_dispatch_homo_static", 0.58),
-            mk("shape_dispatch_homo_dyn", 0.74),
-            mk("shape_dispatch_mixed_static", 0.61),
-            mk("shape_dispatch_mixed_dyn", 1.31),
+            rr("shape_dispatch_homo_static", 1.20, "node"), rr("shape_dispatch_homo_dyn", 1.40, "node"),
+            rr("shape_dispatch_mixed_static", 1.30, "node"), rr("shape_dispatch_mixed_dyn", 1.90, "node"),
+            js("shape_dispatch_homo_dyn", 1.55, "node"), js("shape_dispatch_mixed_static", 1.60, "node"),
+            js("shape_dispatch_mixed_dyn", 2.10, "node"),
         ]));
-        expect(html).toContain('class="shape-heat"');
-        expect(html).toContain("static");
-        expect(html).toContain("dynamic");
-        expect(html).toMatch(/\+\d+%/);   // delta annotation on a dynamic cell
+        // grid form (not the old single pinned heatmap)
+        expect(html).toContain('class="shape-grid"');
+        expect(html).not.toContain('class="shape-heat"');
+        // impl rows for both rust/raw and js/idiomatic
+        expect(html).toContain("rust/raw");
+        expect(html).toContain("js/idiomatic");
+        // env header + dispatch sub-headers (full words, not abbreviated)
+        expect(html).toContain(">node<");
+        expect(html).toContain(">static<");
+        expect(html).toContain(">dynamic<");
+        // layout sub-rows spelled out
+        expect(html).toContain(">homo<");
+        expect(html).toContain(">mixed<");
+        // delta annotation on a dynamic cell
+        expect(html).toMatch(/\+\d+%/);
+        // js homo·static has no data → dash cell
+        expect(html).toContain("—");
+        // 4 collapsed combo detail tables, each a pf-t detail table
+        expect(html).toContain("details · homo·static");
+        expect(html).toContain("details · homo·dynamic");
+        expect(html).toContain("details · mixed·static");
+        expect(html).toContain("details · mixed·dynamic");
+        // caption explains the dash (static-typing property)
+        expect(html).toContain("static-typing");
+        expect(html).toContain("homo_static");
     });
 
     it("renders a clean tray legend decoding amber/red/<res (no word-labels)", () => {

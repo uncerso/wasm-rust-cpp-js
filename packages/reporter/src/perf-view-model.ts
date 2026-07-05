@@ -39,23 +39,37 @@ export interface PerfWorkload {
     slices: PerfSlice[];
 }
 
-export interface ShapeCell {
+export interface ShapeGridCell {
     layout: string;
     dispatch: string;
     warmMedian: number | null;
 }
 
-export interface ShapeSlice {
+export interface ShapeGridRow {
+    impl: string;
+    byEnv: Record<string, ShapeGridCell[]>;   // 4 cells/env, order = SHAPE_DISPATCH_GRID
+}
+
+export interface ShapeComboDetail {
+    layout: string;
+    dispatch: string;
+    benchId: string;
+    rows: PerfDetailRow[];
+}
+
+export interface ShapeSection {
     size: string;
     profile: string;
-    cells: ShapeCell[];
+    envs: string[];
+    rows: ShapeGridRow[];
+    detail: ShapeComboDetail[];
 }
 
 export interface PerfModel {
     workloads: PerfWorkload[];
     sizes: string[];
     profiles: string[];
-    shapeDispatch: ShapeSlice[] | null;
+    shapeDispatch: ShapeSection[] | null;
 }
 
 const SHAPE_DISPATCH_GRID: { layout: string; dispatch: string; id: string }[] = [
@@ -89,6 +103,34 @@ function orderBy(values: string[], order: readonly string[]): string[] {
     return [...values].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
+function envRank(env: string): number {
+    const i = ENV_ORDER.indexOf(env);
+    return i < 0 ? ENV_ORDER.length : i;
+}
+
+function sizeRank(size: string): number {
+    const i = SIZE_ORDER.indexOf(size);
+    return i < 0 ? SIZE_ORDER.length : i;
+}
+
+function toDetailRow(impl: string, env: string, r: BenchResult): PerfDetailRow {
+    return {
+        impl,
+        env,
+        initTotal: r.timingsMs.initTotal,
+        firstCall: r.timingsMs.firstCall,
+        warmMedian: r.timingsMs.warmMedian,
+        warmP95: r.timingsMs.warmP95,
+        warmMad: r.timingsMs.warmMad,
+        cv: r.stats.cv,
+        relSem: r.stats.relSem,
+        meanImprecise: r.stats.meanImprecise,
+        subResolution: r.stats.subResolution,
+        correctnessFailed: r.quality.correctnessFailed,
+        validated: r.quality.validated,
+    };
+}
+
 function buildSlice(
     size: string,
     profile: string,
@@ -120,38 +162,146 @@ function buildSlice(
     const detail: PerfDetailRow[] = [];
     for (const [impl, entries] of casesByImpl) {
         for (const { env, result: r } of entries) {
-            detail.push({
-                impl,
-                env,
-                initTotal: r.timingsMs.initTotal,
-                firstCall: r.timingsMs.firstCall,
-                warmMedian: r.timingsMs.warmMedian,
-                warmP95: r.timingsMs.warmP95,
-                warmMad: r.timingsMs.warmMad,
-                cv: r.stats.cv,
-                relSem: r.stats.relSem,
-                meanImprecise: r.stats.meanImprecise,
-                subResolution: r.stats.subResolution,
-                correctnessFailed: r.quality.correctnessFailed,
-                validated: r.quality.validated,
-            });
+            detail.push(toDetailRow(impl, env, r));
         }
     }
     // Sort: group by canonical impl order, then by ENV_ORDER within an impl.
-    const envRankFor = (env: string): number => {
-        const i = ENV_ORDER.indexOf(env);
-        return i < 0 ? ENV_ORDER.length : i;
-    };
     detail.sort((a, b) =>
         implKeyRank(a.impl) - implKeyRank(b.impl)
         || a.impl.localeCompare(b.impl)
-        || envRankFor(a.env) - envRankFor(b.env)
+        || envRank(a.env) - envRank(b.env)
         || a.env.localeCompare(b.env));
 
     return { size, profile, envs, multiples, detail };
 }
 
-const SHAPE_PINNED_PREFIX = "node|rust|raw";
+// Shape rows are labelled by language/toolchain only — each ShapeSection already
+// fixes the profile, so a profile suffix would be redundant (and JS carries none).
+function shapeImplKey(r: BenchResult): string {
+    return `${r.benchmark.language}/${r.benchmark.toolchain}`;
+}
+
+/**
+ * Build the shape_dispatch widget model: one ShapeSection per (size, profile),
+ * each an impl×env grid of 2×2 (layout × dispatch) warm-median cells plus 4
+ * collapsed per-combo detail slices. All impls present in the data are stacked
+ * (ordered by implOrderRank). JS is a real participant in 3 of the 4 combos —
+ * its `homo_static` cell has no bench, so that cell is null (rendered as a dash).
+ * JS ships one profile-agnostic bundle, so (mirroring the small-multiples tab)
+ * each JS case is injected into every profile present in the shape data.
+ */
+function buildShapeSections(agg: Aggregated): {
+    sections: ShapeSection[];
+    sizes: Set<string>;
+    profiles: Set<string>;
+} {
+    const sizes = new Set<string>();
+    const profiles = new Set<string>();
+    for (const { id } of SHAPE_DISPATCH_GRID) {
+        const b = agg.benchmarks[id];
+        if (!b) {
+            continue;
+        }
+        for (const c of b.cases) {
+            sizes.add(c.result.benchmark.inputSize);
+            profiles.add(c.result.benchmark.profile);
+        }
+    }
+    if (sizes.size === 0) {
+        return { sections: [], sizes, profiles };
+    }
+    const allProfiles = [...profiles];
+
+    interface Acc {
+        envs: Set<string>;
+        impls: Set<string>;
+        grid: Map<string, Map<string, Map<string, number>>>;   // impl -> env -> benchId -> warmMedian
+        detailByCombo: Map<string, { impl: string; env: string; result: BenchResult }[]>;
+    }
+    const acc = new Map<string, Acc>();
+    const ensure = (sk: string): Acc => {
+        let a = acc.get(sk);
+        if (!a) {
+            a = { envs: new Set(), impls: new Set(), grid: new Map(), detailByCombo: new Map() };
+            acc.set(sk, a);
+        }
+        return a;
+    };
+
+    for (const g of SHAPE_DISPATCH_GRID) {
+        const b = agg.benchmarks[g.id];
+        if (!b) {
+            continue;
+        }
+        for (const c of b.cases) {
+            const r = c.result;
+            const isJs = r.benchmark.language === "js";
+            const impl = shapeImplKey(r);
+            const env = r.env.name;
+            const size = r.benchmark.inputSize;
+            const targetProfiles = isJs ? allProfiles : [r.benchmark.profile];
+            for (const profile of targetProfiles) {
+                const a = ensure(`${size}|${profile}`);
+                a.envs.add(env);
+                a.impls.add(impl);
+                let byEnv = a.grid.get(impl);
+                if (!byEnv) {
+                    byEnv = new Map();
+                    a.grid.set(impl, byEnv);
+                }
+                let byGrid = byEnv.get(env);
+                if (!byGrid) {
+                    byGrid = new Map();
+                    byEnv.set(env, byGrid);
+                }
+                byGrid.set(g.id, r.timingsMs.warmMedian);
+                let cases = a.detailByCombo.get(g.id);
+                if (!cases) {
+                    cases = [];
+                    a.detailByCombo.set(g.id, cases);
+                }
+                cases.push({ impl, env, result: r });
+            }
+        }
+    }
+
+    const sections: ShapeSection[] = [];
+    for (const [sk, a] of acc) {
+        const [size, profile] = sk.split("|") as [string, string];
+        const envs = orderBy([...a.envs], ENV_ORDER);
+        const impls = [...a.impls].sort((x, y) => implKeyRank(x) - implKeyRank(y) || x.localeCompare(y));
+
+        const rows: ShapeGridRow[] = impls.map((impl) => {
+            const implGrid = a.grid.get(impl);
+            const byEnv: Record<string, ShapeGridCell[]> = {};
+            for (const env of envs) {
+                const byGrid = implGrid?.get(env);
+                byEnv[env] = SHAPE_DISPATCH_GRID.map((g) => ({
+                    layout: g.layout,
+                    dispatch: g.dispatch,
+                    warmMedian: byGrid?.get(g.id) ?? null,
+                }));
+            }
+            return { impl, byEnv };
+        });
+
+        const detail: ShapeComboDetail[] = SHAPE_DISPATCH_GRID.map((g) => {
+            const cases = a.detailByCombo.get(g.id) ?? [];
+            const dRows = cases.map(({ impl, env, result }) => toDetailRow(impl, env, result));
+            dRows.sort((x, y) =>
+                implKeyRank(x.impl) - implKeyRank(y.impl)
+                || x.impl.localeCompare(y.impl)
+                || envRank(x.env) - envRank(y.env)
+                || x.env.localeCompare(y.env));
+            return { layout: g.layout, dispatch: g.dispatch, benchId: g.id, rows: dRows };
+        });
+
+        sections.push({ size, profile, envs, rows, detail });
+    }
+
+    sections.sort((a, b) => sizeRank(a.size) - sizeRank(b.size) || a.profile.localeCompare(b.profile));
+    return { sections, sizes, profiles };
+}
 
 export function buildPerfModel(agg: Aggregated): PerfModel {
     const sizeSet = new Set<string>();
@@ -203,75 +353,23 @@ export function buildPerfModel(agg: Aggregated): PerfModel {
         }
 
         // Sort slices: SIZE_ORDER then profile
-        slices.sort((a, b) => {
-            const sizeRankA = SIZE_ORDER.indexOf(a.size) < 0 ? SIZE_ORDER.length : SIZE_ORDER.indexOf(a.size);
-            const sizeRankB = SIZE_ORDER.indexOf(b.size) < 0 ? SIZE_ORDER.length : SIZE_ORDER.indexOf(b.size);
-            if (sizeRankA !== sizeRankB) {
-                return sizeRankA - sizeRankB;
-            }
-            return a.profile.localeCompare(b.profile);
-        });
+        slices.sort((a, b) => sizeRank(a.size) - sizeRank(b.size) || a.profile.localeCompare(b.profile));
 
         workloads.push({ id: bench.id, slices });
     }
 
-    // Build shapeDispatch: one ShapeSlice per (size, profile) present in shape data,
-    // each pinned to node·rust/raw (only size + profile vary in the case key).
-    const shapeSizeSet = new Set<string>();
-    const shapeProfileSet = new Set<string>();
-    const shapePairs = new Set<string>(); // "profile|size"
-    for (const id of SHAPE_DISPATCH_IDS) {
-        const b = agg.benchmarks[id];
-        if (!b) {
-            continue;
-        }
-        for (const c of b.cases) {
-            const r = c.result;
-            if (r.env.name !== "node" || r.benchmark.language !== "rust" || r.benchmark.toolchain !== "raw") {
-                continue;
-            }
-            const profile = r.benchmark.profile;
-            const size = r.benchmark.inputSize;
-            shapeSizeSet.add(size);
-            shapeProfileSet.add(profile);
-            shapePairs.add(`${profile}|${size}`);
-        }
-    }
-
-    let shapeDispatch: ShapeSlice[] | null = null;
-    const shapeSlices: ShapeSlice[] = [];
-    for (const pair of shapePairs) {
-        const [profile, size] = pair.split("|") as [string, string];
-        const pinnedKey = `${SHAPE_PINNED_PREFIX}|${profile}|${size}`;
-        const cells: ShapeCell[] = SHAPE_DISPATCH_GRID.map(({ layout, dispatch, id }) => {
-            const b = agg.benchmarks[id];
-            const hit = b?.cases.find((c) => c.key === pinnedKey);
-            return {
-                layout,
-                dispatch,
-                warmMedian: hit ? hit.result.timingsMs.warmMedian : null,
-            };
-        });
-        if (cells.some((c) => c.warmMedian != null)) {
-            shapeSlices.push({ size, profile, cells });
-        }
-    }
-    if (shapeSlices.length > 0) {
-        shapeSlices.sort((a, b) => {
-            const sizeRankA = SIZE_ORDER.indexOf(a.size) < 0 ? SIZE_ORDER.length : SIZE_ORDER.indexOf(a.size);
-            const sizeRankB = SIZE_ORDER.indexOf(b.size) < 0 ? SIZE_ORDER.length : SIZE_ORDER.indexOf(b.size);
-            if (sizeRankA !== sizeRankB) {
-                return sizeRankA - sizeRankB;
-            }
-            return a.profile.localeCompare(b.profile);
-        });
-        shapeDispatch = shapeSlices;
+    // Build shapeDispatch: one ShapeSection per (size, profile) — an impl×env grid
+    // of 2×2 (layout × dispatch) warm-median cells + 4 per-combo detail slices.
+    const shape = buildShapeSections(agg);
+    let shapeDispatch: ShapeSection[] | null = null;
+    if (shape.sections.length > 0) {
+        shapeDispatch = shape.sections;
         // Shape sizes/profiles flow into the control unions so the segmented
         // controls expose them even if no non-shape workload uses that size.
-        for (const s of shapeSizeSet) {
+        for (const s of shape.sizes) {
             sizeSet.add(s);
         }
-        for (const p of shapeProfileSet) {
+        for (const p of shape.profiles) {
             profileSet.add(p);
         }
     }

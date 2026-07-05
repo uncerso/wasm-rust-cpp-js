@@ -5,7 +5,7 @@ import { renderSizeView, SIZE_CSS, SIZE_JS } from "./render-size.js";
 import { SHELL_CSS } from "./theme.js";
 
 // Thin local CSS: just tab-panel visibility (shell behaviour). Every table in
-// the report (.xlang / .pf-t / .shape-heat) now carries its own complete
+// the report (.xlang / .pf-t / .shape-grid) now carries its own complete
 // styling in SIZE_CSS / PERF_CSS — no shared generic table rules, which would
 // otherwise paint stray #ccc borders onto the redesigned tables.
 const SHELL_LOCAL_CSS = `
