@@ -173,12 +173,12 @@ describe("renderPerfView", () => {
         expect(PERF_CSS).toContain("position:sticky");
     });
 
-    it("pins the detail-table impl + ms columns via min-width (layout stable across filters)", () => {
-        // impl column min-width and the ms-text columns (first/p95/mad) via nth-child, in ch
-        expect(PERF_CSS).toMatch(/\.pf-t (td|th):first-child\{[^}]*min-width:\d+ch/);
-        expect(PERF_CSS).toMatch(/\.pf-t td:nth-child\(4\)[^{]*\{[^}]*min-width:\d+ch/);
-        expect(PERF_CSS).toMatch(/\.pf-t td:nth-child\(6\)[^{]*\{[^}]*min-width:\d+ch/);
-        expect(PERF_CSS).toMatch(/\.pf-t td:nth-child\(7\)[^{]*\{[^}]*min-width:\d+ch/);
+    it("stabilizes the detail table via fixed layout + explicit column widths (full-width, no jump across filters)", () => {
+        expect(PERF_CSS).toMatch(/\.pf-t\{[^}]*table-layout:fixed/);
+        expect(PERF_CSS).toMatch(/\.pf-t\{[^}]*width:100%/);
+        // impl + a number column get explicit % widths (content-independent → no resize on filter switch)
+        expect(PERF_CSS).toMatch(/\.pf-t [^{]*:first-child\{[^}]*width:\d+%/);
+        expect(PERF_CSS).toMatch(/\.pf-t [^{]*nth-child\(6\)[^{]*\{[^}]*width:\d+%/);
     });
 
     it("tags detail spoilers with a filter-stable data-sync key", () => {
@@ -202,7 +202,7 @@ describe("renderPerfView", () => {
         expect(PERF_JS).toContain("CSS.escape");
     });
 
-    it("renders shape_dispatch as an impl×env cbox-bar grid with per-env scale, deltas + 4 combo detail tables", () => {
+    it("renders shape_dispatch as an impl×env grid with a 2×2 (layout×dispatch) bar block per cell", () => {
         const rr = (id: string, wm: number, env: string): BenchResult =>
             fakeResult({ id, language: "rust", toolchain: "raw", profile: "speed", inputSize: "L" }, wm, env);
         const js = (id: string, wm: number, env: string): BenchResult =>
@@ -215,12 +215,12 @@ describe("renderPerfView", () => {
         ]));
         expect(html).toContain('class="shape-grid"');
         expect(html).not.toContain('class="shape-heat"');
-        // cbox bars, not heat buckets
-        expect(html).toContain('class="sc"');
+        // CSS-grid bar cells (sh-c), env sub-columns static/dynamic, no heat buckets
+        expect(html).toContain('class="sh-c"');
         expect(html).not.toMatch(/class="a[1-5]"/);
         // per-env scale: node max = 4.00 (js mixed·dyn) → its bar is 100%
         expect(html).toContain("width:100%");
-        // impl rows, env + dispatch headers, layout sub-rows
+        // impl rows, env headers, static/dynamic sub-headers, homo/mixed layout labels
         expect(html).toContain("rust/raw");
         expect(html).toContain("js/idiomatic");
         expect(html).toContain(">node<");
@@ -228,7 +228,7 @@ describe("renderPerfView", () => {
         expect(html).toContain(">dynamic<");
         expect(html).toContain(">homo<");
         expect(html).toContain(">mixed<");
-        // delta on a dynamic cell + dash for js homo·static + 4 detail tables + caption
+        // delta on a dynamic bar + dash for js homo·static + 4 detail tables + caption
         expect(html).toMatch(/\+\d+%/);
         expect(html).toContain("—");
         expect(html).toContain("details · homo·static");

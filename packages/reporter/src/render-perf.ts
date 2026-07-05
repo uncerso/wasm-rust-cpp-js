@@ -1,5 +1,5 @@
 import type { Aggregated } from "./aggregate.js";
-import { buildPerfModel, SIZE_ORDER, type PerfDetailRow, type PerfImplMultiple, type PerfSlice, type ShapeComboDetail, type ShapeGridCell, type ShapeGridRow, type ShapeSection } from "./perf-view-model.js";
+import { buildPerfModel, SIZE_ORDER, type PerfDetailRow, type PerfImplMultiple, type PerfSlice, type ShapeComboDetail, type ShapeGridCell, type ShapeSection } from "./perf-view-model.js";
 
 const ESCAPES: Record<string, string> = {
     "&": "&amp;",
@@ -42,38 +42,44 @@ export const PERF_CSS = `
 .em-trk i{display:block;height:100%;background:#a7c8e3}
 .em-v{flex:0 0 42px;text-align:right;font:700 11px ui-monospace;color:#1f2530}
 .pf-tg{font:600 10px ui-monospace,monospace;color:#9aa3b0;margin:12px 0 5px;cursor:pointer}
-.pf-t{border-collapse:collapse;font:500 10.5px ui-monospace,monospace;width:100%}
-.pf-t th,.pf-t td{padding:5px 10px;text-align:right;border-bottom:1px solid #eef1f5;white-space:nowrap;border-left:1px solid #ebeef2}
-.pf-t th:first-child,.pf-t td:first-child{border-left:none;text-align:left;color:#3a4555;min-width:23ch}
-.pf-t td:nth-child(4),.pf-t th:nth-child(4),.pf-t td:nth-child(6),.pf-t th:nth-child(6),.pf-t td:nth-child(7),.pf-t th:nth-child(7){min-width:8ch}
+.pf-t{border-collapse:collapse;font:500 10.5px ui-monospace,monospace;width:100%;table-layout:fixed}
+.pf-t th,.pf-t td{padding:5px 10px;text-align:right;border-bottom:1px solid #eef1f5;white-space:nowrap;border-left:1px solid #ebeef2;overflow:hidden;text-overflow:ellipsis}
+.pf-t th:first-child,.pf-t td:first-child{border-left:none;text-align:left;color:#3a4555;width:17%}
+.pf-t th:nth-child(2),.pf-t td:nth-child(2){width:8%}
+.pf-t th:nth-child(3),.pf-t td:nth-child(3){width:13%}
+.pf-t th:nth-child(4),.pf-t td:nth-child(4){width:9%}
+.pf-t th:nth-child(5),.pf-t td:nth-child(5){width:13%}
+.pf-t th:nth-child(6),.pf-t td:nth-child(6){width:9%}
+.pf-t th:nth-child(7),.pf-t td:nth-child(7){width:9%}
+.pf-t th:nth-child(8),.pf-t td:nth-child(8){width:7%}
+.pf-t th:nth-child(9),.pf-t td:nth-child(9){width:8%}
+.pf-t th:nth-child(10),.pf-t td:nth-child(10){width:7%}
 .pf-t th{font:700 9px ui-monospace;letter-spacing:.04em;text-transform:uppercase;color:#8a93a0;border-bottom:1px solid #d8dce3}
 .pf-t tbody tr:nth-child(even){background:#fafbfc}
 .pf-t tbody tr.noisy{background:#fdf6da}
 .pf-t tbody tr.fail{background:#fbe4e4}
 .pf-t tbody td.bad{background:#f6dd86;color:#6e5208;font-weight:700}
 .pf-t tbody td.failx{background:#f1b6b6;color:#7e2626;font-weight:700}
-.cbox{background:#f6f8fb;border:1px solid #e6ecf3;border-radius:5px;padding:2px 6px;display:inline-flex;align-items:center;gap:6px;width:118px}
+.cbox{background:#f6f8fb;border:1px solid #e6ecf3;border-radius:5px;padding:2px 6px;display:inline-flex;align-items:center;gap:6px;width:100%;box-sizing:border-box}
 .cbox .tk{flex:1;height:12px;background:#eef2f6;border:1px solid #dde4ec;border-radius:3px;overflow:hidden}
 .cbox .tk i{display:block;height:100%;background:#cfe1f0}
 .cbox .v{flex:0 0 38px;text-align:right;font-weight:700}
 .hatch{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#ecd98c 5px 10px)!important}
 .hatch-fail{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#e0a0a0 5px 10px)!important}
 .subres{font:600 8px ui-monospace,monospace;color:#8a93a0;margin-left:5px;vertical-align:super}
-.shape-grid{border-collapse:separate;border-spacing:5px 6px;margin-top:8px}
-.shape-grid th{font:700 9px ui-monospace;letter-spacing:.05em;text-transform:uppercase;color:#8a93a0;padding:2px 6px;text-align:center}
-.shape-grid th.env{border-bottom:1px solid #e0e5ec;padding-bottom:4px;font-size:10px}
-.shape-grid th.sub{font-size:11px;font-weight:600;color:#9aa3b0;text-transform:none;letter-spacing:0}
-.shape-grid th.impl{text-align:right;text-transform:none;letter-spacing:0;font:600 12px ui-monospace;color:#3a4555;vertical-align:middle;white-space:nowrap;padding-right:10px}
-.shape-grid th.lay{text-align:right;text-transform:none;letter-spacing:0;font-size:11px;font-weight:600;color:#9aa3b0;padding-right:6px}
-.shape-grid td.sc{width:118px;padding:0;vertical-align:middle}
-.shape-grid td.e{text-align:right;color:#c2c9d2;font:700 11px ui-monospace;padding-right:8px}
-.shape-grid td.gap,.shape-grid th.gap{width:14px;padding:0;background:none}
-.shape-grid tr.ig td{height:2px;padding:0;background:none}
-.shape-grid .cbox{width:100%;box-sizing:border-box}
-.shape-grid .cbox .tk i{background:#a7c8e3}
-.shape-grid .cbox .v{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;flex:0 0 auto;min-width:44px}
-.shape-grid .cbox .v .dlt{position:static;font:600 8.5px ui-monospace;color:#b5762f}
-.shape-cap{font:400 11px ui-sans-serif;color:#9aa3b0;margin:9px 0 2px;max-width:760px;line-height:1.5}
+.shape-grid{display:grid;gap:6px 6px;align-items:center;margin-top:8px}
+.sh-eh{grid-column:span 2;text-align:center;font:700 9px ui-monospace;letter-spacing:.05em;text-transform:uppercase;color:#8a93a0;border-bottom:1px solid #e0e5ec;padding-bottom:3px}
+.sh-sub{text-align:center;font:600 10px ui-monospace;color:#9aa3b0}
+.sh-impl{grid-row:span 2;font:600 12px ui-monospace;color:#3a4555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh-lay{font:600 10px ui-monospace;color:#9aa3b0;text-align:right;padding-right:2px}
+.sh-c{display:flex;align-items:center;gap:4px}
+.sh-c.sh-na .sh-trk{visibility:hidden}
+.sh-c.sh-na .sh-v{color:#c2c9d2}
+.sh-trk{flex:1;height:12px;background:#eef2f6;border:1px solid #dde4ec;border-radius:3px;overflow:hidden}
+.sh-trk i{display:block;height:100%;background:#a7c8e3}
+.sh-v{flex:0 0 32px;text-align:right;font:700 10.5px ui-monospace;color:#1f2530}
+.sh-d{flex:0 0 28px;text-align:left;font:600 8px ui-monospace;color:#b5762f}
+.shape-cap{font:400 11px ui-sans-serif;color:#9aa3b0;margin:9px 0 2px;line-height:1.5}
 .shape-cap code{font:600 10px ui-monospace;background:#eef2f6;border-radius:3px;padding:0 3px}
 .perf-legend{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:9px;font-size:10.5px;color:#56606e;align-items:center}
 .pl-key{display:flex;align-items:center;gap:6px}
@@ -280,41 +286,30 @@ const SHAPE_CAPTION =
     + "Static/dynamic dispatch is a static-typing concept; for a dynamically-typed language (js) the static form of "
     + "homogeneous data is identical to the dynamic form, so <code>homo_static·js</code> does not exist.</p>";
 
-function renderShapeCell(cell: ShapeGridCell | undefined, staticSibling: ShapeGridCell | undefined, envMax: number): string {
+function renderShapeBar(cell: ShapeGridCell | undefined, staticSibling: ShapeGridCell | undefined, envMax: number): string {
     const wm = cell?.warmMedian ?? null;
     if (wm == null) {
-        return "<td class=\"e\">—</td>";
+        return "<div class=\"sh-c sh-na\"><span class=\"sh-trk\"></span><span class=\"sh-v\">—</span><span class=\"sh-d\"></span></div>";
     }
     let delta = "";
     if (cell?.dispatch === "dynamic") {
         const stat = staticSibling?.warmMedian ?? null;
         if (stat != null && stat > 0) {
             const pct = Math.round(((wm - stat) / stat) * 100);
-            delta = `<span class="dlt">${pct >= 0 ? "+" : ""}${pct}%</span>`;
+            delta = `${pct >= 0 ? "+" : ""}${pct}%`;
         }
     }
     const w = envMax > 0 ? Math.min(100, Math.round((wm / envMax) * 100)) : 0;
-    return `<td class="sc"><span class="cbox"><span class="tk"><i style="width:${w}%"></i></span><span class="v">${wm.toFixed(2)}${delta}</span></span></td>`;
+    // value + Δ% live in fixed-width slots so tracks stay equal length and numbers align down the column.
+    return `<div class="sh-c"><span class="sh-trk"><i style="width:${w}%"></i></span><span class="sh-v">${wm.toFixed(2)}</span><span class="sh-d">${escape(delta)}</span></div>`;
 }
 
-function renderShapeGridRows(row: ShapeGridRow, envs: string[], envMax: Record<string, number>): string {
-    return SHAPE_LAYOUT_ROWS.map((lr, i) => {
-        const cells = envs.map((env) => {
-            const arr = row.byEnv[env] ?? [];
-            const stat = arr[lr.staticIdx];
-            const dyn = arr[lr.dynIdx];
-            const m = envMax[env] ?? 0;
-            return renderShapeCell(stat, undefined, m) + renderShapeCell(dyn, stat, m);
-        }).join("<td class=\"gap\"></td>");
-        const implTh = i === 0 ? `<th class="impl" rowspan="2">${escape(row.impl)}</th>` : "";
-        return `<tr>${implTh}<th class="lay">${lr.label}</th>${cells}</tr>`;
-    }).join("");
-}
-
+// CSS-grid small-multiples: impl rows × 3 wide env groups; each env group splits into
+// static|dynamic sub-columns, and each (impl,env) intersection is a 2×2 block of 4 bars
+// (homo/mixed rows × static/dynamic cols). Bars scaled per env (incl. js) so a short wasm
+// bar reads as "much faster". Empty spacer cells separate env groups; the impl label spans
+// its 2 (homo/mixed) rows.
 function renderShapeGrid(section: ShapeSection): string {
-    // Per-env bar scale: max of that env across all impls/layouts/dispatch (incl. js).
-    // JS stays in the scale so a short wasm bar reads as "much faster"; within an env
-    // static & dynamic share one scale, so the static→dynamic jump reads as bar length.
     const envMax: Record<string, number> = {};
     for (const env of section.envs) {
         let m = 0;
@@ -327,19 +322,22 @@ function renderShapeGrid(section: ShapeSection): string {
         }
         envMax[env] = m;
     }
-    const envHead = section.envs.map((env) => `<th class="env" colspan="2">${escape(env)}</th>`).join("<th class=\"gap\"></th>");
-    const subHead = section.envs.map(() => "<th class=\"sub\">static</th><th class=\"sub\">dynamic</th>").join("<th class=\"gap\"></th>");
-    // 2 lead cols (impl + layout) + 2 cells/env + a 1-col gap between env groups.
-    const totalCols = 2 + section.envs.length * 2 + Math.max(0, section.envs.length - 1);
-    const gapRow = `<tr class="ig"><td colspan="${totalCols}"></td></tr>`;
-    const body = section.rows.map((row) => renderShapeGridRows(row, section.envs, envMax)).join(gapRow);
-    return `<table class="shape-grid">
-    <thead>
-      <tr><th></th><th></th>${envHead}</tr>
-      <tr><th></th><th></th>${subHead}</tr>
-    </thead>
-    <tbody>${body}</tbody>
-  </table>`;
+    // 2 lead cols (impl, layout) + per env "1fr 1fr" (static, dynamic), 12px spacer between envs.
+    const cols = `100px 40px ${section.envs.map(() => "1fr 1fr").join(" 12px ")}`;
+    const sp = "<div class=\"sh-sp\"></div>";
+    const corner = "<div class=\"sh-corner\"></div>";
+    const envHead = section.envs.map((env) => `<div class="sh-eh">${escape(env)}</div>`).join(sp);
+    const subHead = section.envs.map(() => "<div class=\"sh-sub\">static</div><div class=\"sh-sub\">dynamic</div>").join(sp);
+    const body = section.rows.map((row) => SHAPE_LAYOUT_ROWS.map((lr, i) => {
+        const cells = section.envs.map((env) => {
+            const arr = row.byEnv[env] ?? [];
+            const m = envMax[env] ?? 0;
+            return renderShapeBar(arr[lr.staticIdx], undefined, m) + renderShapeBar(arr[lr.dynIdx], arr[lr.staticIdx], m);
+        }).join(sp);
+        const impl = i === 0 ? `<div class="sh-impl">${escape(row.impl)}</div>` : "";
+        return `${impl}<div class="sh-lay">${escape(lr.label)}</div>${cells}`;
+    }).join("")).join("");
+    return `<div class="shape-grid" style="grid-template-columns:${cols}">${corner}${corner}${envHead}${corner}${corner}${subHead}${body}</div>`;
 }
 
 function renderShapeComboDetail(combo: ShapeComboDetail): string {
@@ -373,7 +371,7 @@ ${details}
 </div>`;
     }).join("\n");
     return `<div class="perf-wl">
-  <span class="perf-eyebrow">warm-median (ms) · impl × env · shorter = faster · bar scaled per env (incl. js) · +Δ% = dynamic vs static</span>
+  <span class="perf-eyebrow">warm-median (ms) · impl × env · each cell = 2×2 (homo/mixed × static/dynamic) · scaled per env (incl. js) · shorter = faster · +Δ% = dyn vs static</span>
 ${blocks}
 </div>`;
 }
