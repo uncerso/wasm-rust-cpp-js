@@ -65,9 +65,28 @@ Size (raw wasm, speed profile, включение `wasm-opt -O3`) — все 32 
 **Phase:** introduced build-hygiene (2026-07-04)
 **Caveats:** cpp/emscripten гоняет binaryen внутри emcc (`-O3`/`-Oz`), не отдельным явным пассом — уже оптимизирован. Perf-нейтральность — вывод из cross-run сравнения, где эффект <~3% неотделим от шума; контролируемый same-session A/B в дизайн-фазе показал cpp hashmap-speed −11…−14% (быстрее), rust ~0 → на allocator-тяжёлом коде wasm-opt может и ускорять. Speed остаётся `-O3` (не `-Oz`): оптимизируем скорость, размер — бонус.
 
+### wasm-pack `--release` кодогенит `opt-level=3` даже для size-бандла — для минимального bindgen wasm выставляй `CARGO_PROFILE_RELEASE_OPT_LEVEL=z`
+**Status:** confirmed
+**Evidence:** 2026-07-07, re-baseline `dist/*/rust-bindgen-size/meta.json` (codegen `opt-level=3` → `z`). wasm-pack CLI принимает только `--dev/--release/--profiling` — кастомный cargo-профиль выбрать нельзя, поэтому size-бандл кодогенился с `opt-level=3`, а сжимался лишь post-build `wasm-opt -Oz`. Override через env (тот же механизм, что `CARGO_PROFILE_RELEASE_STRIP` в attr-сборке) выравнивает codegen с rust/raw `release-size`. Raw wasm, size profile, 8 workloads:
+
+| workload | 3 → z (raw) | Δ raw | Δ gzip |
+|---|---|---|---|
+| hashmap_int | 19336→16743 | **−13.4%** | −5.9% |
+| hashmap_string | 21968→19593 | −10.8% | −5.1% |
+| shape_dispatch_homo_dyn | 13383→12139 | −9.3% | −4.0% |
+| shape_dispatch_mixed_dyn | 11772→10741 | −8.8% | −6.7% |
+| matmul | 12321→11683 | −5.2% | −1.9% |
+
+Все 8 меньше; диапазон Δ raw −5.2…−13.4%, gzip −1.9…−6.7%. node-матрица (S, все combos) валидирует пересобранные модули — checksums чисты.
+
+**Phase:** introduced 2026-07-07
+**Caveats:** Выигрыш поверх `wasm-opt -Oz` (codegen `-Oz` + wasm-opt `-Oz` < codegen `-O3` + wasm-opt `-Oz`). Наибольший — на code-тяжёлых workload'ах (hashmap −11…−13%), меньший — на tiny (matmul −5%). Speed-бандл остаётся `opt-level=3` (оптимизируем скорость, размер — бонус). Актуально только для bindgen через wasm-pack; rust/raw (прямой `cargo --profile=release-size`) уже `opt-level=z`.
+
 ## Artifact size
 
 > **Заметка (build-hygiene, 2026-07-04):** с этой даты `wasm-opt` гоняется на обоих профилях у всех явно-эмитящих wasm тулчейнов (см. claim в § Build flags). Две size-байт-таблицы, где speed-числа сдвинулись (no-glue transfer выше, monomorphization ниже), **пересчитаны** на прогон 2026-07-04. Size-профиль в остальных claim'ах: rust без изменений (уже `-Oz`), cpp/wasi-sdk −0.7…−2.3% (один явный `-Oz` вместо driver+double), emscripten без изменений — в пределах order-of-magnitude-оговорок этих claim'ов. Perf-claim'ы (§ Toolchain choice) не затронуты: perf-сдвиг тонет в run-to-run шуме. **Направления и выводы всех claim'ов сохраняются.**
+>
+> **Заметка (bindgen-size opt-level, 2026-07-07):** rust/bindgen **size**-артефакты ре-бейзлайнены — codegen выровнен на `opt-level=z` (было `-O3`; см. claim в § Build flags). Затронутые bindgen size-числа обновлены здесь (no-glue transfer, floor-композиция) и в § Code patterns (monomorphization); rust/raw + cpp + все speed-числа не менялись. Perf-claim'ы не затронуты (size-axis-only change). **Направления и выводы всех claim'ов сохраняются.**
 
 ### Для минимального transfer size при простых экспортах выбирай no-glue (`rust/raw` extern "C" / `cpp/wasi-sdk`) — auto-glue добавляет фиксированный gzip-floor независимо от контейнера/ключа
 **Status:** confirmed
@@ -75,9 +94,9 @@ Size (raw wasm, speed profile, включение `wasm-opt -O3`) — все 32 
 
 | workload | profile | rust/raw | rust/bindgen | Δ | cpp/wasi-sdk | cpp/emscripten | Δ |
 |---|---|---|---|---|---|---|---|
-| int | size | **7813** | 10173 | −23% | **5365** | 7695 | −30% |
+| int | size | **7813** | 9669 | −19% | **5365** | 7695 | −30% |
 | int | speed | **8199** | 10155 | −19% | **5647** | 9312 | −39% |
-| str | size | **9153** | 11580 | −21% | **6396** | 8238 | −22% |
+| str | size | **9153** | 11071 | −17% | **6396** | 8238 | −22% |
 | str | speed | **9576** | 11562 | −17% | **6878** | 9949 | −31% |
 
 Direction (no-glue < glue total transfer) consistent across 2 key-types × 2 profiles. JS-glue floor (gzipped) почти постоянен по key-type: wasm-bindgen ~1.6 KB (оба профиля); emscripten ~2.1 KB (size) / ~3.4 KB (speed). int≈str glue bytes (bindgen 1598≈1599; emscripten 2084≈2087) → floor зависит от toolchain+profile, НЕ от контейнера/ключа. Направление сохранилось после build-hygiene, магнитуды меньше (speed-профиль теперь тоже `wasm-opt`; см. § Build flags).
@@ -139,7 +158,7 @@ Workload-level (no-glue, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/…`)
 | toolchain | wasm raw/gz | доминантный floor-facility | panic-fmt | glue raw/gz |
 |---|---|---|---|---|
 | rust/raw | 18938 / 9153 | allocator 32% | **25%** | — |
-| rust/bindgen | 21968 / 9981 | allocator 29% | **21%** | 5705 / 1599 |
+| rust/bindgen | 19593 / 9472 | allocator 29% | **21%** | 5705 / 1599 |
 | cpp/wasi-sdk | 16279 / 6507 | allocator 44% | **0%** | — |
 | cpp/emscripten | 14786 / 6151 | emscripten-runtime 45% | **0%** | 4379 / 2087 |
 
@@ -333,7 +352,7 @@ Mechanism: static dispatch резолвится на compile-time — call inlin
 
 ### Monomorphization (N специализированных циклов под N типов) vs single tag-`switch`/enum-`match` loop — это size-за-locality trade: +370…535 B (cpp + rust/raw) .. ~1.06 KB (rust/bindgen) на raw wasm
 **Status:** confirmed
-**Evidence:** Phase 1.1.3 (направление) + re-baseline build-hygiene 2026-07-04, `dist/shape_dispatch_{homo,mixed}_static/*/meta.json` (`wasm.rawBytes`, env/size-invariant, post wasm-opt-on-speed). `homo_static` эмитит 3 мономорфизированных копии loop body (по одной на Circle/Square/Triangle); `mixed_static` — один `switch(tag)`/`match` loop. Raw wasm bytes:
+**Evidence:** Phase 1.1.3 (направление) + re-baseline build-hygiene 2026-07-04 + bindgen-size opt-level 2026-07-07, `dist/shape_dispatch_{homo,mixed}_static/*/meta.json` (`wasm.rawBytes`, env/size-invariant, post wasm-opt-on-speed; bindgen-size codegen `-Oz`). `homo_static` эмитит 3 мономорфизированных копии loop body (по одной на Circle/Square/Triangle); `mixed_static` — один `switch(tag)`/`match` loop. Raw wasm bytes:
 
 | toolchain | profile | homo_static | mixed_static | Δraw | Δ% |
 |---|---|---|---|---|---|
@@ -344,11 +363,11 @@ Mechanism: static dispatch резолвится на compile-time — call inlin
 | rust-raw | speed | 1664 | 1293 | +371 | +29% |
 | rust-raw | size | 1522 | 1057 | +465 | +44% |
 | rust-bindgen | speed | 12455 | 11394 | +1061 | +9.3% |
-| rust-bindgen | size | 12449 | 11392 | +1057 | +9.3% |
+| rust-bindgen | size | 11721 | 10507 | +1214 | +11.6% |
 
-Direction (monomorphized > switch) consistent across 4 toolchains × 2 profiles. Absolute Δraw стабилен (~370–535 B для cpp + rust/raw; bindgen ~1.06 KB на своём большем baseline). `homo_dyn` vs `mixed_dyn` показывает тот же паттерн. После build-hygiene rust-bindgen-speed Δ сжался (+1569→+1061 B: speed теперь тоже `wasm-opt`, сравнялся с size).
+Direction (monomorphized > switch) consistent across 4 toolchains × 2 profiles. Absolute Δraw стабилен (~370–535 B для cpp + rust/raw; bindgen ~1.06–1.21 KB на своём большем baseline). `homo_dyn` vs `mixed_dyn` показывает тот же паттерн. После build-hygiene rust-bindgen-speed Δ сжался (+1569→+1061 B: speed теперь тоже `wasm-opt`). Ре-бейзлайн bindgen-size (opt-level=z, 2026-07-07) снова развёл size (+1214 B): size-codegen `-Oz` сильнее ужал меньший `mixed_static` baseline → относительный Δ вырос до +11.6%.
 
-**Phase:** introduced 1.1.3 / re-baselined build-hygiene 2026-07-04
+**Phase:** introduced 1.1.3 / re-baselined build-hygiene 2026-07-04 + bindgen-size opt-level 2026-07-07
 
 **Caveats:** Single workload, K=3 типа. Δ% наибольший на малых baselines (rust/raw size +44%, cpp-emscripten size +41%) — fixed monomorphization cost доминирует tiny binaries; на больших baselines +7…12%. gzip/brotli premium меньше raw (компрессор folds duplicated loop bodies → для transfer-size бюджета эффект слабее). Trade важен когда K растёт ИЛИ per-type body большой; для K=2–3 малых тел дешевле один switch. Runtime homo_static vs mixed_static **не** clean A/B (отличаются и layout, и dispatch — см. dispatch claim выше); этот claim строго про artifact size.
 
