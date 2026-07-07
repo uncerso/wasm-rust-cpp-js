@@ -71,7 +71,7 @@ async function buildBindgen(c: BinaryCombination): Promise<void> {
     // RELEASE_STRIP=false in the attribution build. release and release-size are otherwise identical
     // (both inherit lto=fat, codegen-units=1, panic=abort, strip=true — see workspace Cargo.toml),
     // so this makes bindgen size and raw size share the same codegen stage; wasm-opt then applies
-    // -Oz (size) / -O3 (speed) on top. See docs/roadmap.md `bindgen-size-opt-level`.
+    // -Oz (size) / -O3 (speed) on top.
     const env: Record<string, string> = { PATH: rustBuildPath() };
     if (c.profile === "size") {
         env["CARGO_PROFILE_RELEASE_OPT_LEVEL"] = "z";
