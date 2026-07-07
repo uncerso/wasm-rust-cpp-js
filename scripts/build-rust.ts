@@ -65,16 +65,22 @@ async function buildBindgen(c: BinaryCombination): Promise<void> {
     // wasm-pack has its internal wasm-opt disabled via Cargo metadata; we run
     // wasm-opt manually after copying artifacts — both profiles (Option B): -O3 speed, -Oz size.
     // NOTE: wasm-pack's CLI only offers --dev/--release/--profiling (no way to select a custom
-    // cargo profile), so BOTH profiles build via --release (opt-level=3 codegen) and the size
-    // profile gets its squeeze purely from the post-build wasm-opt -Oz. rust/raw, which calls
-    // cargo directly, uses the release-size profile (opt-level=z codegen) — so bindgen size and
-    // raw size differ at the codegen stage. Aligning them (CARGO_PROFILE_RELEASE_OPT_LEVEL=z env)
-    // is deferred: see docs/roadmap.md `bindgen-size-opt-level`.
+    // cargo profile), so BOTH profiles build via --release. To align the size axis with rust/raw
+    // (which builds the release-size profile = opt-level=z codegen), the size profile overrides
+    // opt-level via CARGO_PROFILE_RELEASE_OPT_LEVEL=z — the same env mechanism as CARGO_PROFILE_
+    // RELEASE_STRIP=false in the attribution build. release and release-size are otherwise identical
+    // (both inherit lto=fat, codegen-units=1, panic=abort, strip=true — see workspace Cargo.toml),
+    // so this makes bindgen size and raw size share the same codegen stage; wasm-opt then applies
+    // -Oz (size) / -O3 (speed) on top. See docs/roadmap.md `bindgen-size-opt-level`.
+    const env: Record<string, string> = { PATH: rustBuildPath() };
+    if (c.profile === "size") {
+        env["CARGO_PROFILE_RELEASE_OPT_LEVEL"] = "z";
+    }
     const pkgDir = join(crateDir, "pkg-tmp");
     await rm(pkgDir, { recursive: true, force: true });
     await run(wasmPackPath(), ["build", "--target=web", "--release", "--out-dir=pkg-tmp"], {
         cwd: crateDir,
-        env: { PATH: rustBuildPath() },
+        env,
     });
 
     const files = await readdir(pkgDir);
