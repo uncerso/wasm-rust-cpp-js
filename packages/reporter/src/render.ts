@@ -21,6 +21,10 @@ const TABS_JS = `
     for (const b of document.querySelectorAll('.tabbar button')) {
       b.classList.toggle('on', b.dataset.tab === name);
     }
+    // Size labels are fitted by pixel measurement, which reads 0 while the panel is
+    // display:none — so a resize on another tab can't fit them. Re-fit now that the
+    // size panel is visible, catching up to any width change made on another tab.
+    if (name === 'size' && typeof fitLabels === 'function') { fitLabels(); }
   }
   document.addEventListener('DOMContentLoaded', function () {
     for (const b of document.querySelectorAll('.tabbar button')) {

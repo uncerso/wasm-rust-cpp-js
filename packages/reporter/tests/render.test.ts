@@ -63,6 +63,16 @@ describe("renderHtml", () => {
         expect(html).toContain("repeating-linear-gradient");   // PERF_CSS hatch — CSS-only, never in markup
     });
 
+    it("re-fits size labels when the size tab is (re)activated", () => {
+        // Label fit is pixel-measured and reads 0 while a panel is display:none, so a
+        // window resize made on another tab can't fit the size labels. showTab must re-run
+        // fitLabels when size becomes visible, or returning to size after a resize elsewhere
+        // leaves the labels un-refitted. This asserts the wiring survives (jsdom can't lay
+        // out, so a behavioural test is impossible — the string guard is the regression net).
+        const html = renderHtml(aggregate([fakeResult()]), { binaries: [] });
+        expect(html).toMatch(/name === 'size'[\s\S]*fitLabels\(\)/);
+    });
+
     it("escapes potentially-hazardous characters in fields", () => {
         const r = fakeResult();
         r.benchmark.id = "<script>alert(1)</script>";
