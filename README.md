@@ -220,6 +220,7 @@ pnpm bench --envs=node,chromium,firefox --sizes=S,M --mode=quick --out=results/r
 - `--out=<dir>` (по умолчанию `results/raw/<ISO timestamp>`).
 - `--benchmarks=<id1,id2>` — фильтр по `spec.id` (по умолчанию все).
 - `--restart-every=N` — quit+relaunch browser session каждые N cases per env (default 0 = never; hedge на возможный V8 state drift в long runs).
+- `--parallel-envs` — гонять node/chromium/firefox параллельно (быстрее итерация, но host-контенция даёт ~2–9% bias на memory-bound workload'ах; результаты помечаются `env.parallel`, в отчёте — бэйдж `∥`). По умолчанию **выключено**; canonical `bench:all` остаётся sequential (guideline-grade).
 
 Для browser envs `run-matrix.ts` держит одну long-lived WebDriver session per env и навигирует по case URL'ам через `driver.get()` — намного устойчивее на full matrix (810 cases) чем driver-per-case spawn. Per-case error или session-crash триггерит retry-once-with-relaunch; cases что упали оба раза — собираются в `<out>/failures.txt`.
 
