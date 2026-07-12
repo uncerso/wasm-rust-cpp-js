@@ -15,11 +15,17 @@ function resolveDirOnPath(bin: string): string {
 
 /**
  * PATH for cargo / wasm-pack. cargo (rustup shim) resolves rustc via
- * RUSTUP_HOME (env, not PATH); we add only its own dir plus .tools/bin for
- * the pinned wasm-pack. Nothing else from the user's ambient PATH leaks in.
+ * RUSTUP_HOME (env, not PATH); we add its own dir, .tools/bin for the pinned
+ * wasm-pack, and /usr/bin:/bin for the host C toolchain (`cc`). cargo links
+ * host-side proc-macros / build scripts (proc-macro2, quote, syn,
+ * wasm-bindgen-macro) with `cc` as the default linker driver, which a clean
+ * build (empty target/) needs; warm builds cache those host artifacts and never
+ * invoke cc, hiding the gap until `pnpm clear` wiped target/. /usr/bin holds no
+ * wasm-opt (homebrew installs elsewhere), so wasm determinism is preserved —
+ * same rationale as wasiSdkBuildPath(). No other ambient PATH entry leaks in.
  */
 export function rustBuildPath(): string {
-    return `${resolveDirOnPath("cargo")}${delimiter}${TOOLS_BIN}`;
+    return `${resolveDirOnPath("cargo")}${delimiter}${TOOLS_BIN}${delimiter}/usr/bin${delimiter}/bin`;
 }
 
 /**
