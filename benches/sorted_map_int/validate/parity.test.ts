@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { genIntPairs53 } from "../../../../common/fixtures.js";
-import { parsePairs, computeBuild, computeLookup, computeRange } from "../../../validate/reference.js";
-import createIdiomatic from "../../idiomatic/src/index.js";
-import createTyped from "../../typed-array/src/index.js";
+import { genIntPairs53 } from "../../common/fixtures.js";
+import { parsePairs, computeBuild, computeLookup, computeRange } from "./reference.js";
+import createIdiomatic from "../js/idiomatic/src/index.js";
+import createTyped from "../js/typed-array/src/index.js";
 
 const N = 500;
 const SEED = 0x1234_5678;
