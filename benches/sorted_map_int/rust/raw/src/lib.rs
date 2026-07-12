@@ -1,0 +1,128 @@
+#![allow(
+    unsafe_code,
+    reason = "raw WASM cdylib: ABI-level unsafe (no_mangle, raw ptrs, from_raw_parts) + SyncCell Sync impl are inherent to the FFI surface"
+)]
+
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::sync::LazyLock;
+
+struct SyncCell<T>(RefCell<T>);
+// SAFETY: wasm32 single-threaded — &T never crosses a thread boundary; Sync obligation is vacuous.
+unsafe impl<T> Sync for SyncCell<T> {}
+
+struct State {
+    pairs: Vec<(u64, u64)>,
+    map: BTreeMap<u64, u64>,
+}
+
+static STATE: LazyLock<SyncCell<State>> =
+    LazyLock::new(|| SyncCell(RefCell::new(State { pairs: Vec::new(), map: BTreeMap::new() })));
+
+const PAIR_BYTES: usize = 16;
+
+// Private helper: keeps the panic (`.unwrap()`) out of the public FFI surface
+// so clippy::missing_panics_doc does not fire (mirrors rust/bindgen structure).
+fn parse_pairs(buf: &[u8]) -> Vec<(u64, u64)> {
+    let n = buf.len() / PAIR_BYTES;
+    let mut pairs = Vec::with_capacity(n);
+    for i in 0..n {
+        let base = i * PAIR_BYTES;
+        let key = u64::from_le_bytes(buf[base..base + 8].try_into().unwrap());
+        let value = u64::from_le_bytes(buf[base + 8..base + 16].try_into().unwrap());
+        pairs.push((key, value));
+    }
+    pairs
+}
+
+#[unsafe(no_mangle)]
+#[allow(clippy::cast_possible_truncation, reason = "wasm32 address space is always 32-bit")]
+pub extern "C" fn alloc(sz: u32) -> u32 {
+    // Global-allocator (dlmalloc) fixture buffer — mirrors cpp `operator new`
+    // and the bindgen variant's `__wbindgen_malloc`. dlmalloc may `memory.grow`
+    // (detaching the old buffer), but the raw-wasm loader re-reads `memory.buffer`
+    // after alloc (loader fix 89323e2), so the host's write lands in the fresh
+    // buffer. The fixture is intentionally leaked — it lives until the module is
+    // dropped; benchmarks never free.
+    // SAFETY: loader contract guarantees sz > 0; align 8 is a valid power of two
+    // and sz (a few MB at most) never overflows the layout's isize rounding.
+    unsafe {
+        let layout = std::alloc::Layout::from_size_align_unchecked(sz as usize, 8);
+        std::alloc::alloc(layout) as u32
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn load_input(ptr: u32, len: u32) {
+    // SAFETY: host wrote `len` bytes starting at `ptr` (returned by a prior alloc) before this call.
+    let buf = unsafe { core::slice::from_raw_parts(ptr as *const u8, len as usize) };
+    let pairs = parse_pairs(buf);
+    let mut map = BTreeMap::new();
+    for (k, v) in &pairs {
+        map.insert(*k, *v);
+    }
+    STATE.0.replace(State { pairs, map });
+}
+
+#[unsafe(no_mangle)]
+#[must_use]
+#[allow(clippy::cast_precision_loss, reason = "map len bounded by fixture size; < 2^53")]
+pub extern "C" fn sorted_map_int_build(iters: u32) -> f64 {
+    let mut st = STATE.0.borrow_mut();
+    let n = iters as usize;
+    let pairs_snapshot: Vec<(u64, u64)> = st.pairs[..n].to_vec();
+    for (k, v) in pairs_snapshot {
+        st.map.insert(k, v);
+    }
+    st.map.len() as f64
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn sorted_map_int_build_reset() {
+    STATE.0.borrow_mut().map.clear();
+}
+
+#[unsafe(no_mangle)]
+#[must_use]
+#[allow(clippy::cast_precision_loss, reason = "values in [0, 2^32) per spec ioContract; < 2^53 mantissa")]
+pub extern "C" fn sorted_map_int_lookup(iters: u32) -> f64 {
+    let st = STATE.0.borrow();
+    let mut acc: f64 = 0.0;
+    for i in 0..iters as usize {
+        if let Some(v) = st.map.get(&st.pairs[i].0) {
+            acc += *v as f64;
+        }
+    }
+    acc
+}
+
+#[unsafe(no_mangle)]
+pub const extern "C" fn sorted_map_int_lookup_reset() {
+    // No-op — lookup is read-only.
+}
+
+const WINDOW_KEYS: u64 = 16;
+const MAX_KEY: u64 = (1u64 << 53) - 1;
+
+#[unsafe(no_mangle)]
+#[must_use]
+#[allow(clippy::cast_precision_loss, reason = "values in [0, 2^32) per spec ioContract; < 2^53 mantissa")]
+pub extern "C" fn sorted_map_int_range(iters: u32) -> f64 {
+    let st = STATE.0.borrow();
+    let n = st.pairs.len() as u64;
+    let span = ((1u64 << 53) / n) * WINDOW_KEYS;
+    let mut acc: f64 = 0.0;
+    for i in 0..iters as usize {
+        let lo = st.pairs[i].0;
+        let hi = (lo + span).min(MAX_KEY);
+        for (_k, v) in st.map.range(lo..=hi) {
+            acc += *v as f64;
+        }
+    }
+    acc
+}
+
+#[unsafe(no_mangle)]
+pub const extern "C" fn sorted_map_int_range_reset() {
+    // No-op — range is read-only.
+}
