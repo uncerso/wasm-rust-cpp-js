@@ -21,6 +21,10 @@ export const EnvSchema = z.object({
     name: z.string(),
     version: z.string(),
     engine: z.string(),
+    // True only for results measured under `--parallel-envs` (concurrent env
+    // streams on one host → contention bias). Additive + optional-on-input:
+    // .default(false) lets pre-flag results/raw/ still parse (no SCHEMA_VERSION bump).
+    parallel: z.boolean().default(false),
 });
 
 export const MachineSchema = z.object({

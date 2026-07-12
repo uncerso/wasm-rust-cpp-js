@@ -19,6 +19,7 @@ interface RunCaseInput {
     profile: Profile;
     inputSize: InputSize;
     measureConfig: MeasureConfig;
+    parallel?: boolean;
 }
 
 interface ArtifactStat {
@@ -149,7 +150,7 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
             cpu: process.env["MACHINE_CPU"] ?? "unknown",
             memoryGb: Math.max(1, Math.round(totalmem() / (1024 ** 3))),
         },
-        env: { kind: "node", name: "node", version: process.version, engine: "V8" },
+        env: { kind: "node", name: "node", version: process.version, engine: "V8", parallel: input.parallel ?? false },
         benchmark: {
             // benchmark.id is the entry id, not the binary id. The source binary
             // is identified by dist path components (language/toolchain/profile).

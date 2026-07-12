@@ -20,6 +20,7 @@ export interface CaseInput {
     profile: Profile;
     size: InputSize;
     mode: "quick" | "eval";
+    parallel?: boolean;
 }
 
 export interface CaseResult {
@@ -143,6 +144,7 @@ export async function createDriverSession(
         const machineCpu = process.env["MACHINE_CPU"] ?? "unknown";
         const patched = BenchResultSchema.parse({
             ...result,
+            env: { ...result.env, parallel: input.parallel ?? false },
             machine: {
                 os: `${process.platform} ${process.arch}`,
                 cpu: machineCpu,

@@ -174,6 +174,9 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
                 name: browserName,
                 version: browserVersion,
                 engine: ua.includes("Firefox") ? "SpiderMonkey" : "V8",
+                // Placeholder — the host (driver.ts) is the authority for parallel and
+                // overrides this from --parallel-envs when it patches machine/env.
+                parallel: false,
             },
             benchmark: {
                 // benchmark.id is the entry id, not the binary id (mirrors runner-node).
