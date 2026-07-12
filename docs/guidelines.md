@@ -183,6 +183,24 @@ Workload-level (no-glue, `results/raw/2026-06-13-phase-1-2-hashmap-no-glue/…`)
 
 **Caveats:** Размер маленьких synthetic-workload'ов доминируется фиксированным overhead'ом тулчейна + линковкой примитивов, НЕ структурой алгоритма: тот же `shape_dispatch_homo_static` — 1522 B (rust/raw) … 6024 B (cpp/wasi-sdk) … 12449 B (rust/bindgen, ~10 KB runtime), **8× разброс при ~1.5 KB реальной dispatch-логики**. Кросс-язычный вывод «язык X компактнее» из микро-workload'а НЕВАЛИДЕН — сравнивай within-toolchain либо декомпозируй floor-vs-marginal (теперь first-class в отчёте, вкладка Size — см. claim про floor-vs-marginal выше).
 
+### Выбор ordered map (`std::map` / `BTreeMap`) вместо hash map не стоит лишнего размера — на C++ экономит 15–22% gz (нет hash-machinery), на Rust ≈ нейтрально
+**Status:** tentative
+**Evidence:** `results/raw/2026-07-12T11-28-04-467Z` (`artifacts.totalTransferGzipBytes`, `sorted_map_int` vs `hashmap_int`, held-constant int-key fixture, size-профиль).
+**Phase:** introduced 1.2
+**Caveats:** Один key-type (u64 int) — string-ordered-map (deferred) подтвердил бы generalization. Δ — по transfer-gzip (wasm+glue). Артефакт от input-size не зависит; статус `tentative` из-за single key-type, не шума.
+
+Held-constant дифференциал (та же фикстура, меняется только контейнер hash→ordered):
+
+| toolchain | sorted_map gz | hashmap gz | Δ |
+|---|---|---|---|
+| cpp/wasi-sdk | 4161 | 5365 | **−22.4%** |
+| cpp/emscripten | 6638 | 7783 | **−14.7%** |
+| rust/raw | 7587 | 7813 | −2.9% |
+| rust/bindgen | 9715 | 9669 | +0.5% |
+| js/idiomatic | 610 | 480 | +27% (абс. ~0.1 KB; JS floor≈0) |
+
+C++: libc++ `unordered_map` тянет hashing + bucket-инфру, которой нет у RB-tree `std::map` → ordered ощутимо меньше. Rust: `BTreeMap` vs `HashMap` (SipHash/`RandomState`) ≈ нейтрально — tree-код компенсирует срезанную hash-machinery. JS: sorted-array+binary-search bundle чуть больше `Map`-bundle'а, но обе ~0.1 KB (движок в артефакт не едет).
+
 ## Toolchain choice
 
 ### На V8 runtimes (Node + Chromium) для u64-keyed hashmap'ов выбирай `rust/bindgen` (std HashMap); для string-keyed выбирай `js Map` — кросс-toolchain профайл инвертируется на key type
@@ -390,6 +408,34 @@ mixed_static = единый `TaggedShape` class (один hidden class → monom
 **Caveats:** `tentative` — single workload, single JS toolchain (idiomatic), и effect местами у timer-quantization floor (Chromium +0.6% — в пределах 5µs bin). JS absolute ~5–7× slower native static (node L 4.5 ms vs 0.58–0.88 ms) — IC-tuning не закрывает этот gap. Top-level `score()` function (не closure-const switch в hot loop) обязателен независимо — см. V8-deopt claim выше. Не переносить на не-V8/SpiderMonkey движки без проверки.
 
 Mechanism: V8/SpiderMonkey хранят inline-cache state per call site; polymorphic IC (≤4 hidden classes) резолвится через small dispatch table — cheap relative к wasm `call_indirect` (нет cross-table bounds check + indirect branch misprediction той же стоимости). Object-graph indirection присутствует в JS в обоих вариантах (всё heap-allocated boxed), поэтому mixed-vs-homo layout difference washed out — в противоположность native, где inline enum array (contiguous) vs boxed pointers (chase) даёт +50…105% (тот же layout-эффект, что доминирует native suite, в JS ≈ 0).
+
+### Hash vs ordered map — выбирай по паттерну доступа: для exact-key hash в 4–11× быстрее; ordered бери только ради range/ordered-обхода (и тогда Rust `BTreeMap` бьёт C++ `std::map` ~2.5× на range)
+**Status:** confirmed
+**Evidence:** `results/raw/2026-07-12T11-28-04-467Z` (`timingsMs.warmMedian`, node, S/M/L, cv ~1–3.5%), `sorted_map_int` (BTreeMap / std::map / sorted-array) vs `hashmap_int`.
+**Phase:** introduced 1.2
+**Caveats:** node/V8 warm-медианы. Slowdown растёт с n (log n vs O(1)) — числа приведены при L. Range-окно ~16 ключей (spec `WINDOW_KEYS`). Direction консистентен S→M→L (потому confirmed).
+
+**Exact-key lookup — hash доминирует** (warmMedian @ L; slowdown = sorted/hash, растёт S→M→L):
+
+| toolchain | sorted lookup | hash lookup | slowdown @ L |
+|---|---|---|---|
+| rust/raw | 6.73 ms | 0.59 ms | **11.5×** (2.2→4.6→11.5) |
+| rust/bindgen | 6.67 | 0.60 | 11.2× |
+| cpp/wasi-sdk | 6.26 | 1.38 | 4.5× (2.6→3.9→4.5) |
+| js/idiomatic | 13.4 | 2.95 | 4.6× |
+
+Rust `HashMap` особенно быстр на exact-lookup (0.59 ms) → 11× разрыв. Build (construct): sorted в 5–9.5× дороже hash-insert (та же причина — tree-вставки vs bucket-вставки).
+
+**Range-запрос — то, ради чего берут ordered** (hash его не умеет). Rust `BTreeMap` (B-tree, cache-friendly) стабильно быстрее C++ `std::map` (RB-tree, pointer-chase): **1.75→2.17→2.58×** (S→M→L, разрыв растёт с cache-misses):
+
+| toolchain | range @ L |
+|---|---|
+| rust/raw · rust/bindgen | 12.9 ms |
+| js/typed-array | 14.5 ms |
+| js/idiomatic | 17.0 ms |
+| cpp/wasi-sdk · cpp/emscripten | 33 ms |
+
+JS flat `Float64Array` sorted-array (binary-search + линейный scan) конкурентоспособен с native `BTreeMap` на range (cache-friendly contiguous scan); object-array (idiomatic) на ~17% медленнее typed-array — intra-JS layout-эффект.
 
 ## Measurement
 

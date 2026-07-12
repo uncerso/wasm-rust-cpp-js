@@ -30,16 +30,13 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 - **pnpm-typecheck-skips-scripts** — process gap, natural fit для CI ([→ tech_debt/pnpm-typecheck-skips-scripts](tech_debt/pnpm-typecheck-skips-scripts.md))
 - **cargo-lock-stage-discipline** — process gap, lockfile check в CI ([→ tech_debt/cargo-lock-stage-discipline](tech_debt/cargo-lock-stage-discipline.md))
 - **plan-authoring-lint-and-case-count** — из pitfall 2026-05-27: (1) добавить `argsIgnorePattern: "^_"` в `eslint.config.js` (`@typescript-eslint/no-unused-vars`), чтобы `_param`-идиома работала и для assigned-vars → plan-code-blocks проходят lint без ручных правок; (2) `scripts/lib/case-count.ts` helper, печатающий expected case-counts per (envs, sizes, benchmarks, filters) через `enumerateRunCases()` → plan-gate values не hand-derived (Phase 1.1.2.1: предсказал 810, actual 630). ([→ pitfall 2026-05-27](pitfalls/2026-05-27-phase-1-1-2-1-execution.md))
-- **bench-correctness-fail-surfacing** — bench run может писать `validated:false` / `correctnessFailed:true` результаты, но exit 0 + отсутствие их в `failures.txt` маскируют correctness-провал. Проверить, что `accumulateFailures` в `scripts/run-matrix.ts` включает validated:false кейсы; если нет — surface (запись в `failures.txt` + non-zero exit), чтобы тихий correctness-fail не проскочил.
-- **emscripten-wasm-opt-universality** — build-hygiene (PR #12) сделал `wasm-opt` универсальным через `scripts/lib/wasm-opt.ts` (`optimizeWasm`), но `benches/*/cpp/build-emscripten.sh` всё ещё содержат собственный inline `wasm-opt -Oz` на size-профиле (строки ~42-46). Разобраться: это double-opt (inline + universal) или emscripten исключён из universal-пути? Привести к единому механизму — убрать inline из emscripten-скриптов (если universal покрывает) ЛИБО задокументировать, почему emscripten особый (emcc-специфичный pipeline).
 
 ### Workload expansion
 - **hashmap-raw-shared-crate** — DRY raw+bindgen hashmap logic into a shared crate per binary; adopt only if measurement shows unification does NOT regress size/perf (currently duplicated to keep variants isolated). ([→ spec § Scope](superpowers/specs/2026-06-13-hashmap-stdlib-no-glue-design.md))
-- **stdlib-containers** — vector, string, sorted map, set ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
+- **stdlib-containers** — vector, string, set ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 - **academic-algos** — sort, parsing, mandelbrot, hash ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 
 ### Correctness & C++ tooling
-- **hashmap-string-cpp-emplace-latent** — `benches/hashmap_string/cpp/src/hashmap_string.cpp` резолвит dup-keys через `unordered_map::emplace` (first-wins) в `parse_pairs` + lookup, тогда как reference (`Map.set`/`HashMap::insert`) — last-wins; int-аналог починен Phase 1.2 (`operator[]`), string остался латентным. Fix: `emplace` → `operator[]` + re-bench hashmap_string cpp. ([→ pitfall/bug parallel](superpowers/bug-reports/2026-06-13-hashmap-int-emplace-dupkey.md))
 - **clang-tidy-cpp** — C++ linter не настроен (ESLint для TS + clippy для Rust есть, C++ нет). Добавить clang-tidy config для `benches/*/cpp/src/*.cpp` + integration в `lint:all` для паритета toolchain-дисциплины.
 
 ### Docs & conventions
