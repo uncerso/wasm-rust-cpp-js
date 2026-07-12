@@ -51,11 +51,8 @@ async function loadSpec(benchId: string): Promise<Spec> {
     return SpecSchema.parse(JSON.parse(raw));
 }
 
-async function main() {
-    const benches = process.argv.slice(2);
-    if (benches.length === 0) {
-        throw new Error("usage: tsx scripts/build-js.ts <bench-id> [<bench-id>...]");
-    }
+export async function collectJsUnits(benches: string[]): Promise<Array<() => Promise<void>>> {
+    const units: Array<() => Promise<void>> = [];
     for (const benchId of benches) {
         const spec = await loadSpec(benchId);
         // JS: speed profile only — esbuild produces identical output for both.
@@ -63,8 +60,19 @@ async function main() {
             (b) => b.language === "js" && b.profile === "speed",
         );
         for (const c of combos) {
-            await buildOne(c);
+            units.push(() => buildOne(c));
         }
+    }
+    return units;
+}
+
+async function main() {
+    const benches = process.argv.slice(2);
+    if (benches.length === 0) {
+        throw new Error("usage: tsx scripts/build-js.ts <bench-id> [<bench-id>...]");
+    }
+    for (const unit of await collectJsUnits(benches)) {
+        await unit();
     }
 }
 

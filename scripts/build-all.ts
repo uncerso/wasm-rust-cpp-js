@@ -1,6 +1,11 @@
 import { mkdir, copyFile, readdir, access } from "node:fs/promises";
+import { cpus } from "node:os";
 import { join } from "node:path";
 import { run } from "./lib/exec.js";
+import { runPool } from "./lib/pool.js";
+import { collectJsUnits } from "./build-js.js";
+import { collectRustUnits } from "./build-rust.js";
+import { collectCppUnits } from "./build-cpp.js";
 
 async function fileExists(p: string): Promise<boolean> {
     try {
@@ -39,15 +44,18 @@ async function main() {
     if (benches.length === 0) {
         throw new Error("no benches discovered under benches/*/spec.json");
     }
-    console.log(`=== discovered benches: ${benches.join(", ")} ===`);
+    const limit = cpus().length;
+    console.log(`=== discovered benches: ${benches.join(", ")} (pool limit ${limit}) ===`);
 
-    console.log("=== generating fixtures ===");
+    console.log("=== generating fixtures (parallel) ===");
+    const fixtureUnits: Array<() => Promise<void>> = [];
     for (const id of benches) {
         const gen = `benches/${id}/fixtures/generate.ts`;
         if (await fileExists(gen)) {
-            await run("tsx", [gen]);
+            fixtureUnits.push(() => run("tsx", [gen]));
         }
     }
+    await runPool(fixtureUnits, limit);
 
     console.log("=== copying fixtures + spec into dist/ ===");
     for (const id of benches) {
@@ -56,14 +64,28 @@ async function main() {
         await copyFixtures(id);
     }
 
-    console.log("=== building JS ===");
-    await run("tsx", ["scripts/build-js.ts", ...benches]);
-
-    console.log("=== building Rust ===");
-    await run("tsx", ["scripts/build-rust.ts", ...benches]);
-
-    console.log("=== building C++ ===");
-    await run("tsx", ["scripts/build-cpp.ts", ...benches]);
+    // Rust runs as ONE serial stream. cargo already serializes on the workspace target/
+    // lock, and wasm-pack (bindgen builds it twice per crate — production + size-attr)
+    // races on its shared "Installing wasm-bindgen" step when run concurrently, corrupting
+    // a shared file (`invalid type: sequence`). JS (esbuild) and C++ (emscripten/wasi-sdk,
+    // absolute-path toolchains) share no such lock, so they pool safely. The serial rust
+    // stream runs CONCURRENTLY with the JS+C++ pool — disjoint resources (cargo target/ vs
+    // dist + emsdk/wasi dirs) — overlapping wall-time without reintroducing the race.
+    // Do NOT fold rust back into the pool.
+    console.log("=== building: rust serial || (JS + C++) pooled ===");
+    const rustUnits = await collectRustUnits(benches);
+    const pooledUnits = [
+        ...await collectJsUnits(benches),
+        ...await collectCppUnits(benches),
+    ];
+    await Promise.all([
+        (async (): Promise<void> => {
+            for (const unit of rustUnits) {
+                await unit();
+            }
+        })(),
+        runPool(pooledUnits, limit),
+    ]);
 }
 
 main().catch((e) => {
