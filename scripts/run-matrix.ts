@@ -3,7 +3,7 @@ import { resolve, join } from "node:path";
 import { execa, type ResultPromise } from "execa";
 import { SpecSchema, isCorrectnessFailure, type Spec } from "@bench/result-schema";
 import { enumerateBinaries } from "./lib/matrix.js";
-import { run } from "./lib/exec.js";
+import { runCase } from "../apps/runner-node/src/run-case.js";
 import { createDriverSession, type CaseInput, type DriverSession } from "../apps/runner-web/src/driver.js";
 import { runCaseWithRetry, type RetryFailure } from "../apps/runner-web/src/run-case-with-retry.js";
 
@@ -132,7 +132,13 @@ async function main() {
     let ranOK = true;
     const accumulateFailures: Array<RetryFailure & { env: Env }> = [];
     try {
-        // ── Node loop: per-case subprocess (unchanged behaviour) ─────────────
+        // ── Node loop: in-process (no per-case tsx startup) ──────────────────
+        // Measure config copied verbatim from apps/runner-node/src/main.ts (the
+        // standalone single-case entry, kept for debugging). Measurements stay
+        // sequential in one process; A2 removes startup, NOT serialization.
+        const nodeConfig = args.mode === "quick"
+            ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 20, semThreshold: 0.10, wallBudgetMs: 200 }
+            : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 200, semThreshold: 0.03, wallBudgetMs: 1000 };
         if (args.envs.includes("node")) {
             for (const spec of filteredSpecs) {
                 for (const c of enumerateBinaries(spec)) {
@@ -141,21 +147,26 @@ async function main() {
                     }
                     for (const entry of spec.entries) {
                         for (const sz of args.sizes) {
-                            const common = [
-                                `--benchmark=${c.sourceBench}`,
-                                `--entry=${entry}`,
-                                `--language=${c.language}`,
-                                `--toolchain=${c.toolchain}`,
-                                `--profile=${c.profile}`,
-                                `--size=${sz}`,
-                                `--out=${args.out}`,
-                                `--mode=${args.mode}`,
-                            ];
                             const caseId = `${entry}__${c.language}-${c.toolchain}-${c.profile}__${sz}`;
                             try {
-                                // runner-node exits non-zero on correctness fail (and any error);
-                                // accumulate per-case instead of aborting the whole run.
-                                await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
+                                const r = await runCase({
+                                    benchmarkId: c.sourceBench,
+                                    entry,
+                                    language: c.language,
+                                    toolchain: c.toolchain,
+                                    profile: c.profile,
+                                    inputSize: sz,
+                                    measureConfig: nodeConfig,
+                                    parallel: false, // set true only under --parallel-envs (Task 6)
+                                });
+                                const fname = `${entry}__${c.language}-${c.toolchain}-${c.profile}__${sz}__node.json`;
+                                await writeFile(join(args.out, fname), JSON.stringify(r, null, 2));
+                                console.log(`wrote ${join(args.out, fname)}`);
+                                if (isCorrectnessFailure(r)) {
+                                    console.error(`[fail] node ${caseId}: correctness fail (validated=${String(r.quality.validated)})`);
+                                    accumulateFailures.push({ env: "node", caseId, error: "correctness fail (validated=false)" });
+                                    ranOK = false;
+                                }
                             } catch (e) {
                                 const msg = e instanceof Error ? e.message : String(e);
                                 console.error(`[fail] node ${caseId}: ${msg}`);
