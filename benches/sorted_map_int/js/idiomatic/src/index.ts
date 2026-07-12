@@ -9,6 +9,10 @@ const TWO_53 = 0x20000000000000;
 const MAX_KEY = TWO_53 - 1;
 const WINDOW_KEYS = 16;
 
+// Factory-time dispatch on `entry`: create() returns specialized run/reset
+// closures rather than a per-call switch in the hot loop — workaround for a V8
+// JIT deopt (switch-over-closure-const falls to the default branch under
+// turbofan tier-up). See docs/superpowers/bug-reports/2026-05-23-v8-deopt-switch-over-closure-const.md.
 export default function create(entry: string): BenchModule {
     let pairs: Array<readonly [number, number]> = [];
     let keys: number[] = [];

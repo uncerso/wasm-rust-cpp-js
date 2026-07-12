@@ -23,8 +23,8 @@ WARN_FLAGS="-Wall -Wextra -Wpedantic -Werror \
 
 STD_FLAG="-std=c++23"
 
-# Unlike the freestanding workloads, sorted_map needs a heap (std::map nodes,
-# std::string) and libc++. Link libc++/libc++abi/libc + builtins statically in
+# Unlike the freestanding workloads, sorted_map needs a heap (std::map nodes)
+# and libc++. Link libc++/libc++abi/libc + builtins statically in
 # a group, with -nostdlib (no crt startup / WASI command model) + --no-entry.
 # Trap-shims (wasi-shims.cpp) override abort()/_Exit() so the module imports
 # ZERO WASI syscalls. -DNDEBUG disables libc++ hardening asserts (pull fd_write).

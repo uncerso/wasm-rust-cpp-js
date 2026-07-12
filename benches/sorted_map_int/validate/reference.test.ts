@@ -12,13 +12,21 @@ describe("sorted_map_int reference", () => {
         expect(computeRange(pairs, L_N)).toBe(computeRange(pairs, L_N));
     });
 
-    it("build checksum equals unique-key count and matches hashmap_int pin (L=99996)", () => {
-        expect(computeBuild(pairs, L_N)).toBe(99996);
-    });
+    // build + lookup share hashmap_int's fixture (byte-identical), so their
+    // checksums must equal hashmap_int's pins for every size — a built-in cross-check.
+    const SIZES = [
+        { size: "S", n: 1000, seed: 0xBEEF_0001, build: 1000, lookup: 2078117175396 },
+        { size: "M", n: 10000, seed: 0xBEEF_0002, build: 10000, lookup: 21674342192136 },
+        { size: "L", n: 100000, seed: 0xBEEF_0003, build: 99996, lookup: 213944096178963 },
+    ] as const;
 
-    it("lookup checksum matches hashmap_int pin (L)", () => {
-        expect(computeLookup(pairs, L_N)).toBe(213944096178963);
-    });
+    for (const s of SIZES) {
+        it(`${s.size}: build + lookup match hashmap_int pins (shared-fixture cross-check)`, () => {
+            const p = parsePairs(genIntPairs53(s.n, s.seed));
+            expect(computeBuild(p, s.n)).toBe(s.build);
+            expect(computeLookup(p, s.n)).toBe(s.lookup);
+        });
+    }
 
     it("range sum stays < 2^53 (JS-safe) and > 0", () => {
         const r = computeRange(pairs, L_N);
