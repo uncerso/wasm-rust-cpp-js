@@ -36,7 +36,7 @@ Every phase produces numbers AND, when a finding is confirmed, updates `docs/gui
 
 Workspace = pnpm + cargo. Everything flows through `BenchResult`: each run of one (binary × entry × size × env) emits JSON that `BenchResultSchema.parse` validates; the reporter aggregates these. Reference checksums per (entry, size) are pinned in `benches/<workload>/spec.json` (v2: `entries: string[]` + `expectedChecksums`); a correctness failure halts the case immediately.
 
-- **`benches/<workload>/`** — one workload per dir, discovered by `scripts/build-all.ts` via `glob("benches/*/spec.json")`. Current: `matmul`, `interop_calls`, `hashmap_string`, `hashmap_int`, `shape_dispatch_{homo,mixed}_{static,dyn}`. Per-workload toolchain coverage varies — defined by `spec.json.supported`.
+- **`benches/<workload>/`** — one workload per dir, discovered by `scripts/build-all.ts` via `glob("benches/*/spec.json")`. Current: `matmul`, `interop_calls`, `hashmap_string`, `hashmap_int`, `sorted_map_int`, `shape_dispatch_{homo,mixed}_{static,dyn}`. Per-workload toolchain coverage varies — defined by `spec.json.supported`.
   - `js/{idiomatic,typed-array}` — TS (ESM, bundled via esbuild).
   - `rust/{raw,bindgen}` — cargo crates × {speed,size}. `raw` = manual `extern "C"` exports, no glue (no_std where the workload allows; std when needed, e.g. hashmap pulls `std::collections::HashMap`); `bindgen` = wasm-bindgen.
   - `cpp/` — shared `.cpp` + per-bench `build-{emscripten,wasi-sdk}.sh` × {speed,size}.

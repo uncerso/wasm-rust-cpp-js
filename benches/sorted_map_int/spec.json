@@ -1,0 +1,32 @@
+{
+    "id": "sorted_map_int",
+    "version": 2,
+    "description": "Ordered-map workload (std::map / BTreeMap / userland sorted-array) with u64 keys in [0, 2^53). 3 entries: build (construct sorted structure), lookup (exact-key), range (sum values in a deterministic key-window). Range-query core distinguishes it from hashmap_int; fixture shared with hashmap_int (build/lookup checksums cross-check).",
+    "entries": ["sorted_map_int_build", "sorted_map_int_lookup", "sorted_map_int_range"],
+    "inputSizes": {
+        "S": { "fixtureBytes": 16000, "fixtureSha256": "054201d12abb3008d5990517ae600749988e1e66a5651fb9906477af2cd1d2a8", "innerIterations": 1000 },
+        "M": { "fixtureBytes": 160000, "fixtureSha256": "0a8e5759899167143ba388aee2b015e2d396adf644b44f90820e04fdb36a8d5e", "innerIterations": 10000 },
+        "L": { "fixtureBytes": 1600000, "fixtureSha256": "3d04f7948bc873ac5c338f2196ca7f69865d545bf0edbd2701df0fec9d2665c3", "innerIterations": 100000 }
+    },
+    "expectedChecksums": {
+        "sorted_map_int_build": { "S": 1000, "M": 10000, "L": 99996 },
+        "sorted_map_int_lookup": { "S": 2078117175396, "M": 21674342192136, "L": 213944096178963 },
+        "sorted_map_int_range": { "S": 35142166140111, "M": 367789378239137, "L": 3639211249096974 }
+    },
+    "supported": {
+        "languages": ["js", "rust", "cpp"],
+        "toolchains": {
+            "js": ["idiomatic", "typed-array"],
+            "rust": ["bindgen", "raw"],
+            "cpp": ["emscripten", "wasi-sdk"]
+        },
+        "profiles": ["speed", "size"]
+    },
+    "ioContract": {
+        "fixtureLayout": "N pairs of (u64_key_le ∈ [0, 2^53), u64_value_le ∈ [0, 2^32)); 16N bytes total. Byte-identical to hashmap_int.",
+        "iterSemantics": "Iter-dependent. expectedChecksum valid only for N = innerIterations[size].",
+        "stateModel": "load_input parses pairs AND builds the ordered structure. Per-entry <entry>_reset: build→clear; lookup→no-op; range→no-op.",
+        "outputLayout": "Single scalar checksum: build→structure size; lookup→Σ values for exact-key hits; range→Σ values over all query windows.",
+        "rangeWindow": "WINDOW_KEYS=16; span=floor(2^53/n)*WINDOW_KEYS; per query i: lo=pairs[i].key, hi=min(lo+span, 2^53-1); sum values of keys in [lo,hi] in the built structure."
+    }
+}

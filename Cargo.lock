@@ -157,6 +157,17 @@ name = "shape-dispatch-mixed-static-rust-raw"
 version = "0.0.0"
 
 [[package]]
+name = "sorted-map-int-rust-bindgen"
+version = "0.0.0"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "sorted-map-int-rust-raw"
+version = "0.0.0"
+
+[[package]]
 name = "syn"
 version = "2.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
