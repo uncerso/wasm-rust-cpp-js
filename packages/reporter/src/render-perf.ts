@@ -67,6 +67,7 @@ export const PERF_CSS = `
 .hatch{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#ecd98c 5px 10px)!important}
 .hatch-fail{background:repeating-linear-gradient(45deg,#9bbfdd 0 5px,#e0a0a0 5px 10px)!important}
 .subres{font:600 8px ui-monospace,monospace;color:#8a93a0;margin-left:5px;vertical-align:super}
+.par{font:600 8px ui-monospace,monospace;color:#5b6b8a;border:1px solid #b9c4dd;border-radius:3px;padding:0 3px;margin-left:3px}
 .shape-grid{display:grid;gap:6px 6px;align-items:center;margin-top:8px}
 .sh-eh{grid-column:span 2;text-align:center;font:700 9px ui-monospace;letter-spacing:.05em;text-transform:uppercase;color:#8a93a0;border-bottom:1px solid #e0e5ec;padding-bottom:3px}
 .sh-sub{text-align:center;font:600 10px ui-monospace;color:#9aa3b0}
@@ -202,11 +203,12 @@ function renderDetailRow(row: PerfDetailRow, maxInit: number, maxWarm: number): 
     const okClass = isFail ? ' class="failx"' : "";
     const okMark = row.validated ? "✓" : "✗";
     const badge = row.subResolution ? '<span class="subres">&lt;res</span>' : "";
+    const parBadge = row.parallel ? '<span class="par">&#8741;</span>' : "";
 
     const initCell = `<td>${renderDataBar(row.initTotal, maxInit, "")}</td>`;
     const warmCell = `<td>${renderDataBar(row.warmMedian, maxWarm, warmFillClass)}</td>`;
 
-    return `<tr${trClass}><td>${escape(row.impl)}${badge}</td><td>${escape(row.env)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td>${row.warmMad.toFixed(3)}</td><td>${row.cv.toFixed(3)}</td><td${relSemClass}>${row.relSem.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
+    return `<tr${trClass}><td>${escape(row.impl)}${badge}${parBadge}</td><td>${escape(row.env)}</td>${initCell}<td>${row.firstCall.toFixed(3)}</td>${warmCell}<td>${row.warmP95.toFixed(3)}</td><td>${row.warmMad.toFixed(3)}</td><td>${row.cv.toFixed(3)}</td><td${relSemClass}>${row.relSem.toFixed(3)}</td><td${okClass}>${okMark}</td></tr>`;
 }
 
 function renderPerfDetail(slice: PerfSlice, workloadId: string): string {
@@ -232,6 +234,7 @@ function renderPerfLegend(): string {
   <span class="pl-key"><span class="pl-sw" style="background:#fdf6da"></span>mean not pinned to 3% → see mad/cv</span>
   <span class="pl-key"><span class="pl-sw" style="background:#fbe4e4"></span>correctness fail (ok ✗)</span>
   <span class="pl-key"><span class="pl-badge">&lt;res</span>below timer resolution — only the mean is reliable</span>
+  <span class="pl-key"><span class="par">&#8741;</span>measured under --parallel-envs (host concurrency; ±~2–9% bias)</span>
 </div>`;
 }
 
