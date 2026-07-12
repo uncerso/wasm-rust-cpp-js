@@ -157,6 +157,13 @@ name = "shape-dispatch-mixed-static-rust-raw"
 version = "0.0.0"
 
 [[package]]
+name = "sorted-map-int-rust-bindgen"
+version = "0.0.0"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "sorted-map-int-rust-raw"
 version = "0.0.0"
 
