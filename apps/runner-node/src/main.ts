@@ -14,6 +14,9 @@ interface CliArgs {
     size: InputSize;
     outDir: string;
     mode: "quick" | "eval";
+    /** Set by run-matrix under --parallel-envs so the result is flagged as
+     * measured with concurrent env streams (host contention). */
+    parallel: boolean;
 }
 
 function parse(args: string[]): CliArgs {
@@ -33,6 +36,7 @@ function parse(args: string[]): CliArgs {
         size: get("size") as InputSize,
         outDir: get("out"),
         mode: get("mode") as "quick" | "eval",
+        parallel: args.includes("--parallel"),
     };
 }
 
@@ -49,6 +53,7 @@ async function main() {
         profile: a.profile,
         inputSize: a.size,
         measureConfig: config,
+        parallel: a.parallel,
     });
     await mkdir(a.outDir, { recursive: true });
     // Filename indexed by entry (== benchmark.id in result JSON).

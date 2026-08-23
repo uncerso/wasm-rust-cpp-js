@@ -3,7 +3,7 @@ import { resolve, join } from "node:path";
 import { execa, type ResultPromise } from "execa";
 import { SpecSchema, isCorrectnessFailure, type Spec } from "@bench/result-schema";
 import { enumerateBinaries } from "./lib/matrix.js";
-import { runCase } from "../apps/runner-node/src/run-case.js";
+import { run } from "./lib/exec.js";
 import { createDriverSession, type CaseInput, type DriverSession } from "../apps/runner-web/src/driver.js";
 import { runCaseWithRetry, type RetryFailure } from "../apps/runner-web/src/run-case-with-retry.js";
 
@@ -134,14 +134,16 @@ async function main() {
 
     let ranOK = true;
     const accumulateFailures: Array<RetryFailure & { env: Env }> = [];
-    // ── Node stream: in-process (no per-case tsx startup) ────────────────────
-    // Measure config copied verbatim from apps/runner-node/src/main.ts (the
-    // standalone single-case entry, kept for debugging). Measurements stay
-    // sequential in one process; A2 removes startup, NOT serialization.
+    // ── Node stream: one subprocess per case ─────────────────────────────────
+    // A fresh process per case is a measurement requirement, not just legacy: the
+    // init axis (fetch/compile/instantiate) and the wasm memory delta are only
+    // faithful in a pristine V8. Running the matrix in ONE process was tried and
+    // reverted — the first wasm compile in a process pays a one-time engine cost
+    // every fresh process re-pays, so in-process init reads ~10x low for bindgen
+    // (initTotal 7.4ms -> 0.7ms) and varies with case order; ESM-cached glue also
+    // made wasm-bindgen reuse the prior instance (false-zero memory delta). See
+    // roadmap `in-process-node-runner` before attempting this again.
     async function runNodeStream(): Promise<void> {
-        const nodeConfig = args.mode === "quick"
-            ? { warmupIterations: 3, innerIterations: 1, minSamples: 5, maxSamples: 20, semThreshold: 0.10, wallBudgetMs: 200 }
-            : { warmupIterations: 10, innerIterations: 1, minSamples: 30, maxSamples: 200, semThreshold: 0.03, wallBudgetMs: 1000 };
         for (const spec of filteredSpecs) {
             for (const c of enumerateBinaries(spec)) {
                 if (c.language === "js" && c.profile !== "speed") {
@@ -149,26 +151,22 @@ async function main() {
                 }
                 for (const entry of spec.entries) {
                     for (const sz of args.sizes) {
+                        const common = [
+                            `--benchmark=${c.sourceBench}`,
+                            `--entry=${entry}`,
+                            `--language=${c.language}`,
+                            `--toolchain=${c.toolchain}`,
+                            `--profile=${c.profile}`,
+                            `--size=${sz}`,
+                            `--out=${args.out}`,
+                            `--mode=${args.mode}`,
+                            ...(args.parallelEnvs ? ["--parallel"] : []),
+                        ];
                         const caseId = `${entry}__${c.language}-${c.toolchain}-${c.profile}__${sz}`;
                         try {
-                            const r = await runCase({
-                                benchmarkId: c.sourceBench,
-                                entry,
-                                language: c.language,
-                                toolchain: c.toolchain,
-                                profile: c.profile,
-                                inputSize: sz,
-                                measureConfig: nodeConfig,
-                                parallel: args.parallelEnvs,
-                            });
-                            const fname = `${entry}__${c.language}-${c.toolchain}-${c.profile}__${sz}__node.json`;
-                            await writeFile(join(args.out, fname), JSON.stringify(r, null, 2));
-                            console.log(`wrote ${join(args.out, fname)}`);
-                            if (isCorrectnessFailure(r)) {
-                                console.error(`[fail] node ${caseId}: correctness fail (validated=${String(r.quality.validated)})`);
-                                accumulateFailures.push({ env: "node", caseId, error: "correctness fail (validated=false)" });
-                                ranOK = false;
-                            }
+                            // runner-node exits non-zero on correctness fail (and any error);
+                            // accumulate per-case instead of aborting the whole run.
+                            await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
                         } catch (e) {
                             const msg = e instanceof Error ? e.message : String(e);
                             console.error(`[fail] node ${caseId}: ${msg}`);

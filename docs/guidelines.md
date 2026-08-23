@@ -467,6 +467,6 @@ as measurement error.
 **Status:** confirmed
 **Evidence:** `docs/superpowers/specs/2026-07-12-parallel-bench-and-mandelbrot-design.md` (измеренные contention-премиссы, 14-core Apple Silicon, 3× concurrency); parity 2-run (parallel-bench-execution) — pristine node warm-median сам качается ±~9% run-to-run на cache-sensitive L (sorted_map range).
 **Phase:** introduced 1.2 (parallel-bench-execution)
-**Caveats:** величины — для 14-core Apple Silicon; на другом железе bias другой. Node in-process loop bias НЕ добавляет (стабильнее pristine subprocess) — контеншн относится к одновременному прогону НЕСКОЛЬКИХ env-потоков.
+**Caveats:** величины — для 14-core Apple Silicon; на другом железе bias другой. Речь про одновременный прогон НЕСКОЛЬКИХ env-потоков, а не про параллелизм внутри одного потока.
 
 Одновременный прогон нескольких measurement-потоков на одном хосте раздувает per-op время: compute/bandwidth-bound ~+2% (matmul L), memory-latency-bound ~+7–9% (sorted_map range L, cache-sensitive), call-overhead-bound ~0%. Инфляция ~равномерна между одновременными потоками, но варьируется с перекрытием по ходу прогона. **Guideline-grade числа снимай последовательно** (default `bench:all`); `--parallel-envs` — только для быстрой итерации, и его результаты помечены `env.parallel` (в отчёте — бэйдж `∥`). Node noise-floor сам ~5–9% на cache-sensitive L — не читай sub-порядковые различия как сигнал.
