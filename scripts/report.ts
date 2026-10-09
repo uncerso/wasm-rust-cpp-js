@@ -1,31 +1,21 @@
 import { readdir, readFile, writeFile, mkdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { aggregate, renderHtml, buildSizeData, parseArtifactMeta } from "@bench/reporter";
-import { BenchResultSchema, type ArtifactMeta } from "@bench/result-schema";
+import { isDeepStrictEqual } from "node:util";
+import { aggregate, renderHtml, buildSizeData } from "@bench/reporter";
+import { BenchResultSchema, type BenchResult, type ArtifactMeta } from "@bench/result-schema";
 
-async function loadDistMetas(distDir: string): Promise<ArtifactMeta[]> {
-    const metas: ArtifactMeta[] = [];
-    let workloads: string[];
-    try {
-        workloads = await readdir(distDir);
-    } catch {
-        return metas; // no dist yet
-    }
-    for (const w of workloads) {
-        const wDir = join(distDir, w);
-        if (!(await stat(wDir)).isDirectory()) {
-            continue;
+function collectArtifactMetas(results: readonly BenchResult[]): ArtifactMeta[] {
+    const metas = new Map<string, ArtifactMeta>();
+    for (const { artifacts: meta } of results) {
+        const { benchmarkId, language, toolchain, profile } = meta.combination;
+        const key = JSON.stringify([benchmarkId, language, toolchain, profile]);
+        const previous = metas.get(key);
+        if (previous && !isDeepStrictEqual(previous, meta)) {
+            throw new Error(`conflicting artifact metadata for ${benchmarkId}/${language}-${toolchain}-${profile}`);
         }
-        for (const combo of await readdir(wDir)) {
-            const metaPath = join(wDir, combo, "meta.json");
-            try {
-                metas.push(parseArtifactMeta(await readFile(metaPath, "utf8")));
-            } catch {
-                // not a binary dir (e.g. fixtures) or no meta.json — skip
-            }
-        }
+        metas.set(key, meta);
     }
-    return metas;
+    return [...metas.values()];
 }
 
 async function newestSubdir(dir: string): Promise<string> {
@@ -49,9 +39,11 @@ function getArg(name: string): string | undefined {
 }
 
 async function main() {
+    if (process.argv.some((a) => a === "--dist" || a.startsWith("--dist="))) {
+        throw new Error("--dist is no longer supported; report sizes come from result metadata");
+    }
     const inDir = getArg("in") ?? await newestSubdir("results/raw");
     const outDir = getArg("out") ?? `results/summarized/${new Date().toISOString().replace(/[:.]/g, "-")}`;
-    await mkdir(outDir, { recursive: true });
 
     const files = (await readdir(inDir)).filter((f) => f.endsWith(".json"));
     if (files.length === 0) {
@@ -61,10 +53,10 @@ async function main() {
         const buf = await readFile(join(inDir, f), "utf8");
         return BenchResultSchema.parse(JSON.parse(buf));
     }));
-    const distDir = getArg("dist") ?? "dist";
-    const sizeData = buildSizeData(await loadDistMetas(distDir));
+    const sizeData = buildSizeData(collectArtifactMetas(results));
     const html = renderHtml(aggregate(results), sizeData);
     const outFile = join(outDir, "index.html");
+    await mkdir(outDir, { recursive: true });
     await writeFile(outFile, html);
     console.log(`report -> ${outFile} (${results.length} results)`);
 }

@@ -7,7 +7,7 @@ import {
     plainJsLoader, rawWasmLoader, rustBindgenLoader, emscriptenLoader, type Loader,
 } from "@bench/loaders";
 import {
-    BenchResultSchema, SCHEMA_VERSION, SpecSchema,
+    ArtifactMetaSchema, BenchResultSchema, SCHEMA_VERSION, SpecSchema,
     type BenchResult, type Toolchain, type Profile, type Language, type InputSize, type Spec,
 } from "@bench/result-schema";
 
@@ -20,22 +20,6 @@ interface RunCaseInput {
     inputSize: InputSize;
     measureConfig: MeasureConfig;
     parallel?: boolean;
-}
-
-interface ArtifactStat {
-    rawBytes: number;
-    gzipBytes: number;
-    brotliBytes: number;
-    hashSha256: string;
-}
-
-interface ArtifactMetaFile {
-    combination: { benchmarkId: string; language: string; toolchain: string; profile: string };
-    wasm: ArtifactStat | null;
-    jsGlue: ArtifactStat | null;
-    jsModule: ArtifactStat | null;
-    totalTransferGzipBytes: number;
-    toolchainVersions: Record<string, string>;
 }
 
 function pickLoader(lang: Language, tc: Toolchain): Loader {
@@ -57,13 +41,6 @@ function pickLoader(lang: Language, tc: Toolchain): Loader {
     throw new Error(`no loader for ${lang}/${tc}`);
 }
 
-function asSha256Prefixed(hash: string | undefined): string {
-    if (!hash) {
-        return "";
-    }
-    return hash.startsWith("sha256:") ? hash : `sha256:${hash}`;
-}
-
 function expectedChecksumFor(spec: Spec, entry: string, size: InputSize): number | string {
     const perEntry = spec.expectedChecksums[entry];
     if (!perEntry) {
@@ -78,7 +55,7 @@ function expectedChecksumFor(spec: Spec, entry: string, size: InputSize): number
 
 export async function runCase(input: RunCaseInput): Promise<BenchResult> {
     const distRoot = resolve(`dist/${input.benchmarkId}/${input.language}-${input.toolchain}-${input.profile}`);
-    const meta = JSON.parse(await readFile(join(distRoot, "meta.json"), "utf8")) as ArtifactMetaFile;
+    const meta = ArtifactMetaSchema.parse(JSON.parse(await readFile(join(distRoot, "meta.json"), "utf8")));
 
     const loader = pickLoader(input.language, input.toolchain);
     const loaderInput: { artifactUrl: string; glueUrl?: string; entry: string } = (() => {
@@ -140,8 +117,6 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
     // explicit pass; emscripten runs binaryen internally via emcc plus an explicit -Oz for size.
     const ranWasmOpt = input.language === "rust" || input.language === "cpp";
 
-    const artifactHashRaw = meta.wasm?.hashSha256 ?? meta.jsModule?.hashSha256;
-
     const result: BenchResult = {
         schemaVersion: SCHEMA_VERSION,
         timestamp: new Date().toISOString(),
@@ -153,7 +128,7 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
         env: { kind: "node", name: "node", version: process.version, engine: "V8", parallel: input.parallel ?? false },
         benchmark: {
             // benchmark.id is the entry id, not the binary id. The source binary
-            // is identified by dist path components (language/toolchain/profile).
+            // is identified by artifacts.combination.
             id: input.entry,
             inputSize: input.inputSize,
             fixtureBytes: fixture.byteLength,
@@ -163,15 +138,7 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
             profile: input.profile,
             postprocess: ranWasmOpt ? ["wasm-opt"] : [],
         },
-        artifacts: {
-            wasmRawBytes: meta.wasm?.rawBytes ?? 0,
-            wasmGzipBytes: meta.wasm?.gzipBytes ?? 0,
-            wasmBrotliBytes: meta.wasm?.brotliBytes ?? 0,
-            jsGlueRawBytes: meta.jsGlue?.rawBytes ?? 0,
-            jsGlueGzipBytes: meta.jsGlue?.gzipBytes ?? 0,
-            totalTransferGzipBytes: meta.totalTransferGzipBytes ?? 0,
-            artifactHash: asSha256Prefixed(artifactHashRaw),
-        },
+        artifacts: meta,
         timingsMs: {
             fetch: loaded.timings.fetchMs,
             compile: loaded.timings.compileMs,
