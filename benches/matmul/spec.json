@@ -3,7 +3,6 @@
     "version": 2,
     "description": "Naive O(n^3) dense matrix multiplication on f64. Both inputs and output live in pre-allocated wasm linear memory; modules read A, B from offsets and write C. No allocations on the hot path.",
     "entries": ["matmul"],
-    "checksumMode": { "matmul": "float" },
     "inputSizes": {
         "S": {
             "n": 64,

@@ -17,7 +17,7 @@ export function probePerformanceNowResolution(): number {
 
 // eslint-disable-next-line @typescript-eslint/require-await -- async keeps the Promise<MeasureOutput> contract; implementation is sync today but callers always await
 export async function runMeasure(input: MeasureInput): Promise<MeasureOutput> {
-    const { module, fixture, expectedChecksum, checksumMode = "exact", config } = input;
+    const { module, fixture, expectedChecksum, config } = input;
 
     const debugTimings = (typeof process !== "undefined"
         && process.env?.["BENCH_DEBUG_TIMINGS"] === "1")
@@ -60,7 +60,7 @@ export async function runMeasure(input: MeasureInput): Promise<MeasureOutput> {
         }
         lastChecksum = r.checksum;
 
-        if (!eqChecksum(r.checksum, expectedChecksum, checksumMode)) {
+        if (!eqChecksum(r.checksum, expectedChecksum)) {
             return {
                 firstCallMs,
                 warmSamplesMs: samples,

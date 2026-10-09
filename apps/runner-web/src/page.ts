@@ -1,5 +1,6 @@
 import type { WorkerInput } from "./worker.js";
 import type { BenchResult } from "@bench/result-schema";
+import { decodeCaseParam } from "./case-param.js";
 
 interface BenchLogEntry {
     type: "error" | "unhandledrejection";
@@ -59,7 +60,7 @@ async function main() {
 
     let input: WorkerInput;
     try {
-        input = JSON.parse(atob(caseParam)) as WorkerInput;
+        input = decodeCaseParam(caseParam);
     } catch (e) {
         setStatus(`error: bad ?case= param: ${String(e)}`);
         return;

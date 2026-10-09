@@ -97,24 +97,6 @@ describe("SpecSchema", () => {
         expect((parsed.inputSizes.S as unknown as { n: number }).n).toBe(64);
     });
 
-    it("preserves explicit checksum modes per entry without requiring modes for every entry", () => {
-        const parsed = SpecSchema.parse({
-            ...validSpec,
-            entries: ["integer", "fractional", "explicit_exact"],
-            expectedChecksums: { integer: { S: 42 }, fractional: { S: 1.25 }, explicit_exact: { S: 100 } },
-            checksumMode: { fractional: "float", explicit_exact: "exact" },
-        });
-        expect(parsed.checksumMode).toEqual({ fractional: "float", explicit_exact: "exact" });
-        expect(SpecSchema.parse(validSpec).checksumMode).toBeUndefined();
-    });
-
-    it("rejects an unknown checksum comparison mode", () => {
-        expect(() => SpecSchema.parse({
-            ...validSpec,
-            checksumMode: { demo: "approximate" },
-        })).toThrow();
-    });
-
     it("rejects empty entries", () => {
         expect(() => SpecSchema.parse({ ...validSpec, entries: [] })).toThrow();
     });

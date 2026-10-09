@@ -11,6 +11,7 @@ import type { Language, Toolchain, Profile, InputSize } from "@bench/result-sche
 import { SpecSchema } from "@bench/result-schema";
 import type { WorkerInput } from "./worker.js";
 import { getBrowserPaths } from "./browser-paths.js";
+import { encodeCaseParam } from "./case-param.js";
 
 export interface CaseInput {
     benchmark: string;
@@ -91,12 +92,11 @@ export async function createDriverSession(
             inputSize: input.size,
             fixtureSha256: sizeSpec.fixtureSha256,
             expectedChecksum,
-            checksumMode: spec.checksumMode?.[input.entry] ?? "exact",
             measureConfig,
             baseUrl,
         };
 
-        const caseParam = btoa(JSON.stringify(workerInput));
+        const caseParam = encodeCaseParam(workerInput);
         const debug = process.env["BENCH_DEBUG_TIMINGS"] === "1" ? "&debug=1" : "";
         const url = `${baseUrl}/?case=${encodeURIComponent(caseParam)}${debug}`;
 
