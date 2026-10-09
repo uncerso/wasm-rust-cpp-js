@@ -160,11 +160,11 @@ Slice B **не зависит** от Slice A (mandelbrot собирается/м
 
 - **cpp** — emscripten, wasi-sdk × {speed, size}.
 - **rust** — raw (**`no_std`**, нет alloc), bindgen × {speed, size}.
-- **js** — idiomatic × {speed, size}; one scalar implementation, both existing build profiles.
+- **js** — idiomatic × speed; the JS builder and runner omit the duplicate size profile.
 
 ### JS variant
 
-The implementation plan selects idiomatic JS only: the input is seven scalar parameters and the output one scalar checksum. A typed scratch buffer would add unrelated memory work. Both existing build profiles remain in the matrix (10 binaries total including 8 wasm binaries).
+The implementation plan selects idiomatic JS only: the input is seven scalar parameters and the output one scalar checksum. A typed scratch buffer would add unrelated memory work. The JS builder and runner retain only speed (9 binaries total including 8 wasm binaries).
 
 ### Validation
 

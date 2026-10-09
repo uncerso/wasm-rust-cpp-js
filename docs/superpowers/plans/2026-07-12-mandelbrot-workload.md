@@ -131,13 +131,13 @@ Auto-discovery: `scripts/fixtures.ts`, `scripts/build-all.ts`, `scripts/lib/matr
 **Interfaces:**
 - Produces: `s.bin`/`m.bin`/`l.bin` (56 bytes each) + prints `{ S,M,L: {bytes, sha256} }` (feeds Task 3 `inputSizes`). No `benches/common` dependency (params, not random data).
 
-- [ ] **Step 1: `.gitignore`**
+- [x] **Step 1: `.gitignore`**
 
 ```
 *.bin
 ```
 
-- [ ] **Step 2: `generate.ts`** (exact content)
+- [x] **Step 2: `generate.ts`** (exact content)
 
 ```ts
 import { writeFile, mkdir } from "node:fs/promises";
@@ -192,12 +192,12 @@ async function main() {
 main().catch((e) => { console.error(e); process.exit(1); });
 ```
 
-- [ ] **Step 3: Generate + capture hashes**
+- [x] **Step 3: Generate + capture hashes**
 
 Run (the active client permission mechanism when sandboxed IPC is blocked): `pnpm fixtures --bench=mandelbrot`.
 Expected: prints `S/M/L` with `bytes=56` and three sha256 hashes. **Record the three `{bytes, sha256}` for Task 3.** (`benches/mandelbrot/fixtures/*.bin` are gitignored.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add benches/mandelbrot/fixtures/
@@ -216,7 +216,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): fixture generator (region + dims 
 - Consumes: fixtures from Task 1 (`benches/mandelbrot/fixtures/*.bin`).
 - Produces: exported pure functions `parseParams`, `escape`, `render`, type `Params`; a `main()` that reads the three fixtures and prints `{ S,M,L }`. The printed checksums feed Task 3. **This file is the single source of the canonical algorithm — Tasks 4/6/8 copy its expression structure verbatim.**
 
-- [ ] **Step 1: Write `reference.ts`** (exact content)
+- [x] **Step 1: Write `reference.ts`** (exact content)
 
 ```ts
 import { readFile } from "node:fs/promises";
@@ -302,7 +302,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 }
 ```
 
-- [ ] **Step 2: Write `reference.test.ts`** (exact content — escape landmarks, determinism, sanity bounds, non-trivial distribution, fixture round-trip)
+- [x] **Step 2: Write `reference.test.ts`** (exact content — escape landmarks, determinism, sanity bounds, non-trivial distribution, fixture round-trip)
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -374,19 +374,19 @@ describe("mandelbrot reference", () => {
 });
 ```
 
-- [ ] **Step 3: Run test — expect PASS**
+- [x] **Step 3: Run test — expect PASS**
 
 Run (sandboxed OK): `pnpm exec vitest run --config vitest.root.config.ts benches/mandelbrot/validate/reference.test.ts`.
 Expected: all reference tests pass; the standard root test configuration discovers them.
 
-- [ ] **Step 4: Run reference to capture checksums**
+- [x] **Step 4: Run reference to capture checksums**
 
 Run (the active client permission mechanism when sandboxed IPC is blocked): `pnpm exec tsx benches/mandelbrot/validate/reference.ts`.
 Expected JSON (design prototype — reference MUST reproduce these exactly; any drift = algorithm transcription error, investigate before proceeding):
 `{ "S": 2190038, "M": 31887455, "L": 248487617 }`.
 **Record these three values for Task 3** (`<CKSUM_S>=2190038`, `<CKSUM_M>=31887455`, `<CKSUM_L>=248487617` if they match).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add benches/mandelbrot/validate/reference.ts benches/mandelbrot/validate/reference.test.ts
@@ -1332,7 +1332,7 @@ git commit --no-gpg-sign -m "chore(mandelbrot): gate fixes" || echo "nothing to 
 
 - [ ] **Step 1: Heavy bench (USER ACTION)** — `bench:all` is a heavy, machine-quiet run. Hand off: **user** runs `pnpm bench:all` (or a mandelbrot-scoped `pnpm bench --benchmarks=mandelbrot --envs=node,chromium,firefox --sizes=S,M,L --mode=eval --out=results/raw/<run>` + `pnpm report`) per `README.md`. Agent waits for the fresh `results/`.
 
-- [ ] **Step 2: Reporter eyeball (visual deliverable check)** — `pnpm report` → open. Confirm `mandelbrot` appears on the Size bar (8 wasm combinations + 2 JS profiles) and in the Perf tab as a single-entry compute workload (like matmul: `mandelbrot` × impl × env), bars scale sanely, no stale strings. (Reporter auto-discovers — no reporter code changes needed.)
+- [ ] **Step 2: Reporter eyeball (visual deliverable check)** — `pnpm report` → open. Confirm `mandelbrot` appears on the Size bar (8 wasm combinations + 1 JS speed profile) and in the Perf tab as a single-entry compute workload (like matmul: `mandelbrot` × impl × env), bars scale sanely, no stale strings. (Reporter auto-discovers — no reporter code changes needed.)
 
 - [ ] **Step 3: Guidelines harvest** — from the numbers, add a claim to `docs/guidelines.md` **only if confirmed** (reproducible across ≥2 sizes; format per the file's `## Format` header — `**Status:** confirmed | tentative`, `**Evidence:**`, `**Phase:**`, `**Caveats:**`). Candidate claims:
   - (a) **toolchain ranking for this iterative f64 workload** → bucket `## Toolchain choice`. Evidence: `results/raw/<run>` mandelbrot warmMedian per (toolchain, size). This is the cleanest compute-only signal in the suite (no container/marshalling confound); note whether the ranking agrees with or diverges from matmul (which also has a light marshalling/output-write component).
