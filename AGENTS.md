@@ -41,7 +41,7 @@ Every phase produces numbers AND, when a finding is confirmed, updates `docs/gui
 
 ## High-level architecture
 
-Workspace = pnpm + cargo. Everything flows through `BenchResult`: each run of one (binary × entry × size × env) emits JSON that `BenchResultSchema.parse` validates; the reporter aggregates these. Reference checksums per (entry, size) are pinned in `benches/<workload>/spec.json` (v2: `entries: string[]` + `expectedChecksums`); a correctness failure halts the case immediately.
+Workspace = pnpm + cargo. Everything flows through `BenchResult`: each run of one (binary × entry × size × env) emits JSON that `BenchResultSchema.parse` validates; the reporter aggregates these. `BenchResult.artifacts` captures the full build metadata; reports read sizes from these results, never from current `dist`. Reference checksums per (entry, size) are pinned in `benches/<workload>/spec.json` (v2: `entries: string[]` + `expectedChecksums`); a correctness failure halts the case immediately.
 
 - **`benches/<workload>/`** — one workload per dir, discovered by `scripts/build-all.ts` via `glob("benches/*/spec.json")`. Current: `matmul`, `interop_calls`, `hashmap_string`, `hashmap_int`, `sorted_map_int`, `shape_dispatch_{homo,mixed}_{static,dyn}`. Per-workload toolchain coverage varies — defined by `spec.json.supported`.
   - `js/{idiomatic,typed-array}` — TS (ESM, bundled via esbuild).
@@ -63,7 +63,7 @@ Build, test, typecheck, lint, bench, and report commands live in `README.md` (§
 - **Rust** — edition 2024, `warnings = "deny"`, `clippy::all = "deny"`, pedantic + nursery warn, `unsafe_code` warn (only in the `raw` crate for wasm exports). See workspace `Cargo.toml` lints.
 - **Never edit** auto-generated files: `**/glue.mjs`, `**/glue.js` (Emscripten output; ESLint-ignored).
 - **Tool versions** — all pins (sha256 + URL) in `tool-versions.json`. `wasm-opt` MUST run with `--enable-bulk-memory --enable-nontrapping-float-to-int` (modern rustc/emcc output won't parse otherwise). A version change updates the `meta.json` writer + downstream docs.
-- **`BenchResult` schema** — change only via `packages/result-schema`. Old `results/raw/` JSON may stop parsing at a phase boundary (bump `meta.schemaVersion` if the phase is live).
+- **`BenchResult` schema** — change only via `packages/result-schema`. Old `results/raw/` JSON may stop parsing at a phase boundary (bump `schemaVersion` if the phase is live). Raw-result compatibility is not required; generated HTML reports are standalone.
 
 ## Cost discipline
 

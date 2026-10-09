@@ -19,13 +19,13 @@ function validBenchResult(): Record<string, unknown> {
             postprocess: ["wasm-opt -Oz"],
         },
         artifacts: {
-            wasmRawBytes: 12345,
-            wasmGzipBytes: 4567,
-            wasmBrotliBytes: 4000,
-            jsGlueRawBytes: 0,
-            jsGlueGzipBytes: 0,
+            combination: { benchmarkId: "matmul", language: "rust", toolchain: "raw", profile: "size" },
+            wasm: { rawBytes: 12345, gzipBytes: 4567, brotliBytes: 4000, hashSha256: "0".repeat(64) },
+            jsGlue: null,
+            jsModule: null,
             totalTransferGzipBytes: 4567,
-            artifactHash: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            toolchainVersions: { rustc: "1.95.0" },
+            composition: null,
         },
         timingsMs: {
             fetch: 1.2, compile: 3.4, instantiate: 0.5, initTotal: 5.1,
@@ -44,7 +44,50 @@ function validBenchResult(): Record<string, unknown> {
 describe("BenchResultSchema", () => {
     it("accepts a fully-populated valid result", () => {
         const parsed = BenchResultSchema.parse(validBenchResult());
-        expect(parsed.schemaVersion).toBe(2);
+        expect(parsed.schemaVersion).toBe(3);
+        expect(parsed.artifacts).toEqual(validBenchResult().artifacts);
+    });
+
+    it("rejects old results instead of guessing build metadata", () => {
+        expect(() => BenchResultSchema.parse({ ...validBenchResult(), schemaVersion: 2 })).toThrow();
+    });
+
+    it("requires complete artifact metadata", () => {
+        const result = validBenchResult();
+        delete result.artifacts;
+        expect(() => BenchResultSchema.parse(result)).toThrow();
+    });
+
+    it("rejects an invalid artifact hash", () => {
+        const result = validBenchResult();
+        const meta = result.artifacts as { wasm: { hashSha256: string } };
+        meta.wasm.hashSha256 = "invalid";
+        expect(() => BenchResultSchema.parse(result)).toThrow();
+    });
+
+    it("requires the primary artifact for the measured language", () => {
+        const result = validBenchResult();
+        (result.artifacts as { wasm: unknown }).wasm = null;
+        expect(() => BenchResultSchema.parse(result)).toThrow();
+    });
+
+    it.each([
+        ["language", "cpp"],
+        ["toolchain", "bindgen"],
+        ["profile", "speed"],
+    ] as const)("rejects metadata with a different %s", (field, value) => {
+        const result = validBenchResult();
+        const meta = result.artifacts as { combination: Record<string, string> };
+        meta.combination[field] = value;
+        expect(() => BenchResultSchema.parse(result)).toThrow();
+    });
+
+    it("keeps the source binary id distinct from the entry id", () => {
+        const result = validBenchResult();
+        (result.benchmark as { id: string }).id = "matmul_entry";
+        const parsed = BenchResultSchema.parse(result);
+        expect(parsed.benchmark.id).toBe("matmul_entry");
+        expect(parsed.artifacts).toMatchObject({ combination: { benchmarkId: "matmul" } });
     });
 
     it("rejects unknown env.kind", () => {

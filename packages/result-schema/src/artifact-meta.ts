@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { LanguageSchema, ToolchainSchema, ProfileSchema } from "./schema.js";
+import { LanguageSchema, ToolchainSchema, ProfileSchema } from "./dimensions.js";
 import { SizeCompositionSchema } from "./size-composition.js";
 
 export const ArtifactStatSchema = z.object({
     rawBytes: z.number().int().nonnegative(),
     gzipBytes: z.number().int().nonnegative(),
     brotliBytes: z.number().int().nonnegative(),
-    hashSha256: z.string(),
+    hashSha256: z.string().regex(/^[0-9a-f]{64}$/),
 });
 
 export const ArtifactMetaSchema = z.object({

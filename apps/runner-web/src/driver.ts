@@ -123,7 +123,10 @@ export async function createDriverSession(
             throw new Error(`timed out waiting for result. Page status: ${status}`);
         }
 
-        const raw = await driver.executeScript<unknown>("return (window).__BENCH_RESULT;");
+        // Firefox/WebDriver can round doubles when serializing an object. Let the
+        // browser encode JSON so saved metadata and numeric results retain their values.
+        const rawJson = await driver.executeScript<string>("return JSON.stringify((window).__BENCH_RESULT);");
+        const raw: unknown = JSON.parse(rawJson);
 
         const logs = await driver.executeScript<unknown[]>(
             "return (window).__BENCH_LOGS || [];",

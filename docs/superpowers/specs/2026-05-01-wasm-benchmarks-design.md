@@ -124,7 +124,7 @@ Spec нового workload'а **обязан** явно проговорить �
 
 ### Размер артефакта
 
-Считается отдельным проходом `scripts/collect-sizes.ts` после билда — не зависит от рантайма. На каждый артефакт пишется `meta.json` с raw/gzip/brotli и hash. Размер JS-glue для wasm учитывается **отдельной строкой** — иначе wasm-bindgen и Emscripten кажутся «маленькими», но тащат 15-50 КБ JS.
+Сборочные скрипты записывают raw/gzip/brotli размеры и SHA-256 в `meta.json`. Runner сохраняет полную метадату в `BenchResult.artifacts`; отчёт читает размеры и composition только из результатов прогона, независимо от текущего `dist`. Размер JS-glue для wasm учитывается **отдельной строкой** — иначе wasm-bindgen и Emscripten кажутся «маленькими», но тащат 15-50 КБ JS.
 
 ### Память
 
@@ -299,7 +299,7 @@ Phase 1.1 фиксирует:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "timestamp": "2026-05-01T00:00:00Z",
   "machine": { "os": "macOS 15.4", "cpu": "Apple M3 Pro", "memoryGb": 36 },
   "env": { "kind": "browser", "name": "Chrome", "version": "136.0.x", "engine": "V8" },
@@ -314,10 +314,15 @@ Phase 1.1 фиксирует:
     "postprocess": ["wasm-opt -Oz"]
   },
   "artifacts": {
-    "wasmRawBytes": 0, "wasmGzipBytes": 0, "wasmBrotliBytes": 0,
-    "jsGlueRawBytes": 0, "jsGlueGzipBytes": 0,
-    "totalTransferGzipBytes": 0,
-    "artifactHash": "sha256:..."
+    "combination": {
+      "benchmarkId": "matmul", "language": "rust", "toolchain": "raw", "profile": "size"
+    },
+    "wasm": { "rawBytes": 1639, "gzipBytes": 1098, "brotliBytes": 1003, "hashSha256": "..." },
+    "jsGlue": null,
+    "jsModule": null,
+    "totalTransferGzipBytes": 1098,
+    "toolchainVersions": { "rustc": "1.95.0" },
+    "composition": null
   },
   "timingsMs": {
     "fetch": 0, "compile": 0, "instantiate": 0, "initTotal": 0,
@@ -331,7 +336,7 @@ Phase 1.1 фиксирует:
     "wasmMemoryDeltaBytes": 0,
     "jsHeapUsedAfter": 0
   },
-  "stats": { "nSamples": 30, "cv": 0.02, "noisy": false },
+  "stats": { "nSamples": 30, "cv": 0.02, "relSem": 0.004, "meanImprecise": false, "subResolution": false },
   "quality": { "checksum": "abc123", "validated": true, "correctnessFailed": false },
   "notes": { "streamingInstantiation": false, "worker": true, "wasmFeatures": ["bulk-memory", "sign-ext", "non-trapping-fp-to-int"] }
 }

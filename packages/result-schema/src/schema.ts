@@ -1,20 +1,11 @@
 import { z } from "zod";
 import { SCHEMA_VERSION } from "./version.js";
+import { ArtifactMetaSchema } from "./artifact-meta.js";
+import { LanguageSchema, ToolchainSchema, ProfileSchema } from "./dimensions.js";
+
+export { LanguageSchema, ToolchainSchema, ProfileSchema } from "./dimensions.js";
 
 export const InputSizeSchema = z.enum(["S", "M", "L"]);
-
-export const LanguageSchema = z.enum(["js", "rust", "cpp"]);
-
-export const ToolchainSchema = z.enum([
-    "idiomatic",
-    "typed-array",
-    "raw",
-    "bindgen",
-    "emscripten",
-    "wasi-sdk",
-]);
-
-export const ProfileSchema = z.enum(["speed", "size"]);
 
 export const EnvSchema = z.object({
     kind: z.enum(["browser", "node"]),
@@ -22,8 +13,7 @@ export const EnvSchema = z.object({
     version: z.string(),
     engine: z.string(),
     // True only for results measured under `--parallel-envs` (concurrent env
-    // streams on one host → contention bias). Additive + optional-on-input:
-    // .default(false) lets pre-flag results/raw/ still parse (no SCHEMA_VERSION bump).
+    // streams on one host → contention bias). Sequential is the default.
     parallel: z.boolean().default(false),
 });
 
@@ -44,15 +34,7 @@ export const BenchmarkMetaSchema = z.object({
     postprocess: z.array(z.string()),
 });
 
-export const ArtifactsSchema = z.object({
-    wasmRawBytes: z.number().int().nonnegative(),
-    wasmGzipBytes: z.number().int().nonnegative(),
-    wasmBrotliBytes: z.number().int().nonnegative(),
-    jsGlueRawBytes: z.number().int().nonnegative(),
-    jsGlueGzipBytes: z.number().int().nonnegative(),
-    totalTransferGzipBytes: z.number().int().nonnegative(),
-    artifactHash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
-});
+export const ArtifactsSchema = ArtifactMetaSchema;
 
 export const TimingsSchema = z.object({
     fetch: z.number().nonnegative(),
@@ -108,6 +90,24 @@ export const BenchResultSchema = z.object({
     stats: StatsSchema,
     quality: QualitySchema,
     notes: NotesSchema,
+}).superRefine((result, ctx) => {
+    for (const field of ["language", "toolchain", "profile"] as const) {
+        if (result.artifacts.combination[field] !== result.benchmark[field]) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["artifacts", "combination", field],
+                message: `artifact metadata ${field} does not match benchmark`,
+            });
+        }
+    }
+    const primary = result.benchmark.language === "js" ? "jsModule" : "wasm";
+    if (result.artifacts[primary] === null) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["artifacts", primary],
+            message: `missing primary artifact: ${primary}`,
+        });
+    }
 });
 
 export type BenchResult = z.infer<typeof BenchResultSchema>;

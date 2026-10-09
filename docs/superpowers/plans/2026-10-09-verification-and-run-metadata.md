@@ -50,14 +50,14 @@
 
 ### Task 2: Capture complete metadata and report from it
 
-**Files:** Create `packages/result-schema/src/dimensions.ts` and `scripts/report.test.ts`. Modify `packages/result-schema/src/{schema,artifact-meta,version}.ts`, schema tests, `apps/runner-node/src/run-case.ts`, `apps/runner-web/src/worker.ts`, `scripts/report.ts`, four reporter result fixtures, README, the main design's result example, and the snapshot roadmap item.
+**Files:** Create `packages/result-schema/src/dimensions.ts` and `scripts/report.test.ts`. Modify `packages/result-schema/src/{schema,artifact-meta,version}.ts`, schema tests, `apps/runner-node/src/run-case.ts`, `apps/runner-web/src/{worker,driver}.ts`, `scripts/report.ts`, four reporter result fixtures, README, AGENTS.md, the main design's result example, and the snapshot roadmap item.
 
 **Interfaces:** `BenchResult.artifacts: ArtifactMeta` is required under schema v3. Existing language/toolchain/profile exports remain available through `schema.ts`. `buildSizeData(ArtifactMeta[])`, `aggregate(BenchResult[])`, and `renderHtml` remain unchanged. Report CLI loses `--dist` and rejects its use explicitly.
 
 - [ ] Add schema regression cases before implementation: full metadata survives parsing; missing metadata, v2 input, invalid artifact hash, missing primary artifact, and metadata dimension mismatch fail. Run result-schema tests and observe the expected failures against v2.
 - [ ] Add actual CLI tests with self-contained temporary result directories: without `dist`, unrelated `dist`, identical metadata across entries/size/env (one binary row), changed main hash/glue hash/composition (error, no HTML), metadata key-order difference (accepted), old/missing metadata and `--dist` (error). Assert actual generated Size bytes and a Perf value. Run and observe failure before the report change; no production seam solely for tests.
 - [ ] Move shared dimension enums to break the import cycle, replace `ArtifactsSchema` with `ArtifactMetaSchema`, bump the version, and retain boundary validation described in spec § Decisions 7. Update existing result fixtures for v3.
-- [ ] Replace runner-local metadata interfaces and flattened projections with the canonical parsed metadata. Remove obsolete hash-prefix helpers. Both writers continue using existing JSON output and transport paths.
+- [ ] Replace runner-local metadata interfaces and flattened projections with the canonical parsed metadata. Remove obsolete hash-prefix helpers. Both writers continue using existing JSON output paths; have the browser encode the result as JSON before WebDriver transport to preserve exact doubles (verified smoke regression and native probe).
 - [ ] Delete report `dist` scanning. Parse all input results, collect metadata by binary combination with `isDeepStrictEqual`, reject conflicting values, and render only after validation succeeds.
 - [ ] Run focused schema and root CLI tests. Expected: all new cases pass; no filesystem access to `dist` is needed by reporting.
 - [ ] Update README and the canonical design's result example; remove resolved snapshot roadmap item. Check all current consumers via repository search; leave separate loader byte-count contracts untouched.

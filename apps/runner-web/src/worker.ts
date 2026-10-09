@@ -7,6 +7,7 @@ import {
     type Loader,
 } from "@bench/loaders";
 import {
+    ArtifactMetaSchema,
     BenchResultSchema,
     SCHEMA_VERSION,
     type BenchResult,
@@ -18,23 +19,6 @@ import {
 
 // NOTE D: declare worker scope properly
 declare const self: DedicatedWorkerGlobalScope;
-
-// NOTE E: define ArtifactMetaFile interface mirroring run-case.ts
-interface ArtifactStat {
-    rawBytes: number;
-    gzipBytes: number;
-    brotliBytes: number;
-    hashSha256: string;
-}
-
-interface ArtifactMetaFile {
-    combination: { benchmarkId: string; language: string; toolchain: string; profile: string };
-    wasm: ArtifactStat | null;
-    jsGlue: ArtifactStat | null;
-    jsModule: ArtifactStat | null;
-    totalTransferGzipBytes: number;
-    toolchainVersions: Record<string, string>;
-}
 
 export interface WorkerInput {
     benchmarkId: string;
@@ -69,14 +53,6 @@ function pickLoader(lang: Language, tc: Toolchain): Loader {
     throw new Error(`no loader for ${lang}/${tc}`);
 }
 
-// NOTE B: prefix hash with sha256: and reject empty
-function asSha256Prefixed(hash: string | undefined): string {
-    if (!hash) {
-        return "";
-    }
-    return hash.startsWith("sha256:") ? hash : `sha256:${hash}`;
-}
-
 self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
     const i = evt.data;
     // Wave 4: propagate debug flag into worker's globalThis so runMeasure can read it
@@ -91,7 +67,7 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
         if (!metaRes.ok) {
             throw new Error(`meta.json fetch failed: ${metaRes.status}`);
         }
-        const meta = (await metaRes.json()) as ArtifactMetaFile;
+        const meta = ArtifactMetaSchema.parse(await metaRes.json());
 
         const loader = pickLoader(i.language, i.toolchain);
 
@@ -144,8 +120,6 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
         // Option B: wasm-opt runs for every rust/cpp profile (speed + size), not size-only.
         const ranWasmOpt = i.language === "rust" || i.language === "cpp";
 
-        const artifactHashRaw = meta.wasm?.hashSha256 ?? meta.jsModule?.hashSha256;
-
         // Browser env info via navigator
         const ua = navigator.userAgent;
         // Detect browser name/version from UA (best-effort)
@@ -189,16 +163,7 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
                 profile: i.profile,
                 postprocess: ranWasmOpt ? ["wasm-opt"] : [],
             },
-            artifacts: {
-                wasmRawBytes: meta.wasm?.rawBytes ?? 0,
-                wasmGzipBytes: meta.wasm?.gzipBytes ?? 0,
-                wasmBrotliBytes: meta.wasm?.brotliBytes ?? 0,
-                jsGlueRawBytes: meta.jsGlue?.rawBytes ?? 0,
-                jsGlueGzipBytes: meta.jsGlue?.gzipBytes ?? 0,
-                totalTransferGzipBytes: meta.totalTransferGzipBytes ?? 0,
-                // NOTE B: prefix with sha256:
-                artifactHash: asSha256Prefixed(artifactHashRaw),
-            },
+            artifacts: meta,
             timingsMs: {
                 fetch: loaded.timings.fetchMs,
                 compile: loaded.timings.compileMs,

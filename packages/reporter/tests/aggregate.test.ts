@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { aggregate } from "../src/aggregate.js";
-import type { BenchResult } from "@bench/result-schema";
+import { SCHEMA_VERSION, type BenchResult } from "@bench/result-schema";
 
 function fakeResult(
     over: Partial<BenchResult["benchmark"]>,
     warmMedian: number,
     wasmRaw: number,
 ): BenchResult {
+    const language = over.language ?? "js";
+    const stat = { rawBytes: wasmRaw, gzipBytes: 0, brotliBytes: 0, hashSha256: "a".repeat(64) };
     return {
-        schemaVersion: 2,
+        schemaVersion: SCHEMA_VERSION,
         timestamp: "2026-05-01T00:00:00.000Z",
         machine: { os: "linux", cpu: "x", memoryGb: 32 },
         env: { kind: "node", name: "node", version: "v22.0.0", engine: "V8", parallel: false },
@@ -24,13 +26,16 @@ function fakeResult(
             ...over,
         },
         artifacts: {
-            wasmRawBytes: wasmRaw,
-            wasmGzipBytes: 0,
-            wasmBrotliBytes: 0,
-            jsGlueRawBytes: 0,
-            jsGlueGzipBytes: 0,
+            combination: {
+                benchmarkId: over.id ?? "matmul", language,
+                toolchain: over.toolchain ?? "idiomatic", profile: over.profile ?? "speed",
+            },
+            wasm: language === "js" ? null : stat,
+            jsModule: language === "js" ? stat : null,
+            jsGlue: null,
             totalTransferGzipBytes: 0,
-            artifactHash: `sha256:${"a".repeat(64)}`,
+            toolchainVersions: {},
+            composition: null,
         },
         timingsMs: {
             fetch: 0, compile: 0, instantiate: 0, initTotal: 0, firstCall: 0,
