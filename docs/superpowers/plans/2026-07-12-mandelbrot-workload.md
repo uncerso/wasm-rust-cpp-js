@@ -6,6 +6,8 @@
 
 **Branch:** executes on `feature/phase-1.2-mandelbrot`, forked from `master` **after** the parallel-bench slice (Slice A) merges. The Slice-B plan (this file) is committed to the Slice-A branch alongside the shared spec, then branch B inherits it (see spec § Sequencing).
 
+**Spec:** [Slice B design](../specs/2026-07-12-parallel-bench-and-mandelbrot-design.md#slice-b--mandelbrot-workload). Refreshed 2026-10-09 against master `9cc3c9d`. Existing design and hybrid routing remain in force.
+
 **Architecture:** Single-entry compute workload modeled on `matmul` (single entry, pure f64 arithmetic, checksum returned directly by an arity-1 `run(iters)`). Fixture encodes RUN PARAMETERS (region bounds + dims + max_iter) as 7 little-endian f64 — not random data, so `benches/common` (`mulberry32`) is NOT used. `run(iters)` renders the full grid `iters` times and returns the invariant per-grid checksum; `innerIterations` is omitted so the CLI default (1) applies, exactly like matmul (one `run()` = one full grid render). All orchestration auto-discovers via `spec.json`; only the two Rust crates need workspace-member registration.
 
 **Tech Stack:** TS (tsx/esbuild), Rust (cargo raw `no_std` + wasm-pack bindgen), C++ (emscripten + wasi-sdk freestanding), zod `SpecSchema`/`BenchResultSchema`.
@@ -34,30 +36,46 @@
     return iter
   checksum = acc  // Σ escape-iteration-counts, exact integer
   ```
-- **CHECKSUM PARITY IS CRITICAL (spec § cross-toolchain checksum-паритет).** The per-pixel escape count depends on the rounding of `zx2+zy2` vs `4.0`. Parity holds iff (1) **identical operation order** in all 6 impls — `zx2=zx*zx`, `zy2=zy*zy`, `zx2+zy2`, `2.0*zx*zy+cy` (left-assoc: `((2.0*zx)*zy)+cy`), `zx2-zy2+cx` (`(zx2-zy2)+cx`) — copied verbatim from `reference.ts`; (2) **matmul's FP-safe build flags** (no `-ffast-math`/reassociation). Standard wasm has **no scalar FMA**, so `a*b+c` is never contracted regardless of `-ffp-contract`; the only residual risk is fast-math reassociation, which matmul's flags already exclude (we copy them unchanged). The accumulator is an **exact integer sum** (counts are small integers, running total < 2^53), so accumulation order is irrelevant — only the per-pixel count matters. A Task-8 parity gate (JS idiomatic ≡ reference on a small grid) + the Task-5/6/7 per-impl S-checksum validation catch drift before the full matrix.
+- **CHECKSUM PARITY IS CRITICAL (spec § cross-toolchain checksum-паритет).** The per-pixel escape count depends on the rounding of `zx2+zy2` vs `4.0`. Parity holds iff (1) **identical operation order** in all 5 implementations — `zx2=zx*zx`, `zy2=zy*zy`, `zx2+zy2`, `2.0*zx*zy+cy` (left-assoc: `((2.0*zx)*zy)+cy`), `zx2-zy2+cx` (`(zx2-zy2)+cx`) — copied verbatim from `reference.ts`; (2) **matmul's FP-safe build flags** (no `-ffast-math`/reassociation). Standard wasm has **no scalar FMA**, so `a*b+c` is never contracted regardless of `-ffp-contract`; the only residual risk is fast-math reassociation, which matmul's flags already exclude (we copy them unchanged). The accumulator is an **exact integer sum** (counts are small integers, running total < 2^53), so accumulation order is irrelevant — only the per-pixel count matters. A Task-8 parity gate (JS idiomatic ≡ reference on a small grid) + the Task-5/6/7 per-impl S-checksum validation catch drift before the full matrix.
 - **`innerIterations`:** **omitted** for all sizes (matmul precedent). `SpecInputSizeSchema` makes it optional; runner falls back to the CLI default `1`. `dimsX/dimsY/maxIter` ARE recorded per size in `inputSizes` (informational, allowed by the schema's `.passthrough()`, mirrors matmul's `n`) — but the **fixture is authoritative**; those keys drive nothing.
 - **spec.json:** v2 (`version: 2`, `entries: ["mandelbrot"]`, `expectedChecksums`). `supported`: `js:["idiomatic"]`, `rust:["raw","bindgen"]`, `cpp:["emscripten","wasi-sdk"]`, `profiles:["speed","size"]`.
 - **JS variant decision — idiomatic ONLY (RECOMMENDED; declared in `spec.json.supported.toolchains.js`).** The idiomatic-vs-typed-array axis in this suite captures "boxed native arrays (`number[][]`) vs contiguous typed buffers (`Float64Array`) for **array-shaped** data" (that is precisely matmul's distinction). mandelbrot has **no array-shaped input or output** — 7 scalar params in, 1 scalar out — so both variants would share a **bit-identical scalar hot loop** (the escape-time inner loop is pure scalar f64 arithmetic either way). A typed-array variant could only fabricate an artificial per-pixel `Uint32Array` scratch that a real mandelbrot never writes, adding O(pixels) noise and zero evidence. Precedent: the suite already ships idiomatic-only for the other non-array-shaped workloads (`hashmap_*`, `shape_dispatch_*`). If, while writing Task 8, a genuinely-distinct typed-array variant emerges, surface it to the user rather than silently adding it.
 - **`no_std` raw crate:** the raw crate MUST be `#![no_std]` (pure f64 arithmetic + a scalar accumulator + a 64-byte fixture scratch — **no heap**, no allocator, `core` only). It needs a `#[panic_handler] { loop {} }` (matmul/interop/shape_dispatch raw crates all use exactly this — `on_panic(_: &PanicInfo) -> !` with `#[allow(clippy::missing_const_for_fn, reason=...)]`). Because there is **no allocation**, **no `#![no_main]`, no `alloc` crate, no global allocator** is required. Exports drop matmul's `output_ptr`/`output_len` (no output buffer): only `alloc`, `load_input`, `mandelbrot`, `reset`, `memory`.
 - **No wasi-shims / no shared crate.** Unlike `sorted_map_int`/`hashmap_*` (which needed `wasi-shims.cpp` for `std::map`), mandelbrot uses **no std containers, no libc, no math builtins** (no `sqrt`/`fabs` — the escape test is `>` on doubles). So the cpp/wasi-sdk build is freestanding exactly like matmul's, with **zero** wasm imports expected (simpler than matmul, which at least called `__builtin_sqrt`). No `matmul-shared`-style crate: the escape loop is small and is duplicated verbatim into the raw and bindgen crates (task expects exactly two crates).
-- **TS:** 4-space indent, double quotes, semicolons, trailing comma (multiline), `curly: all`, `verbatimModuleSyntax` + strict, `noUncheckedIndexedAccess` (applies to `validate/**` via root `tsconfig.json`; js-variant dirs opt out via their local tsconfig).
+- **TS:** 4-space indent, double quotes, semicolons, trailing comma (multiline), `curly: all`, `verbatimModuleSyntax` + strict, `noUncheckedIndexedAccess` (applies to `validate/**` via root `tsconfig.json`; the JS variant inherits the same strict setting).
 - **Rust:** edition 2024; `[lints] workspace = true`; `warnings = "deny"` + clippy `all = deny`, `pedantic`/`nursery = warn`. The lint gate runs `cargo clippy … -- -D warnings`, which **escalates pedantic/nursery warnings to errors** — so guard casts / const-candidates with `#[allow(clippy::…, reason=…)]` mirroring matmul/raw. `unsafe_code` allowed only in `raw` (ABI FFI) and in `bindgen` (the vacuous `unsafe impl Sync`), each via a crate-level `#![allow(unsafe_code, reason=…)]`.
 - **C++:** `-std=c++23`, full `-Werror` warn set from matmul's scripts (`-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wcast-align -Wold-style-cast -Wnon-virtual-dtor -Wnull-dereference -Wdouble-promotion`); use `static_cast`/`reinterpret_cast` (never C casts — `-Wold-style-cast`), `[[maybe_unused]]` (never `(void)x`); never edit generated `glue.mjs`.
 - **wasm-opt:** universal via `scripts/lib/wasm-opt.ts` (invoked by `build-rust.ts`/`build-cpp.ts` for every rust/cpp profile). Do NOT add inline `wasm-opt` to build scripts. bindgen `Cargo.toml` keeps `wasm-opt = false` under both wasm-pack profiles.
 - **Size attribution:** works out-of-the-box — `scripts/lib/size-attr-build.ts` keys its "observed" export set off `${c.sourceBench}` (== `"mandelbrot"`) plus `alloc`/`load_input`/`reset`; mandelbrot's exports are all covered, no registration needed (the extra `output_ptr`/`output_len` names in the set are simply absent — harmless).
 - **Commits:** `--no-gpg-sign`. Push/PR are user actions.
-- **All-gates pre-flight:** `pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke`. `build:all`/`fixtures`/`smoke`/per-bench `build:*`/single-case `tsx runner` run with `dangerouslyDisableSandbox: true` (tsx binds a Unix pipe the sandbox blocks); `typecheck`/`test`/`lint:*`/`npx vitest run` run sandboxed.
+- **All-gates pre-flight:** `pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke`. `build:all`/`fixtures`/`smoke`/per-bench `build:*`/single-case `tsx runner` run with the active client permission mechanism when sandboxed IPC is blocked (tsx binds a Unix pipe the sandbox blocks); `typecheck`/`test`/`lint:*`/`npx vitest run` run sandboxed.
 
 ---
 
+## Review Focus
+
+- Preserve expression order and strict checksums for all three sizes; never relax validation.
+- `run(1)`, repeated calls and `run(3)` return one grid checksum; reset is a no-op.
+- Fixture parsing honors a Uint8Array byte offset; raw loaders allocate once per fresh module.
+- Verify emitted raw wasm has zero imports and the real loader executes it; compilation alone does not close feasibility.
+- Size/report evidence comes from schema-v3 result metadata. No schema/loader changes or legacy compatibility belong to this workload.
+
 ## Execution Protocol
+
+- Preserve this prepared checkout on `feature/phase-1.2-mandelbrot`; no additional worktree or session-state handoff. Ledger: `.superpowers/sdd/2026-07-12-mandelbrot-workload/progress.md` (local generated evidence).
+- Selected automated reference/parity tests use RED–GREEN: write tests and callable stubs first, observe assertion failures, then implement. Code blocks below specify the final algorithm, not permission to write implementation before tests.
+- Task 2 replaces the repeated `render(L) == render(L)` assertion with literal S/M/L pins, adds `escape(2,0,3) == 2` (strict escape boundary), and checks nonzero fixture byte offsets. Task 8 covers repeated run/reset and `run(3)` invariance as well as small-grid parity.
+- Task 4's direct-build probe must also instantiate the wasm, copy the S fixture through exported `alloc`/`load_input`, and execute `mandelbrot(1)` against the pin. Task 5 then verifies the actual build orchestrator and loader.
+- Task 6 can call the first two units from `collectRustUnits(["mandelbrot"])` in a local probe to build raw profiles before the bindgen crate exists; Task 7 runs the full rust builder.
+- Task 9 includes one representative eval case per workload (repository gate), with performance claims deferred to Task 10's machine-quiet user run. Enumerate counts from actual specs, not old hand-derived counts.
+- Use one fresh task review (requirements and quality) for each delegated task, and a final independent whole-branch review. Preserve review evidence through handoff. Never auto-push, merge, or delete raw results.
 
 **Routing (hybrid inline/subagent).** Each task is tagged `[I]` (inline — this session) or `[S]` (subagent). All-`[I]` waves execute inline without re-asking. Subagent dispatches get the **full** gate set (`build:*` + typecheck + lint:all + test + smoke as applicable), never a subset.
 
 | Task | Route | Why |
 |---|---|---|
 | 1 fixtures | `[I]` | trivial new generator (params, not random) |
-| 2 reference + tests | `[S]` | canonical algorithm + pinned checksums — correctness foundation for all 6 impls |
+| 2 reference + tests | `[S]` | canonical algorithm + pinned checksums — correctness foundation for all 5 implementations |
 | 3 spec.json + pin | `[I]` | mechanical (paste computed hashes + checksums) |
 | 4 cpp/wasi-sdk **(FEASIBILITY GATE)** | `[S]` | first native build; assert freestanding memory-only wasm (low-risk here: no std/libc) |
 | 5 cpp/emscripten | `[I]` | copy + rename after shared `.cpp` proven; full `build:cpp` + validate both cpp |
@@ -70,7 +88,7 @@
 **Static break-points (recommend `/finish-session`, user decides):**
 - After **Task 3** — Wave-0 gate: reference pinned, fixture hashes captured. Natural session boundary.
 - After **Task 4** — feasibility gate: freestanding cpp/wasi-sdk compiles to a memory-only wasm. STOP + rethink if it fails (retry ≤2).
-- After **Task 8** — all six impls validated on S; JS parity gate green.
+- After **Task 8** — all five implementations validated on S; JS parity gate green.
 - After **Task 9** — full matrix + all gates green.
 
 **Per-task break-check:** after each task — retry budget ≤2 at the same approach; then STOP and rethink, do not keep hammering. Commit per task. **If a checksum diverges from the reference pin on any impl (spec § cross-toolchain checksum-паритет risk materializes): STOP and surface to the user** with the concrete alternatives — (a) diff the impl's escape/grid expression char-by-char against `reference.ts` (most likely a transcription slip); (b) verify no `-ffast-math`/`-ffp-contract=fast` crept into a build script. Do NOT silently loosen the checksum tolerance, reorder operations, or re-scope.
@@ -87,7 +105,7 @@ benches/mandelbrot/
 │   └── generate.ts                        # Task 1
 ├── validate/
 │   ├── reference.ts                       # Task 2   (canonical algorithm; `tsx …/reference.ts` prints checksums)
-│   ├── reference.test.ts                  # Task 2   (npx vitest run; NOT in `pnpm test`)
+│   ├── reference.test.ts                  # Task 2   (pnpm test:root; included in `pnpm test`)
 │   └── parity.test.ts                     # Task 8   (idiomatic ≡ reference, small grid; npx vitest run)
 ├── cpp/
 │   ├── src/{mandelbrot.cpp,mandelbrot.h}  # Task 4   (NO wasi-shims — freestanding, no std/libc)
@@ -176,7 +194,7 @@ main().catch((e) => { console.error(e); process.exit(1); });
 
 - [ ] **Step 3: Generate + capture hashes**
 
-Run (`dangerouslyDisableSandbox: true`): `pnpm fixtures --bench=mandelbrot`.
+Run (the active client permission mechanism when sandboxed IPC is blocked): `pnpm fixtures --bench=mandelbrot`.
 Expected: prints `S/M/L` with `bytes=56` and three sha256 hashes. **Record the three `{bytes, sha256}` for Task 3.** (`benches/mandelbrot/fixtures/*.bin` are gitignored.)
 
 - [ ] **Step 4: Commit**
@@ -358,12 +376,12 @@ describe("mandelbrot reference", () => {
 
 - [ ] **Step 3: Run test — expect PASS**
 
-Run (sandboxed OK): `npx vitest run benches/mandelbrot/validate/reference.test.ts`.
-Expected: 7 passing (vitest resolves `.js`→`.ts`; these files are Wave-0 dev aids, NOT in `pnpm test`, mirroring `benches/common/*.test.ts`).
+Run (sandboxed OK): `pnpm exec vitest run --config vitest.root.config.ts benches/mandelbrot/validate/reference.test.ts`.
+Expected: all reference tests pass; the standard root test configuration discovers them.
 
 - [ ] **Step 4: Run reference to capture checksums**
 
-Run (`dangerouslyDisableSandbox: true`): `tsx benches/mandelbrot/validate/reference.ts`.
+Run (the active client permission mechanism when sandboxed IPC is blocked): `pnpm exec tsx benches/mandelbrot/validate/reference.ts`.
 Expected JSON (design prototype — reference MUST reproduce these exactly; any drift = algorithm transcription error, investigate before proceeding):
 `{ "S": 2190038, "M": 31887455, "L": 248487617 }`.
 **Record these three values for Task 3** (`<CKSUM_S>=2190038`, `<CKSUM_M>=31887455`, `<CKSUM_L>=248487617` if they match).
@@ -422,7 +440,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): reference validator + tests (cano
 
 - [ ] **Step 2: Validate spec parses**
 
-Run (sandboxed OK): `pnpm typecheck` — no schema-related failures. (Sharper optional check, `dangerouslyDisableSandbox: true`: write a tiny `$TMPDIR/spec-check.mjs` that imports `@bench/result-schema` and calls `SpecSchema.parse(JSON.parse(readFileSync("benches/mandelbrot/spec.json")))`, then `node $TMPDIR/spec-check.mjs` — avoid inline `!`/heredoc per CLAUDE.md.)
+Run (sandboxed OK): `pnpm typecheck` — no schema-related failures. (Sharper optional check, the active client permission mechanism when sandboxed IPC is blocked: write a tiny `$TMPDIR/spec-check.mjs` that imports `@bench/result-schema` and calls `SpecSchema.parse(JSON.parse(readFileSync("benches/mandelbrot/spec.json")))`, then `node $TMPDIR/spec-check.mjs` — avoid inline `!`/heredoc per AGENTS.md.)
 
 - [ ] **Step 3: Commit**
 
@@ -625,7 +643,7 @@ fi
 
 - [ ] **Step 4: Build wasi-sdk directly — feasibility gate (compile)**
 
-`build-cpp.ts` builds ALL cpp combos for the bench and aborts if a script is missing, so we cannot run `pnpm build:cpp mandelbrot` until Task 5 creates `build-emscripten.sh`. For the feasibility gate we only need the compiled wasm + its imports, so invoke the wasi-sdk script directly (`dangerouslyDisableSandbox: true`):
+`build-cpp.ts` builds ALL cpp combos for the bench and aborts if a script is missing, so we cannot run `pnpm build:cpp mandelbrot` until Task 5 creates `build-emscripten.sh`. For the feasibility gate we only need the compiled wasm + its imports, so invoke the wasi-sdk script directly (the active client permission mechanism when sandboxed IPC is blocked):
 
 ```bash
 PATH=/usr/bin:/bin \
@@ -644,7 +662,7 @@ const bytes = readFileSync(process.argv[2]);
 const mod = new WebAssembly.Module(bytes);
 console.log(JSON.stringify(WebAssembly.Module.imports(mod), null, 2));
 ```
-Run (`dangerouslyDisableSandbox: true`): `node "$TMPDIR/imports.mjs" "$TMPDIR/mand-wasi-gate/module.wasm"`.
+Run (the active client permission mechanism when sandboxed IPC is blocked): `node "$TMPDIR/imports.mjs" "$TMPDIR/mand-wasi-gate/module.wasm"`.
 Expected: `[]` (zero imports) — mandelbrot has no libc/std/math dependency, so nothing is imported (memory is *exported*, not imported). **If any `wasi_snapshot_preview1` / unexpected import appears** → an unforeseen libcall leaked in → STOP, investigate (retry ≤2), else surface to user. (Checksum node-validation for cpp is deferred to Task 5, where the full `pnpm build:cpp` produces the `meta.json` the runner needs.)
 
 - [ ] **Step 6: Commit**
@@ -674,8 +692,8 @@ RT_METHODS='["HEAPU8","HEAPF64","wasmMemory"]'
 
 - [ ] **Step 2: Build all cpp combos + validate both toolchains × S**
 
-Run (`dangerouslyDisableSandbox: true`): `pnpm build:cpp mandelbrot` — now that both scripts exist, this builds all 4 cpp combos (`cpp-{emscripten,wasi-sdk}-{speed,size}`) with `meta.json` + wasm-opt + size attribution.
-Then node-validate each cpp toolchain × S (`dangerouslyDisableSandbox: true`), e.g.:
+Run (the active client permission mechanism when sandboxed IPC is blocked): `pnpm build:cpp mandelbrot` — now that both scripts exist, this builds all 4 cpp combos (`cpp-{emscripten,wasi-sdk}-{speed,size}`) with `meta.json` + wasm-opt + size attribution.
+Then node-validate each cpp toolchain × S (the active client permission mechanism when sandboxed IPC is blocked), e.g.:
 
 ```bash
 pnpm exec tsx apps/runner-node/src/main.ts \
@@ -888,7 +906,7 @@ pub const extern "C" fn reset() {}
 - [ ] **Step 4: Build + lint + validate**
 
 Run: `pnpm lint:rust` (sandboxed OK) → no clippy errors (the `--workspace` clippy covers the new crate for the wasm target). If clippy flags an unforeseen pedantic/nursery lint, add a matmul-style `#[allow(clippy::…, reason=…)]` (retry ≤2).
-Then (`dangerouslyDisableSandbox: true`): `pnpm build:rust mandelbrot`, then node-validate raw × S (both profiles ideally; at minimum speed):
+Then (the active client permission mechanism when sandboxed IPC is blocked): `pnpm build:rust mandelbrot`, then node-validate raw × S (both profiles ideally; at minimum speed):
 
 ```bash
 pnpm exec tsx apps/runner-node/src/main.ts \
@@ -1083,7 +1101,7 @@ pub fn wasm_memory() -> JsValue {
 
 - [ ] **Step 5: Build + lint + validate**
 
-Run: `pnpm lint:rust` (sandboxed). Then (`dangerouslyDisableSandbox: true`) `pnpm build:rust mandelbrot`, then node-validate bindgen × S:
+Run: `pnpm lint:rust` (sandboxed). Then (the active client permission mechanism when sandboxed IPC is blocked) `pnpm build:rust mandelbrot`, then node-validate bindgen × S:
 
 ```bash
 pnpm exec tsx apps/runner-node/src/main.ts \
@@ -1128,14 +1146,13 @@ git commit --no-gpg-sign -m "feat(mandelbrot): Rust bindgen crate"
 }
 ```
 
-- [ ] **Step 2: `tsconfig.json`** (exact content — copy matmul's; opts out of `noUncheckedIndexedAccess` for the DataView-heavy hot path)
+- [ ] **Step 2: `tsconfig.json`** (exact content — inherit root strictness; DataView reads need no indexed-access override)
 
 ```json
 {
   "extends": "../../../../tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true,
-    "noUncheckedIndexedAccess": false
+    "noEmit": true
   },
   "include": ["src/**/*"]
 }
@@ -1251,12 +1268,12 @@ describe("mandelbrot JS parity", () => {
 
 - [ ] **Step 5: Run parity test — expect PASS**
 
-Run (sandboxed OK): `npx vitest run benches/mandelbrot/validate/parity.test.ts`.
+Run (sandboxed OK): `pnpm exec vitest run --config vitest.root.config.ts benches/mandelbrot/validate/parity.test.ts`.
 Expected: 1 passing. A failure → the idiomatic escape/grid expressions drifted from `reference.ts`; diff char-by-char and fix (retry ≤2). Do NOT change the reference to match the impl.
 
 - [ ] **Step 6: Typecheck + build + validate**
 
-Run: `pnpm typecheck` (sandboxed — typechecks the idiomatic package). Then (`dangerouslyDisableSandbox: true`) `pnpm build:js mandelbrot`, then node-validate js/idiomatic × S:
+Run: `pnpm typecheck` (sandboxed — typechecks the idiomatic package). Then (the active client permission mechanism when sandboxed IPC is blocked) `pnpm build:js mandelbrot`, then node-validate js/idiomatic × S:
 
 ```bash
 pnpm exec tsx apps/runner-node/src/main.ts \
@@ -1273,7 +1290,7 @@ git add benches/mandelbrot/js/ benches/mandelbrot/validate/parity.test.ts
 git commit --no-gpg-sign -m "feat(mandelbrot): JS idiomatic + cross-impl parity test"
 ```
 
-**⏸ BREAK-POINT:** all six impls validated on S; JS parity gate green. Recommend `/finish-session` (user decides).
+**⏸ BREAK-POINT:** all five implementations validated on S; JS parity gate green. Recommend `/finish-session` (user decides).
 
 ---
 
@@ -1283,17 +1300,17 @@ git commit --no-gpg-sign -m "feat(mandelbrot): JS idiomatic + cross-impl parity 
 
 - [ ] **Step 1: Full node-correctness matrix**
 
-Run (`dangerouslyDisableSandbox: true`): the node correctness sweep for `mandelbrot` across all binaries × entry × S (quick mode):
+Run (the active client permission mechanism when sandboxed IPC is blocked): the node correctness sweep for `mandelbrot` across all binaries × entry × S/M/L × Node/Chromium/Firefox (quick mode):
 
 ```bash
-pnpm bench --benchmarks=mandelbrot --envs=node --sizes=S --mode=quick --out=results/raw/mandelbrot-matrix
+pnpm bench --benchmarks=mandelbrot --envs=node,chromium,firefox --sizes=S,M,L --mode=quick --out=results/raw/mandelbrot-matrix
 ```
-Expected: every combo (js-idiomatic + rust-{raw,bindgen} + cpp-{emscripten,wasi-sdk}, both profiles) writes a result with `correctnessFailed=false` and `checksum == <CKSUM_S>`; `results/raw/mandelbrot-matrix/failures.txt` absent/empty. Any divergence → parity break-check (STOP + surface).
+Expected: every combo (js-idiomatic + rust-{raw,bindgen} + cpp-{emscripten,wasi-sdk}, both profiles) writes a result with `correctnessFailed=false` and its exact size-specific checksum; `results/raw/mandelbrot-matrix/failures.txt` absent/empty. Any divergence → parity break-check (STOP + surface).
 
 - [ ] **Step 2: All-gates pre-flight**
 
-Run: `pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke` (`build:all` + `smoke` with `dangerouslyDisableSandbox: true`; run the sandbox-safe `typecheck`/`lint:all`/`test` separately if convenient). Read the producer exit status via `${pipestatus[1]}` (zsh) — do not trust a piped `$?`.
-Expected: all green. NOTE: `pnpm test` runs the package suites only; it does NOT pick up `benches/**/*.test.ts`. Also run the workload's dev-aid tests explicitly: `npx vitest run benches/mandelbrot/validate/reference.test.ts benches/mandelbrot/validate/parity.test.ts` — expect 8 passing. (Authoritative workload correctness = the node matrix in Step 1.)
+Run: `pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke` (`build:all` + `smoke` with the active client permission mechanism when sandboxed IPC is blocked; run the sandbox-safe `typecheck`/`lint:all`/`test` separately if convenient). Read the producer exit status via `${pipestatus[1]}` (zsh) — do not trust a piped `$?`.
+Expected: all green. `pnpm test` includes reference and parity tests through `vitest.root.config.ts`; do not duplicate an unchanged passing run. Run gates serially when CPU contention could trip the existing sorted-map test timeout.
 
 - [ ] **Step 3: Commit (if any lint/format touch-ups)**
 
@@ -1311,29 +1328,29 @@ git commit --no-gpg-sign -m "chore(mandelbrot): gate fixes" || echo "nothing to 
 **Files:**
 - Modify: `docs/guidelines.md` (only if a finding is confirmed)
 - Modify: `docs/roadmap.md` (mark mandelbrot shipped under `academic-algos`)
-- Modify: `CLAUDE.md` (workload list)
+- Modify: `AGENTS.md` (workload list)
 
 - [ ] **Step 1: Heavy bench (USER ACTION)** — `bench:all` is a heavy, machine-quiet run. Hand off: **user** runs `pnpm bench:all` (or a mandelbrot-scoped `pnpm bench --benchmarks=mandelbrot --envs=node,chromium,firefox --sizes=S,M,L --mode=eval --out=results/raw/<run>` + `pnpm report`) per `README.md`. Agent waits for the fresh `results/`.
 
-- [ ] **Step 2: Reporter eyeball (visual deliverable check)** — `pnpm report` → open. Confirm `mandelbrot` appears on the Size bar (8 wasm combos + 1 js-idiomatic) and in the Perf tab as a single-entry compute workload (like matmul: `mandelbrot` × impl × env), bars scale sanely, no stale strings. (Reporter auto-discovers — no reporter code changes needed.)
+- [ ] **Step 2: Reporter eyeball (visual deliverable check)** — `pnpm report` → open. Confirm `mandelbrot` appears on the Size bar (8 wasm combinations + 2 JS profiles) and in the Perf tab as a single-entry compute workload (like matmul: `mandelbrot` × impl × env), bars scale sanely, no stale strings. (Reporter auto-discovers — no reporter code changes needed.)
 
 - [ ] **Step 3: Guidelines harvest** — from the numbers, add a claim to `docs/guidelines.md` **only if confirmed** (reproducible across ≥2 sizes; format per the file's `## Format` header — `**Status:** confirmed | tentative`, `**Evidence:**`, `**Phase:**`, `**Caveats:**`). Candidate claims:
-  - (a) **raw FLOP-throughput ranking of toolchains on pure compute** → bucket `## Toolchain choice`. Evidence: `results/raw/<run>` mandelbrot warmMedian per (toolchain, size). This is the cleanest compute-only signal in the suite (no container/marshalling confound); note whether the ranking agrees with or diverges from matmul (which also has a light marshalling/output-write component).
-  - (b) **size-floor of pure-compute `no_std` rust/raw** → bucket `## Artifact size`. Evidence: `dist/mandelbrot/rust-raw-size/meta.json` vs the std-container floors (`sorted_map_int`/`hashmap_int` rust-raw-size). mandelbrot/raw has no allocator, no `std::collections` — the absolute rust-raw floor.
+  - (a) **toolchain ranking for this iterative f64 workload** → bucket `## Toolchain choice`. Evidence: `results/raw/<run>` mandelbrot warmMedian per (toolchain, size). This is the cleanest compute-only signal in the suite (no container/marshalling confound); note whether the ranking agrees with or diverges from matmul (which also has a light marshalling/output-write component).
+  - (b) **size-floor of pure-compute `no_std` rust/raw** → bucket `## Artifact size`. Evidence: saved `BenchResult.artifacts` for `mandelbrot/rust-raw-size` vs the std-container floors (`sorted_map_int`/`hashmap_int` rust-raw-size). mandelbrot/raw has no allocator, no `std::collections` — the measured size of this workload; not a universal lower bound.
   Write nothing for a single-run anecdote; mark `tentative` if only one size is clean.
 
 - [ ] **Step 4: Roadmap update** — in `docs/roadmap.md`, edit the `academic-algos` item to reflect mandelbrot shipped:
   - old: `- **academic-algos** — sort, parsing, mandelbrot, hash ([→ design spec § Открытые вопросы]...)`
   - new: `- **academic-algos** — sort, parsing, hash (mandelbrot shipped Phase 1.2) ([→ design spec § Открытые вопросы]...)`
 
-- [ ] **Step 5: CLAUDE.md workload list** — add `mandelbrot` to the Current-workloads line:
+- [ ] **Step 5: AGENTS.md workload list** — add `mandelbrot` to the Current-workloads line:
   - old: `Current: \`matmul\`, \`interop_calls\`,`
   - new: `Current: \`matmul\`, \`mandelbrot\`, \`interop_calls\`,`
 
 - [ ] **Step 6: Commit + PR prep**
 
 ```bash
-git add docs/guidelines.md docs/roadmap.md CLAUDE.md
+git add docs/guidelines.md docs/roadmap.md AGENTS.md
 git commit --no-gpg-sign -m "docs(mandelbrot): guidelines harvest + roadmap + workload list"
 ```
 
@@ -1353,7 +1370,7 @@ Hand off to user: `git push -u origin feature/phase-1.2-mandelbrot` + the GitHub
   - *js typed-array open sub-question* — resolved **idiomatic-only** with reasoning (no array-shaped I/O → no boxed-vs-typed axis; precedent hashmap/shape_dispatch); `spec.json.supported.toolchains.js=["idiomatic"]`. Covered.
   - *Validation* (reference + pin + parity gate) — Tasks 2, 3, 8. Covered.
   - *Guidelines* (2 candidate claims) — Task 10. Covered.
-  - *Files / discovery / CLAUDE.md workload-list* — File Structure + Tasks 1–8 + Task 10 Step 5. Covered.
+  - *Files / discovery / AGENTS.md workload-list* — File Structure + Tasks 1–8 + Task 10 Step 5. Covered.
   - *Sequencing / branch* — header (`feature/phase-1.2-mandelbrot` from master post-Slice-A). Covered.
 - **Placeholder scan:** `<SHA_S/M/L>` (Task 3, from Task 1 output) and `<CKSUM_S/M/L>` (Task 3, from Task 2 output; expected 2190038 / 31887455 / 248487617 per the design prototype — mechanism specified, cross-check provided). No other unresolved placeholders. `academic-algos`/`Current:` edit strings are literal (Task 10 Steps 4–5).
 - **Type / contract consistency:** entry name `mandelbrot` (arity-1 → raw-wasm/emscripten/bindgen loaders dispatch `run(iters)=fn(iters)`); generic `reset` (matmul precedent, resolved by `bindReset` fallback); exports `alloc`/`load_input`/`mandelbrot`/`reset`/`memory` (no `output_ptr`/`output_len`); fixture 56 bytes / 7 f64 LE at fixed offsets; `innerIterations` omitted → default 1 (matmul-shaped, checksum invariant to iters); window/algorithm expressions (`step=(hi-lo)/dims`, `cx=lo+px*step`, escape 5-expr body, `> 4.0`) identical across `reference.ts` / cpp / rust-raw / rust-bindgen / js. Checksum is an exact integer sum < 2^53 (validated by prototype for all three sizes).
