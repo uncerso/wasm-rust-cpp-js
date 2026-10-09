@@ -14,6 +14,7 @@ import {
     type Toolchain,
     type Profile,
     type InputSize,
+    type ChecksumMode,
 } from "@bench/result-schema";
 
 // NOTE D: declare worker scope properly
@@ -45,6 +46,7 @@ export interface WorkerInput {
     inputSize: InputSize;
     fixtureSha256: string;
     expectedChecksum: number | string;
+    checksumMode: ChecksumMode;
     measureConfig: MeasureConfig;
     baseUrl: string; // e.g. "http://localhost:5174"
     debugTimings?: boolean; // Wave 4: propagate BENCH_DEBUG_TIMINGS into worker scope
@@ -132,6 +134,7 @@ self.onmessage = async (evt: MessageEvent<WorkerInput>) => {
             module: loaded.module,
             fixture,
             expectedChecksum: i.expectedChecksum,
+            checksumMode: i.checksumMode,
             config: i.measureConfig,
         });
         const memAfter = loaded.memoryRef?.buffer.byteLength ?? 0;

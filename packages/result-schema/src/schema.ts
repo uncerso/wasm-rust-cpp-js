@@ -142,6 +142,9 @@ export const SpecInputSizeSchema = z
     })
     .passthrough();
 
+export const ChecksumModeSchema = z.enum(["exact", "float"]);
+export type ChecksumMode = z.infer<typeof ChecksumModeSchema>;
+
 export const SpecSchema = z.object({
     id: z.string().min(1),
     version: z.literal(2),
@@ -152,6 +155,8 @@ export const SpecSchema = z.object({
         z.string(),
         z.record(InputSizeSchema, z.union([z.string(), z.number()])),
     ),
+    // Missing entries use exact equality. Float mode permits relative error < 1e-9.
+    checksumMode: z.record(z.string(), ChecksumModeSchema).optional(),
     supported: z
         .object({
             languages: z.array(LanguageSchema),

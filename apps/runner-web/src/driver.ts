@@ -91,6 +91,7 @@ export async function createDriverSession(
             inputSize: input.size,
             fixtureSha256: sizeSpec.fixtureSha256,
             expectedChecksum,
+            checksumMode: spec.checksumMode?.[input.entry] ?? "exact",
             measureConfig,
             baseUrl,
         };

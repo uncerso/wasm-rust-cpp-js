@@ -1,4 +1,4 @@
-import type { Language, Profile, Toolchain, InputSize } from "@bench/result-schema";
+import type { Language, Profile, Toolchain, InputSize, ChecksumMode } from "@bench/result-schema";
 
 export interface BenchModule {
     loadInput(input: Uint8Array): void;
@@ -32,6 +32,7 @@ export interface MeasureInput {
     module: BenchModule;
     fixture: Uint8Array;
     expectedChecksum: number | string;
+    checksumMode?: ChecksumMode;
     config: MeasureConfig;
 }
 

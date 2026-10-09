@@ -128,6 +128,7 @@ export async function runCase(input: RunCaseInput): Promise<BenchResult> {
         module: loaded.module,
         fixture,
         expectedChecksum,
+        checksumMode: spec.checksumMode?.[input.entry] ?? "exact",
         config: effectiveConfig,
     });
     const memAfter = loaded.memoryRef?.buffer.byteLength ?? 0;

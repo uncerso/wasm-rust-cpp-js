@@ -103,6 +103,8 @@ Spec нового workload'а **обязан** явно проговорить �
 
 **Harness contract follow-up.** `packages/harness/src/measure.ts` валидирует checksum **только** в warm-samples loop (`module.run(innerIterations)`), не на `run(1)`. Runner-node/web переопределяют `MeasureConfig.innerIterations` из spec'а, если поле объявлено. Loaders для arity-0 noop pattern (`<entry>_counter` companion) **обязаны** возвращать delta. См. `docs/pitfalls/2026-05-23-phase-1-1-1-execution.md` § P1 для full incident write-up.
 
+**Режим сравнения checksum.** Необязательное поле `spec.checksumMode[entry]` задаёт `"exact"` или `"float"`; отсутствие поля или записи для entry означает `"exact"`. Node runner и browser driver/worker передают режим в `runMeasure`. В режиме `"float"` конечные числа сравниваются с относительным допуском `< 1e-9`; сейчас его явно включает только `matmul`. Строки всегда сравниваются точно, `NaN` и бесконечности отклоняются в обоих режимах. Целое значение результата само по себе не определяет режим сравнения.
+
 ### Метрики
 
 | Категория | Метрики |
@@ -241,7 +243,7 @@ Phase 1.1 фиксирует:
 - Checksum валидируется **на каждом sample** (не только в конце).
 - При расхождении прогон фейлится с маркером `correctness_failed: true`.
 - **Некорректный прогон не публикуется в HTML как победитель.**
-- Источник правды: JS-реализация (проще всего отлаживается). Checksum один раз генерируется и коммитится в `spec.json`. Все остальные реализации обязаны давать ту же checksum bit-for-bit.
+- Источник правды: JS-реализация (проще всего отлаживается). Checksum один раз генерируется и коммитится в `spec.json`. Все остальные реализации обязаны давать ту же checksum; float-допуск разрешён только при явном `checksumMode[entry] = "float"` (см. § «Checksum-семантика workload'а»).
 
 Это автоматически ловит:
 - неправильную семантику в C++/Rust порте,

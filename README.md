@@ -34,7 +34,7 @@
 - **Quality**: validated checksum, флаг correctnessFailed.
 - **Окружение**: OS/CPU, JS-движок, версии тулчейнов, фичи wasm.
 
-Корректность каждой имплементации фиксируется reference-checksum'ом, который spec.json объявляет per (entry, size). Все имплементации одного entry обязаны выдать **bit-for-bit одинаковый** результат.
+Корректность каждой имплементации фиксируется reference-checksum'ом, который spec.json объявляет per (entry, size). По умолчанию checksum сравниваются точно. Для entry с вычислениями с плавающей точкой spec может явно задать `checksumMode[entry] = "float"`: тогда допускается относительная ошибка меньше `1e-9`. Сейчас этот режим включён только для `matmul`.
 
 Для `matmul` (`||C||₂`, округлённая):
 
@@ -295,6 +295,8 @@ Per-facility байты — **приближённые**: pre-opt символь
 - В `meta.json` каждой combo-папки лежит обнаруженная версия тула. Расхождение с `tool-versions.json` не блокирует прогон, но означает, что результат не воспроизведёт референс. Замечание: при auto-install (тулы только в `.tools/`, не на PATH родителя) `meta.json` сейчас фиксирует версии лишь rustc/node — `wasm-opt`/`wasm-pack`/`emcc` остаются пустыми. Воспроизводимость гарантируется sha256-пинами в `tool-versions.json`.
 
 Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.json` под `expectedChecksums[entry][size]`. Runner валидирует **warm-loop сэмплы** — `run(innerIterations)` против `expectedChecksum`; несовпадение останавливает кейс с `correctnessFailed: true`. (Первый вызов `run(1)` сам по себе не валидируется, потому что для iter-dependent workloads его checksum — функция innerIterations.)
+
+Поле `checksumMode` задаёт режим сравнения для отдельных entry: `"exact"` (по умолчанию) или `"float"` (относительная ошибка `< 1e-9`). Режим выбирается по контракту entry, а не по тому, целое ли полученное число. Например, `interop_calls_add_f64` суммирует целые числа без потери точности и использует `"exact"`. Строковые checksum всегда сравниваются точно; `NaN` и бесконечности не проходят проверку.
 
 ---
 
