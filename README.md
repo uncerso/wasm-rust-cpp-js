@@ -143,13 +143,15 @@ Auto-install сделан под macOS arm64. На других платформ
 pnpm build:all
 ```
 
-Делает по порядку:
+Делает:
 
 1. Генерирует фикстуры (`benches/matmul/fixtures/{s,m,l}.bin`).
 2. Копирует фикстуры и `spec.json` в `dist/matmul/` (для browser-фетчинга через Vite publicDir).
 3. Бандлит JS — esbuild ESM, минификация, ES2022 → `dist/matmul/js-{idiomatic,typed-array}-speed/module.js`.
 4. Собирает Rust raw и wasm-bindgen в обоих профилях, прогоняет `wasm-opt` на обоих (speed `-O3`, size `-Oz`) → `dist/matmul/rust-{raw,bindgen}-{speed,size}/`.
 5. Собирает C++ через Emscripten (`glue.mjs` + `glue.wasm`) и через wasi-sdk freestanding (`module.wasm`), оба × {speed, size} → `dist/matmul/cpp-{emscripten,wasi-sdk}-{speed,size}/`.
+
+Шаги 1 и 3–5 распараллелены: генерация фикстур и сборки JS + C++ идут пулом на `os.cpus().length`, Rust — одним последовательным потоком конкурентно с этим пулом (конкурентные `wasm-pack` гонятся за общий wasm-bindgen install). Артефакты при этом бит-в-бит совпадают с последовательной сборкой.
 
 После успешного прогона в `dist/<workload>/` будет 10 combo-папок + `fixtures/` + `spec.json` под каждый обнаруженный `benches/<id>/spec.json`. Каждая combo-папка содержит артефакт(ы) и `meta.json` с размерами и хэшами.
 
