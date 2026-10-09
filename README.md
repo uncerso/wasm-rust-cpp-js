@@ -354,7 +354,7 @@ Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.j
 
 ## Guidelines
 
-[`docs/guidelines.md`](./docs/guidelines.md) — actionable рекомендации для продуктовых команд, извлекаемые из накопленных измерений: build-флаги (e.g. `-Oz` для C++ size-sensitive cases), toolchain trade-off'ы, code-паттерны под wasm. Каждая рекомендация привязана к evidence-пути в `results/` или `dist/` и phase'у, в котором появилась. Файл наполняется по мере появления confirmed-выводов из phases (на текущий момент — claims из Phase 1.1.x).
+[`docs/guidelines.md`](./docs/guidelines.md) — actionable рекомендации для продуктовых команд, извлекаемые из накопленных измерений: build-флаги (e.g. `-Oz` для C++ size-sensitive cases), toolchain trade-off'ы, code-паттерны под wasm. Каждая рекомендация привязана к evidence-пути в `results/` или `dist/` и phase'у, в котором появилась. Файл наполняется по мере появления confirmed-выводов из phases.
 
 ---
 
