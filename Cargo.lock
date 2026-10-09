@@ -64,6 +64,13 @@ name = "interop-calls-rust-raw"
 version = "0.0.0"
 
 [[package]]
+name = "mandelbrot-rust-bindgen"
+version = "0.0.0"
+dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "mandelbrot-rust-raw"
 version = "0.0.0"
 

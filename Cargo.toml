@@ -13,6 +13,7 @@ members = [
     "benches/sorted_map_int/rust/raw",
     "benches/sorted_map_int/rust/bindgen",
     "benches/mandelbrot/rust/raw",
+    "benches/mandelbrot/rust/bindgen",
     "benches/shape_dispatch_homo_static/rust/raw",
     "benches/shape_dispatch_homo_dyn/rust/raw",
     "benches/shape_dispatch_mixed_static/rust/raw",

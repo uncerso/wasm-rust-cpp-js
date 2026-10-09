@@ -681,7 +681,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): C++ shared source + wasi-sdk free
 **Files:**
 - Create: `benches/mandelbrot/cpp/build-emscripten.sh`
 
-- [ ] **Step 1: `build-emscripten.sh`** — copy `benches/matmul/cpp/build-emscripten.sh`, then apply: replace both `src/matmul.cpp` → `src/mandelbrot.cpp`; replace the `EXPORTS` line with the mandelbrot exports (drop `_matmul`/`_output_ptr`/`_output_len`). Keep `RT_METHODS`, `OPT` (speed `-O3 -flto`, size `-Oz -flto --closure 1`), WARN_FLAGS, `MODULARIZE=1`/`EXPORT_ES6=1`/`ENVIRONMENT=web,worker,node`/`ALLOW_MEMORY_GROWTH=1`/`INITIAL_MEMORY=67108864`, and the `SIZE_ATTR` block unchanged. Do NOT add inline `wasm-opt`. The two changed lines:
+- [x] **Step 1: `build-emscripten.sh`** — copy `benches/matmul/cpp/build-emscripten.sh`, then apply: replace both `src/matmul.cpp` → `src/mandelbrot.cpp`; replace the `EXPORTS` line with the mandelbrot exports (drop `_matmul`/`_output_ptr`/`_output_len`). Keep `RT_METHODS`, `OPT` (speed `-O3 -flto`, size `-Oz -flto --closure 1`), WARN_FLAGS, `MODULARIZE=1`/`EXPORT_ES6=1`/`ENVIRONMENT=web,worker,node`/`ALLOW_MEMORY_GROWTH=1`/`INITIAL_MEMORY=67108864`, and the `SIZE_ATTR` block unchanged. Do NOT add inline `wasm-opt`. The two changed lines:
 
 ```bash
 EXPORTS='["_alloc","_load_input","_mandelbrot","_reset"]'
@@ -690,7 +690,7 @@ RT_METHODS='["HEAPU8","HEAPF64","wasmMemory"]'
 
 (`RT_METHODS` is unchanged from matmul — `HEAPU8` writes the 56-byte fixture, `wasmMemory` backs the memory ref; `HEAPF64` is unused here but harmless and kept for parity with matmul's script.)
 
-- [ ] **Step 2: Build all cpp combos + validate both toolchains × S**
+- [x] **Step 2: Build all cpp combos + validate both toolchains × S**
 
 Run (the active client permission mechanism when sandboxed IPC is blocked): `pnpm build:cpp mandelbrot` — now that both scripts exist, this builds all 4 cpp combos (`cpp-{emscripten,wasi-sdk}-{speed,size}`) with `meta.json` + wasm-opt + size attribution.
 Then node-validate each cpp toolchain × S (the active client permission mechanism when sandboxed IPC is blocked), e.g.:
@@ -707,7 +707,7 @@ pnpm exec tsx apps/runner-node/src/main.ts \
 ```
 Expected: both write a result JSON with `quality.validated=true`, `correctnessFailed=false`, `quality.checksum == <CKSUM_S>` (== 2190038). A non-zero exit code = correctness fail → parity break-check (STOP + surface, per Execution Protocol).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add benches/mandelbrot/cpp/build-emscripten.sh
@@ -726,7 +726,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): C++ emscripten build (both cpp to
 **Interfaces:**
 - Produces exported C symbols identical to Task 4's list (arity-1 `mandelbrot(iters)`). Consumed by `raw-wasm` loader. Artifact: `target/wasm32-unknown-unknown/<profile>/mandelbrot_rust_raw.wasm` (crate name `mandelbrot-rust-raw`).
 
-- [ ] **Step 1: `Cargo.toml`** (exact content — no `matmul-shared` dep; mandelbrot has no shared crate)
+- [x] **Step 1: `Cargo.toml`** (exact content — no `matmul-shared` dep; mandelbrot has no shared crate)
 
 ```toml
 [package]
@@ -744,13 +744,13 @@ crate-type = ["cdylib"]
 workspace = true
 ```
 
-- [ ] **Step 2: Register workspace member** — in root `Cargo.toml`, add to `members` (after the `sorted_map_int` entries):
+- [x] **Step 2: Register workspace member** — in root `Cargo.toml`, add to `members` (after the `sorted_map_int` entries):
 
 ```toml
     "benches/mandelbrot/rust/raw",
 ```
 
-- [ ] **Step 3: `src/lib.rs`** (exact content — `no_std`, `#[panic_handler]`, escape/grid copied verbatim from `reference.ts`)
+- [x] **Step 3: `src/lib.rs`** (exact content — `no_std`, `#[panic_handler]`, escape/grid copied verbatim from `reference.ts`)
 
 ```rust
 #![no_std]
@@ -903,7 +903,7 @@ pub extern "C" fn mandelbrot(iters: u32) -> f64 {
 pub const extern "C" fn reset() {}
 ```
 
-- [ ] **Step 4: Build + lint + validate**
+- [x] **Step 4: Build + lint + validate**
 
 Run: `pnpm lint:rust` (sandboxed OK) → no clippy errors (the `--workspace` clippy covers the new crate for the wasm target). If clippy flags an unforeseen pedantic/nursery lint, add a matmul-style `#[allow(clippy::…, reason=…)]` (retry ≤2).
 Then (the active client permission mechanism when sandboxed IPC is blocked): `pnpm build:rust mandelbrot`, then node-validate raw × S (both profiles ideally; at minimum speed):
@@ -916,7 +916,7 @@ pnpm exec tsx apps/runner-node/src/main.ts \
 ```
 Expected: `dist/mandelbrot/rust-raw-{speed,size}/module.wasm`; `checksum == <CKSUM_S>`; `correctnessFailed=false`. (Optionally re-run the Task-5 imports check on `dist/mandelbrot/rust-raw-size/module.wasm` — expect memory export, no imports.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add benches/mandelbrot/rust/raw/ Cargo.toml Cargo.lock
@@ -934,7 +934,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): Rust raw crate (no_std, no alloc)
 - Create: `benches/mandelbrot/rust/bindgen/pkg-attr/.gitignore`
 - Modify: root `Cargo.toml` (workspace `members`)
 
-- [ ] **Step 1: `Cargo.toml`** (exact content — no `matmul-shared` dep; keep `wasm-opt = false` metadata)
+- [x] **Step 1: `Cargo.toml`** (exact content — no `matmul-shared` dep; keep `wasm-opt = false` metadata)
 
 ```toml
 [package]
@@ -961,19 +961,19 @@ wasm-opt = false
 workspace = true
 ```
 
-- [ ] **Step 2: Register workspace member** — in root `Cargo.toml`, add to `members` (after the raw entry from Task 6):
+- [x] **Step 2: Register workspace member** — in root `Cargo.toml`, add to `members` (after the raw entry from Task 6):
 
 ```toml
     "benches/mandelbrot/rust/bindgen",
 ```
 
-- [ ] **Step 3: pkg `.gitignore`s** — create both `pkg-tmp/.gitignore` and `pkg-attr/.gitignore`, each containing exactly (single `*`, matching matmul):
+- [x] **Step 3: pkg `.gitignore`s** — create both `pkg-tmp/.gitignore` and `pkg-attr/.gitignore`, each containing exactly (single `*`, matching matmul):
 
 ```
 *
 ```
 
-- [ ] **Step 4: `src/lib.rs`** (exact content — std + wasm-bindgen; params read via safe `f64::from_le_bytes` so the only unsafe is the vacuous `Sync` impl; escape/grid copied verbatim)
+- [x] **Step 4: `src/lib.rs`** (exact content — std + wasm-bindgen; params read via safe `f64::from_le_bytes` so the only unsafe is the vacuous `Sync` impl; escape/grid copied verbatim)
 
 ```rust
 // Bindgen crate: state is a single Params in a RefCell singleton (SyncCell with a
@@ -1099,7 +1099,7 @@ pub fn wasm_memory() -> JsValue {
 }
 ```
 
-- [ ] **Step 5: Build + lint + validate**
+- [x] **Step 5: Build + lint + validate**
 
 Run: `pnpm lint:rust` (sandboxed). Then (the active client permission mechanism when sandboxed IPC is blocked) `pnpm build:rust mandelbrot`, then node-validate bindgen × S:
 
@@ -1111,7 +1111,7 @@ pnpm exec tsx apps/runner-node/src/main.ts \
 ```
 Expected: `dist/mandelbrot/rust-bindgen-{speed,size}/` glue + wasm; `checksum == <CKSUM_S>`; `correctnessFailed=false`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add benches/mandelbrot/rust/bindgen/ Cargo.toml Cargo.lock
