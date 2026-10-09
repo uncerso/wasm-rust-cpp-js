@@ -34,7 +34,7 @@ export default function create(entry: string): BenchModule {
     function buildSorted(iters: number): void {
         const m = new Map<number, number>();
         for (let i = 0; i < iters; i++) {
-            m.set(pairs[i][0], pairs[i][1]);
+            m.set(pairs[i]![0], pairs[i]![1]);
         }
         const ks = [...m.keys()].sort((a, b) => a - b);
         keys = Float64Array.from(ks);
@@ -46,7 +46,7 @@ export default function create(entry: string): BenchModule {
         let hi = keys.length;
         while (lo < hi) {
             const mid = (lo + hi) >>> 1;
-            if (keys[mid] < target) {
+            if (keys[mid]! < target) {
                 lo = mid + 1;
             } else {
                 hi = mid;
@@ -74,10 +74,10 @@ export default function create(entry: string): BenchModule {
             runFn = (iters) => {
                 let acc = 0;
                 for (let i = 0; i < iters; i++) {
-                    const k = pairs[i][0];
+                    const k = pairs[i]![0];
                     const idx = lowerBound(k);
                     if (idx < keys.length && keys[idx] === k) {
-                        acc += vals[idx];
+                        acc += vals[idx]!;
                     }
                 }
                 return { checksum: acc };
@@ -90,11 +90,11 @@ export default function create(entry: string): BenchModule {
                 const span = Math.floor(TWO_53 / n) * WINDOW_KEYS;
                 let acc = 0;
                 for (let i = 0; i < iters; i++) {
-                    const lo = pairs[i][0];
+                    const lo = pairs[i]![0];
                     const hi = Math.min(lo + span, MAX_KEY);
                     let idx = lowerBound(lo);
-                    while (idx < keys.length && keys[idx] <= hi) {
-                        acc += vals[idx];
+                    while (idx < keys.length && keys[idx]! <= hi) {
+                        acc += vals[idx]!;
                         idx++;
                     }
                 }

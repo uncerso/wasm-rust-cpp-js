@@ -164,6 +164,21 @@ pnpm build:rust <bench-id>…   # только Rust (требует rustc + wasm
 pnpm build:cpp  <bench-id>…   # только C++ (требует emcc + wasi-sdk + wasm-opt + twiggy)
 ```
 
+### Проверки
+
+```bash
+pnpm typecheck
+pnpm test
+pnpm lint:all
+```
+
+`pnpm typecheck` проверяет workspace-пакеты и корневой `tsconfig.json`: скрипты,
+генераторы фикстур и reference-код. `pnpm test` запускает тесты пакетов, корневые
+тесты скриптов, фикстур, reference/parity и сканера capture-маркеров. Только корневые
+проверки можно запустить через `pnpm typecheck:root` и `pnpm test:root`.
+
+Полный pre-flight: `pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke`.
+
 ---
 
 ## Запуск бенчмарков

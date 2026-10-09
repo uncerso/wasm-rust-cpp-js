@@ -98,7 +98,7 @@ describe("genShapes", () => {
         const buf = genShapes(100, 0xFACE_0001);
         const tags = new Set<number>();
         for (let i = 0; i < 100; i++) {
-            tags.add(buf[i * 24]);
+            tags.add(buf[i * 24]!);
         }
         expect([...tags].sort()).toEqual([0, 1, 2]);
     });

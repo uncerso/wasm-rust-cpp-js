@@ -27,7 +27,6 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 
 ### CI & supporting infra
 - **ci-github-actions** — GitHub Actions integration для размер/perf baseline tracking. Требует cross-platform installer'а (deferred в Phase 2+).
-- **pnpm-typecheck-skips-scripts** — process gap, natural fit для CI ([→ tech_debt/pnpm-typecheck-skips-scripts](tech_debt/pnpm-typecheck-skips-scripts.md))
 - **cargo-lock-stage-discipline** — process gap, lockfile check в CI ([→ tech_debt/cargo-lock-stage-discipline](tech_debt/cargo-lock-stage-discipline.md))
 - **plan-authoring-lint-and-case-count** — из pitfall 2026-05-27: (1) добавить `argsIgnorePattern: "^_"` в `eslint.config.js` (`@typescript-eslint/no-unused-vars`), чтобы `_param`-идиома работала и для assigned-vars → plan-code-blocks проходят lint без ручных правок; (2) `scripts/lib/case-count.ts` helper, печатающий expected case-counts per (envs, sizes, benchmarks, filters) через `enumerateRunCases()` → plan-gate values не hand-derived (Phase 1.1.2.1: предсказал 810, actual 630). ([→ pitfall 2026-05-27](pitfalls/2026-05-27-phase-1-1-2-1-execution.md))
 
