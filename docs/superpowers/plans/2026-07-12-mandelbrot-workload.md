@@ -404,7 +404,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): reference validator + tests (cano
 - Consumes: Task 1 fixture hashes; Task 2 checksums.
 - Produces: the workload manifest all orchestration auto-discovers.
 
-- [ ] **Step 1: Write `spec.json`** — fill `<SHA_S/M/L>` from Task 1 and `<CKSUM_S/M/L>` from Task 2.
+- [x] **Step 1: Write `spec.json`** — fill `<SHA_S/M/L>` from Task 1 and `<CKSUM_S/M/L>` from Task 2.
 
 ```jsonc
 {
@@ -438,11 +438,11 @@ git commit --no-gpg-sign -m "feat(mandelbrot): reference validator + tests (cano
 }
 ```
 
-- [ ] **Step 2: Validate spec parses**
+- [x] **Step 2: Validate spec parses**
 
 Run (sandboxed OK): `pnpm typecheck` — no schema-related failures. (Sharper optional check, the active client permission mechanism when sandboxed IPC is blocked: write a tiny `$TMPDIR/spec-check.mjs` that imports `@bench/result-schema` and calls `SpecSchema.parse(JSON.parse(readFileSync("benches/mandelbrot/spec.json")))`, then `node $TMPDIR/spec-check.mjs` — avoid inline `!`/heredoc per AGENTS.md.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add benches/mandelbrot/spec.json
@@ -463,7 +463,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): spec.json v2 with pinned checksum
 **Interfaces:**
 - Produces exported C symbols: `alloc`, `load_input`, `mandelbrot`, `reset` (+ exported `memory`). Consumed by the `raw-wasm` loader (arity-1 dispatch: `mandelbrot(iters)` returns the checksum directly).
 
-- [ ] **Step 1: `mandelbrot.h`** (exact content — mirrors matmul.h, drops `output_ptr`/`output_len`)
+- [x] **Step 1: `mandelbrot.h`** (exact content — mirrors matmul.h, drops `output_ptr`/`output_len`)
 
 ```cpp
 #pragma once
@@ -477,7 +477,7 @@ void reset(void);
 }
 ```
 
-- [ ] **Step 2: `mandelbrot.cpp`** (exact content — escape/grid expressions copied verbatim from `reference.ts`)
+- [x] **Step 2: `mandelbrot.cpp`** (exact content — escape/grid expressions copied verbatim from `reference.ts`)
 
 ```cpp
 #include "mandelbrot.h"
@@ -567,7 +567,7 @@ extern "C" double mandelbrot(uint32_t iters) {
 extern "C" void reset() {}
 ```
 
-- [ ] **Step 3: `build-wasi-sdk.sh`** — copy `benches/matmul/cpp/build-wasi-sdk.sh`, then apply: replace both `src/matmul.cpp` → `src/mandelbrot.cpp`; replace both export blocks (production + attr) with the mandelbrot exports (drop `matmul`/`output_ptr`/`output_len`). Keep `set -euo pipefail`, `-nostdlib`, `-fno-exceptions -fno-rtti -fvisibility=hidden -mbulk-memory`, `-std=c++23`, the WARN_FLAGS, the `-Wl,--no-entry`/`--allow-undefined`/`--strip-all`/`--export=memory` lines, and the `SIZE_ATTR` block structure unchanged. Exact content:
+- [x] **Step 3: `build-wasi-sdk.sh`** — copy `benches/matmul/cpp/build-wasi-sdk.sh`, then apply: replace both `src/matmul.cpp` → `src/mandelbrot.cpp`; replace both export blocks (production + attr) with the mandelbrot exports (drop `matmul`/`output_ptr`/`output_len`). Keep `set -euo pipefail`, `-nostdlib`, `-fno-exceptions -fno-rtti -fvisibility=hidden -mbulk-memory`, `-std=c++23`, the WARN_FLAGS, the `-Wl,--no-entry`/`--allow-undefined`/`--strip-all`/`--export=memory` lines, and the `SIZE_ATTR` block structure unchanged. Exact content:
 
 ```bash
 #!/usr/bin/env bash
@@ -641,7 +641,7 @@ if [[ "${SIZE_ATTR:-0}" == "1" ]]; then
 fi
 ```
 
-- [ ] **Step 4: Build wasi-sdk directly — feasibility gate (compile)**
+- [x] **Step 4: Build wasi-sdk directly — feasibility gate (compile)**
 
 `build-cpp.ts` builds ALL cpp combos for the bench and aborts if a script is missing, so we cannot run `pnpm build:cpp mandelbrot` until Task 5 creates `build-emscripten.sh`. For the feasibility gate we only need the compiled wasm + its imports, so invoke the wasi-sdk script directly (the active client permission mechanism when sandboxed IPC is blocked):
 
@@ -652,7 +652,7 @@ bash benches/mandelbrot/cpp/build-wasi-sdk.sh size "$TMPDIR/mand-wasi-gate"
 ```
 Expected: `$TMPDIR/mand-wasi-gate/module.wasm` produced, no compile errors. (`PATH=/usr/bin:/bin` keeps the `-flto` driver from auto-finding a `wasm-opt`; the versioned `.tools/wasi-sdk-*` glob resolves the pinned SDK — if it does not expand, run `pnpm setup-tools` first or read the version from `tool-versions.json`.)
 
-- [ ] **Step 5: Assert only-`memory` imports (GATE)**
+- [x] **Step 5: Assert only-`memory` imports (GATE)**
 
 Write `$TMPDIR/imports.mjs` (via the Write tool — avoid inline `!`):
 
@@ -665,7 +665,7 @@ console.log(JSON.stringify(WebAssembly.Module.imports(mod), null, 2));
 Run (the active client permission mechanism when sandboxed IPC is blocked): `node "$TMPDIR/imports.mjs" "$TMPDIR/mand-wasi-gate/module.wasm"`.
 Expected: `[]` (zero imports) — mandelbrot has no libc/std/math dependency, so nothing is imported (memory is *exported*, not imported). **If any `wasi_snapshot_preview1` / unexpected import appears** → an unforeseen libcall leaked in → STOP, investigate (retry ≤2), else surface to user. (Checksum node-validation for cpp is deferred to Task 5, where the full `pnpm build:cpp` produces the `meta.json` the runner needs.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add benches/mandelbrot/cpp/src/ benches/mandelbrot/cpp/build-wasi-sdk.sh
