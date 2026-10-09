@@ -12,7 +12,7 @@ function fakeResult(
         schemaVersion: 2,
         timestamp: "2026-05-01T00:00:00.000Z",
         machine: { os: "linux", cpu: "x", memoryGb: 32 },
-        env: { kind: "node", name: envName, version: "v22.0.0", engine: "V8" },
+        env: { kind: "node", name: envName, version: "v22.0.0", engine: "V8", parallel: false },
         benchmark: {
             id: "hashmap_int", inputSize: "L", fixtureBytes: 0, fixtureSha256: "x".repeat(64),
             language: "rust", toolchain: "raw", profile: "speed", postprocess: [],
@@ -146,6 +146,21 @@ describe("renderPerfView", () => {
         expect(html).toContain('tr class="fail"');
         expect(html).toContain('class="hatch-fail"');
         expect(html).toContain("&lt;res");            // sub-resolution badge
+    });
+
+    it("badges detail rows measured under --parallel-envs (∥) plus a legend key", () => {
+        const par = fakeResult({}, 1.0, "node");
+        par.env.parallel = true;
+        const html = renderPerfView(aggregate([par]));
+        expect(html).toContain("measured under --parallel-envs");   // legend key
+        // legend contributes one class="par"; the parallel detail row adds its badge.
+        expect((html.match(/class="par"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("does not badge sequential (parallel=false) rows — legend key only", () => {
+        const seq = fakeResult({}, 1.0, "node");   // fixture default parallel=false
+        const html = renderPerfView(aggregate([seq]));
+        expect((html.match(/class="par"/g) ?? []).length).toBe(1);
     });
 
     it("renders relSem and mad columns in the detail table", () => {

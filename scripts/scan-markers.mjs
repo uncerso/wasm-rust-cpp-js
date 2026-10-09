@@ -45,7 +45,9 @@ for (const line of readFileSync(path, "utf8").split("\n")) {
             continue;
         }
         for (const textLine of block.text.split("\n")) {
-            const m = MARKER.exec(textLine.trim());
+            // Markers get emitted wrapped in inline code often enough that anchoring
+            // strictly on "›" silently loses them — strip any surrounding backticks first.
+            const m = MARKER.exec(textLine.trim().replace(/^`+/, "").replace(/`+$/, ""));
             if (m) {
                 markers.push({ type: m[1], slug: m[2].trim(), note: m[3].trim() });
             }

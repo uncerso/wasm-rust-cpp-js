@@ -22,6 +22,7 @@ export interface PerfDetailRow {
     relSem: number;
     meanImprecise: boolean;
     subResolution: boolean;
+    parallel: boolean;
     correctnessFailed: boolean;
     validated: boolean;
 }
@@ -126,6 +127,7 @@ function toDetailRow(impl: string, env: string, r: BenchResult): PerfDetailRow {
         relSem: r.stats.relSem,
         meanImprecise: r.stats.meanImprecise,
         subResolution: r.stats.subResolution,
+        parallel: r.env.parallel,
         correctnessFailed: r.quality.correctnessFailed,
         validated: r.quality.validated,
     };

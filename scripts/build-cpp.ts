@@ -102,21 +102,29 @@ async function loadSpec(benchId: string): Promise<Spec> {
     return SpecSchema.parse(JSON.parse(raw));
 }
 
-async function main() {
-    const benches = process.argv.slice(2);
-    if (benches.length === 0) {
-        throw new Error("usage: tsx scripts/build-cpp.ts <bench-id> [<bench-id>...]");
-    }
+export async function collectCppUnits(benches: string[]): Promise<Array<() => Promise<void>>> {
+    const units: Array<() => Promise<void>> = [];
     for (const benchId of benches) {
         const spec = await loadSpec(benchId);
         const combos = enumerateBinaries(spec).filter((b) => b.language === "cpp");
         for (const c of combos) {
             if (c.toolchain === "emscripten") {
-                await buildEmscripten(c);
+                units.push(() => buildEmscripten(c));
             } else if (c.toolchain === "wasi-sdk") {
-                await buildWasiSdk(c);
+                units.push(() => buildWasiSdk(c));
             }
         }
+    }
+    return units;
+}
+
+async function main() {
+    const benches = process.argv.slice(2);
+    if (benches.length === 0) {
+        throw new Error("usage: tsx scripts/build-cpp.ts <bench-id> [<bench-id>...]");
+    }
+    for (const unit of await collectCppUnits(benches)) {
+        await unit();
     }
 }
 

@@ -11,7 +11,7 @@ function fakeResult(
         schemaVersion: 2,
         timestamp: "2026-05-01T00:00:00.000Z",
         machine: { os: "linux", cpu: "x", memoryGb: 32 },
-        env: { kind: "node", name: "node", version: "v22.0.0", engine: "V8" },
+        env: { kind: "node", name: "node", version: "v22.0.0", engine: "V8", parallel: false },
         benchmark: {
             id: "matmul",
             inputSize: "S",

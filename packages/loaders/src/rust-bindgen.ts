@@ -78,6 +78,11 @@ export const rustBindgenLoader: Loader = {
         if (!input.glueUrl) {
             throw new Error("rust-bindgen: glueUrl required");
         }
+        // NOTE: the generated glue keeps its instance in module scope and short-circuits
+        // `__wbg_init` (`if (wasm !== undefined) return wasm`). That is safe only because
+        // every host gives each case a fresh module registry — a fresh process (node) or a
+        // fresh realm (browser navigation). A host that imported this glue twice in one
+        // realm would silently reuse the first instance. See roadmap `in-process-node-runner`.
         const glueUrl = input.glueUrl;
         const tr = new TimingRecorder();
 

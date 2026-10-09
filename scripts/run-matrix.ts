@@ -20,6 +20,7 @@ interface CliArgs {
     out: string;
     benchmarks: string[];
     restartEvery: number;
+    parallelEnvs: boolean;
 }
 
 function parseList<T extends string>(raw: string, allowed: readonly T[], label: string): T[] {
@@ -49,6 +50,7 @@ function parseArgs(argv: string[]): CliArgs {
     if (!Number.isFinite(restartEveryRaw) || restartEveryRaw < 0) {
         throw new Error(`--restart-every must be a non-negative integer; got "${get("restart-every", "0")}"`);
     }
+    const parallelEnvs = argv.includes("--parallel-envs");
     return {
         envs: parseList(get("envs", "node,chromium,firefox"), ALL_ENVS, "env"),
         sizes: parseList(get("sizes", "S,M"), ALL_SIZES, "size"),
@@ -56,6 +58,7 @@ function parseArgs(argv: string[]): CliArgs {
         out: get("out", `results/raw/${new Date().toISOString().replace(/[:.]/g, "-")}`),
         benchmarks,
         restartEvery: restartEveryRaw,
+        parallelEnvs,
     };
 }
 
@@ -131,126 +134,156 @@ async function main() {
 
     let ranOK = true;
     const accumulateFailures: Array<RetryFailure & { env: Env }> = [];
-    try {
-        // ── Node loop: per-case subprocess (unchanged behaviour) ─────────────
-        if (args.envs.includes("node")) {
-            for (const spec of filteredSpecs) {
-                for (const c of enumerateBinaries(spec)) {
-                    if (c.language === "js" && c.profile !== "speed") {
-                        continue;
-                    }
-                    for (const entry of spec.entries) {
-                        for (const sz of args.sizes) {
-                            const common = [
-                                `--benchmark=${c.sourceBench}`,
-                                `--entry=${entry}`,
-                                `--language=${c.language}`,
-                                `--toolchain=${c.toolchain}`,
-                                `--profile=${c.profile}`,
-                                `--size=${sz}`,
-                                `--out=${args.out}`,
-                                `--mode=${args.mode}`,
-                            ];
-                            const caseId = `${entry}__${c.language}-${c.toolchain}-${c.profile}__${sz}`;
-                            try {
-                                // runner-node exits non-zero on correctness fail (and any error);
-                                // accumulate per-case instead of aborting the whole run.
-                                await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
-                            } catch (e) {
-                                const msg = e instanceof Error ? e.message : String(e);
-                                console.error(`[fail] node ${caseId}: ${msg}`);
-                                accumulateFailures.push({ env: "node", caseId, error: msg });
-                                ranOK = false;
-                            }
+    // ── Node stream: one subprocess per case ─────────────────────────────────
+    // A fresh process per case is a measurement requirement, not just legacy: the
+    // init axis (fetch/compile/instantiate) and the wasm memory delta are only
+    // faithful in a pristine V8. Running the matrix in ONE process was tried and
+    // reverted — the first wasm compile in a process pays a one-time engine cost
+    // every fresh process re-pays, so in-process init reads ~10x low for bindgen
+    // (initTotal 7.4ms -> 0.7ms) and varies with case order; ESM-cached glue also
+    // made wasm-bindgen reuse the prior instance (false-zero memory delta). See
+    // roadmap `in-process-node-runner` before attempting this again.
+    async function runNodeStream(): Promise<void> {
+        for (const spec of filteredSpecs) {
+            for (const c of enumerateBinaries(spec)) {
+                if (c.language === "js" && c.profile !== "speed") {
+                    continue;
+                }
+                for (const entry of spec.entries) {
+                    for (const sz of args.sizes) {
+                        const common = [
+                            `--benchmark=${c.sourceBench}`,
+                            `--entry=${entry}`,
+                            `--language=${c.language}`,
+                            `--toolchain=${c.toolchain}`,
+                            `--profile=${c.profile}`,
+                            `--size=${sz}`,
+                            `--out=${args.out}`,
+                            `--mode=${args.mode}`,
+                            ...(args.parallelEnvs ? ["--parallel"] : []),
+                        ];
+                        const caseId = `${entry}__${c.language}-${c.toolchain}-${c.profile}__${sz}`;
+                        try {
+                            // runner-node exits non-zero on correctness fail (and any error);
+                            // accumulate per-case instead of aborting the whole run.
+                            await run("tsx", ["apps/runner-node/src/main.ts", ...common]);
+                        } catch (e) {
+                            const msg = e instanceof Error ? e.message : String(e);
+                            console.error(`[fail] node ${caseId}: ${msg}`);
+                            accumulateFailures.push({ env: "node", caseId, error: msg });
+                            ranOK = false;
                         }
                     }
                 }
             }
         }
+    }
 
-        // ── Browser loops: long-lived session per env ───────────────────────
-        for (const env of args.envs) {
-            if (env === "node") {
-                continue;
-            }
-            const cases: CaseInput[] = [];
-            for (const spec of filteredSpecs) {
-                for (const c of enumerateBinaries(spec)) {
-                    if (c.language === "js" && c.profile !== "speed") {
-                        continue;
-                    }
-                    for (const entry of spec.entries) {
-                        for (const sz of args.sizes) {
-                            cases.push({
-                                benchmark: c.sourceBench,
-                                entry,
-                                language: c.language,
-                                toolchain: c.toolchain,
-                                profile: c.profile,
-                                size: sz,
-                                mode: args.mode,
-                            });
-                        }
+    // ── Browser stream: long-lived session for one env ───────────────────────
+    async function runBrowserStream(env: Exclude<Env, "node">): Promise<void> {
+        const cases: CaseInput[] = [];
+        for (const spec of filteredSpecs) {
+            for (const c of enumerateBinaries(spec)) {
+                if (c.language === "js" && c.profile !== "speed") {
+                    continue;
+                }
+                for (const entry of spec.entries) {
+                    for (const sz of args.sizes) {
+                        cases.push({
+                            benchmark: c.sourceBench,
+                            entry,
+                            language: c.language,
+                            toolchain: c.toolchain,
+                            profile: c.profile,
+                            size: sz,
+                            mode: args.mode,
+                            parallel: args.parallelEnvs,
+                        });
                     }
                 }
             }
-            if (cases.length === 0) {
-                continue;
+        }
+        if (cases.length === 0) {
+            return;
+        }
+
+        const create = (): Promise<DriverSession> => createDriverSession(env, { port: 5174 });
+        let session: DriverSession;
+        try {
+            session = await create();
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error(`[env-skip] env=${env}: initial session create failed: ${msg}`);
+            accumulateFailures.push({ env, caseId: "(env-init)", error: msg });
+            ranOK = false;
+            return;
+        }
+        const sessionRef = { current: session };
+        const envFailures: RetryFailure[] = [];
+        let consecutiveFailures = 0;
+
+        for (let i = 0; i < cases.length; i++) {
+            if (args.restartEvery > 0 && i > 0 && i % args.restartEvery === 0) {
+                console.log(`[restart-every] env=${env}: restarting session at case ${i}`);
+                await sessionRef.current.quit().catch(() => { /* best-effort */ });
+                sessionRef.current = await create();
             }
-
-            const create = (): Promise<DriverSession> => createDriverSession(env, { port: 5174 });
-            let session: DriverSession;
-            try {
-                session = await create();
-            } catch (e) {
-                const msg = e instanceof Error ? e.message : String(e);
-                console.error(`[env-skip] env=${env}: initial session create failed: ${msg}`);
-                accumulateFailures.push({ env, caseId: "(env-init)", error: msg });
-                ranOK = false;
-                continue;
-            }
-            const sessionRef = { current: session };
-            const envFailures: RetryFailure[] = [];
-            let consecutiveFailures = 0;
-
-            for (let i = 0; i < cases.length; i++) {
-                if (args.restartEvery > 0 && i > 0 && i % args.restartEvery === 0) {
-                    console.log(`[restart-every] env=${env}: restarting session at case ${i}`);
-                    await sessionRef.current.quit().catch(() => { /* best-effort */ });
-                    sessionRef.current = await create();
+            const result = await runCaseWithRetry(sessionRef, cases[i]!, envFailures, create);
+            if (result === null) {
+                consecutiveFailures++;
+                if (consecutiveFailures >= 3) {
+                    const remaining = cases.length - i - 1;
+                    console.error(`[abort] env=${env}: 3 consecutive failures, skipping ${remaining} remaining cases`);
+                    break;
                 }
-                const result = await runCaseWithRetry(sessionRef, cases[i]!, envFailures, create);
-                if (result === null) {
-                    consecutiveFailures++;
-                    if (consecutiveFailures >= 3) {
-                        const remaining = cases.length - i - 1;
-                        console.error(`[abort] env=${env}: 3 consecutive failures, skipping ${remaining} remaining cases`);
-                        break;
-                    }
-                } else {
-                    consecutiveFailures = 0;
-                    const outPath = join(args.out, result.fileName);
-                    await writeFile(outPath, JSON.stringify(result.result, null, 2));
-                    console.log(`wrote ${outPath}`);
-                    // Result is written for inspection; a correctness fail is still a
-                    // failure — surface it (not a session-restart trigger).
-                    if (isCorrectnessFailure(result.result)) {
-                        const c = cases[i]!;
-                        const caseId = `${c.entry}__${c.language}-${c.toolchain}-${c.profile}__${c.size}`;
-                        console.error(`[fail] ${env} ${caseId}: correctness fail (validated=${String(result.result.quality.validated)})`);
-                        accumulateFailures.push({ env, caseId, error: "correctness fail (validated=false)" });
-                        ranOK = false;
-                    }
+            } else {
+                consecutiveFailures = 0;
+                const outPath = join(args.out, result.fileName);
+                await writeFile(outPath, JSON.stringify(result.result, null, 2));
+                console.log(`wrote ${outPath}`);
+                // Result is written for inspection; a correctness fail is still a
+                // failure — surface it (not a session-restart trigger).
+                if (isCorrectnessFailure(result.result)) {
+                    const c = cases[i]!;
+                    const caseId = `${c.entry}__${c.language}-${c.toolchain}-${c.profile}__${c.size}`;
+                    console.error(`[fail] ${env} ${caseId}: correctness fail (validated=${String(result.result.quality.validated)})`);
+                    accumulateFailures.push({ env, caseId, error: "correctness fail (validated=false)" });
+                    ranOK = false;
                 }
             }
+        }
 
-            await sessionRef.current.quit().catch(() => { /* best-effort */ });
+        await sessionRef.current.quit().catch(() => { /* best-effort */ });
 
-            if (envFailures.length > 0) {
-                ranOK = false;
-                for (const f of envFailures) {
-                    accumulateFailures.push({ env, ...f });
-                }
+        if (envFailures.length > 0) {
+            ranOK = false;
+            for (const f of envFailures) {
+                accumulateFailures.push({ env, ...f });
+            }
+        }
+    }
+
+    try {
+        // Default: node then browsers, sequentially (guideline-grade). --parallel-envs
+        // runs all env streams concurrently; every result is flagged env.parallel=true.
+        // accumulateFailures.push from concurrent streams is safe (JS is single-threaded).
+        const browserEnvs = args.envs.filter((e): e is Exclude<Env, "node"> => e !== "node");
+        if (args.parallelEnvs) {
+            console.log("[run-matrix] --parallel-envs: node + browsers concurrently (results flagged parallel=true)");
+            const streams: Array<Promise<void>> = [];
+            if (args.envs.includes("node")) {
+                streams.push(runNodeStream());
+            }
+            for (const env of browserEnvs) {
+                streams.push(runBrowserStream(env));
+            }
+            await Promise.all(streams);
+        } else {
+            if (args.envs.includes("node")) {
+                await runNodeStream();
+            }
+            for (const env of browserEnvs) {
+                await runBrowserStream(env);
             }
         }
     } catch (e) {
