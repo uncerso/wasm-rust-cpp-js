@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Scan a Claude Code transcript for in-session capture markers (PB6).
+// Scan a Claude Code or Codex transcript for assistant capture markers (PB6).
 // Usage: node scripts/scan-markers.mjs [transcript.jsonl]
-// Default: newest .jsonl in ~/.claude/projects/<cwd-slug>/
+// Default (Claude Code only): newest .jsonl in ~/.claude/projects/<cwd-slug>/
+// Pass the current transcript explicitly in Codex or when multiple sessions exist.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -36,12 +37,18 @@ for (const line of readFileSync(path, "utf8").split("\n")) {
     } catch {
         continue;
     }
-    const content = rec?.message?.content;
+    const message = rec?.type === "response_item" && rec.payload?.type === "message"
+        ? rec.payload
+        : rec?.type === "assistant" ? rec.message : undefined;
+    if (message?.role !== "assistant") {
+        continue;
+    }
+    const content = message.content;
     if (!Array.isArray(content)) {
         continue;
     }
     for (const block of content) {
-        if (block?.type !== "text") {
+        if ((block?.type !== "text" && block?.type !== "output_text") || typeof block.text !== "string") {
             continue;
         }
         for (const textLine of block.text.split("\n")) {

@@ -52,6 +52,29 @@ describe("runMeasure", () => {
         });
         expect(out.correctnessFailed).toBe(true);
     });
+
+    it("stops on the first inaccurate integer checksum despite a small relative error", async () => {
+        const out = await runMeasure({
+            module: mockModule({ checksum: 213_944_096_278_963 }),
+            fixture: new Uint8Array(),
+            expectedChecksum: 213_944_096_178_963,
+            config: { warmupIterations: 0, innerIterations: 1, minSamples: 5, maxSamples: 5, semThreshold: 0.05, wallBudgetMs: 1000 },
+        });
+        expect(out.correctnessFailed).toBe(true);
+        expect(out.warmSamplesMs).toHaveLength(1);
+        expect(out.finalChecksum).toBe(213_944_096_278_963);
+    });
+
+    it("stops on the first floating checksum that differs by one ULP", async () => {
+        const out = await runMeasure({
+            module: mockModule({ checksum: 1.0000000000000002 }),
+            fixture: new Uint8Array(),
+            expectedChecksum: 1,
+            config: { warmupIterations: 0, innerIterations: 1, minSamples: 5, maxSamples: 5, semThreshold: 0.05, wallBudgetMs: 1000 },
+        });
+        expect(out.correctnessFailed).toBe(true);
+        expect(out.warmSamplesMs).toHaveLength(1);
+    });
 });
 
 afterEach(() => {

@@ -23,7 +23,7 @@ Every plan written via `/writing-plans` MUST contain an "Execution Protocol" sec
 - **Static break-points** — the session-groups where you recommend `/finish-session` (short sessions are the #1 cost lever).
 - **Per-task break-check** — the standing rule in Break thresholds below.
 
-(Homed here because the `writing-plans` skill lives in the plugin cache and is not reliably editable; this doc + the CLAUDE.md pointer are its durable home.)
+(Homed here because the `writing-plans` skill lives in the plugin cache and is not reliably editable; this doc + the AGENTS.md pointer are its durable home.)
 
 ## Ownership
 
@@ -51,7 +51,7 @@ Phase-local rules for the spec → plan → execute loop (forensics → the link
 - **Mechanism-check** — for each mitigation in a spec's risk section, state in one sentence the mechanism by which it addresses that exact risk. Can't → drop or verify the candidate.
 - **Portable commands** — shell snippets in a plan MUST use flags that work on the repo's toolchain (macOS/BSD + this git): `git grep -lz` (not GNU `-Z`), a `for`-loop over matches instead of `grep -lZ | xargs -0`. A non-portable flag fails silently (no-op transform). Verify before committing the plan.
 - **Verify a plan's factual assertions before acting** — a plan that asserts a file location, a failure mechanism, or a config knob may be wrong. Check it cheaply first (`ls`/`find` the path; reproduce the error and read the actual errno/syscall) before a task acts on it. A one-command check turns a silent no-op into a correct fix. Forensics: `docs/pitfalls/2026-06-11-workflow-cost-redesign-execution.md`.
-- **Landing audit** — every decision in a spec MUST name the firing surface that makes it load or trigger: global/project `CLAUDE.md` (always-loaded), a skill (auto-trigger/explicit), or a hook (deterministic). A decision with no firing surface will NOT fire — it lives only in an on-demand doc nothing loads. Verify each names a surface before plan hand-off; a plan's coverage map maps **decision → firing-surface**, not just change-list → task. Forensics: the workflow-cost-redesign T1/T2 drop (`docs/superpowers/specs/2026-06-12-workflow-trigger-landing-design.md` § Hole-audit).
+- **Landing audit** — every decision in a spec MUST name the firing surface that makes it load or trigger: project `AGENTS.md` (shared with Claude Code through `CLAUDE.md`), client-specific global instructions, a skill (auto-trigger/explicit), or a hook (deterministic). A decision with no firing surface will NOT fire — it lives only in an on-demand doc nothing loads. Verify each names a surface before plan hand-off; a plan's coverage map maps **decision → firing-surface**, not just change-list → task. Forensics: the workflow-cost-redesign T1/T2 drop (`docs/superpowers/specs/2026-06-12-workflow-trigger-landing-design.md` § Hole-audit).
 
 ## Break thresholds
 

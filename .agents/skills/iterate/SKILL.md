@@ -40,4 +40,4 @@ Follow `docs/workflow.md` exactly:
 - Scale phases to task size (trivial = Design/Plan collapse to a sentence — `docs/workflow.md`).
 - **A gate must cover what the change can break.** Before running a plan's measurement/verification gate (Phase 6), write down (a) the combinations the change could actually break and (b) the metrics it could shift — then cover the intersection, not a convenient sample. Set the threshold against the measured same-path run-to-run spread, never a round number. A green gate over the wrong slice reads as proof and ships the regression: `docs/pitfalls/2026-08-24-parallel-bench-execution.md`.
 - NEVER auto-invoke `/finish-session`; only recommend at break-points.
-- Push + PR are user actions (CLAUDE.md § Commits).
+- Push + PR are user actions (AGENTS.md § Commits).

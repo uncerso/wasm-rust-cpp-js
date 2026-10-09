@@ -103,6 +103,8 @@ Spec нового workload'а **обязан** явно проговорить �
 
 **Harness contract follow-up.** `packages/harness/src/measure.ts` валидирует checksum **только** в warm-samples loop (`module.run(innerIterations)`), не на `run(1)`. Runner-node/web переопределяют `MeasureConfig.innerIterations` из spec'а, если поле объявлено. Loaders для arity-0 noop pattern (`<entry>_counter` companion) **обязаны** возвращать delta. См. `docs/pitfalls/2026-05-23-phase-1-1-1-execution.md` § P1 для full incident write-up.
 
+**Строгое сравнение checksum.** Node и browser runner используют общую проверку `eqChecksum`: конечные числа сравниваются побитово как значения IEEE 754 binary64, включая знак нуля; строки — точно. `NaN` и бесконечности отклоняются. Float-допусков нет, в том числе для `matmul`.
+
 ### Метрики
 
 | Категория | Метрики |

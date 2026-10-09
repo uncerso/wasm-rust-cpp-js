@@ -12,6 +12,7 @@ export default tseslint.config(
             "**/pkg-attr/**",
             "results/**",
             ".tools/**",
+            ".superpowers/**",
             "benches/*/fixtures/**",
             // emscripten output
             "**/glue.mjs",

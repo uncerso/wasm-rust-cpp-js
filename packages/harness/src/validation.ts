@@ -6,18 +6,12 @@ export function f64ChecksumSumAbs(arr: Float64Array): number {
     return s;
 }
 
-const FLOAT_TOLERANCE = 1e-9;
-
 export function eqChecksum(a: number | string, b: number | string): boolean {
-    if (typeof a !== typeof b) {
-        return false;
-    }
     if (typeof a === "number" && typeof b === "number") {
-        if (a === 0 && b === 0) {
-            return true;
+        if (!Number.isFinite(a) || !Number.isFinite(b)) {
+            return false;
         }
-        const denom = Math.max(Math.abs(a), Math.abs(b));
-        return Math.abs(a - b) / denom < FLOAT_TOLERANCE;
     }
-    return a === b;
+    // For finite binary64 values, Object.is also distinguishes +0 from -0.
+    return Object.is(a, b);
 }

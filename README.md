@@ -18,6 +18,7 @@
 - [Структура репозитория](#структура-репозитория)
 - [Документация дизайна](#документация-дизайна)
 - [Guidelines](#guidelines)
+- [Работа с Codex и Claude Code](#работа-с-codex-и-claude-code)
 - [Известные ограничения](#известные-ограничения)
 
 ---
@@ -34,7 +35,7 @@
 - **Quality**: validated checksum, флаг correctnessFailed.
 - **Окружение**: OS/CPU, JS-движок, версии тулчейнов, фичи wasm.
 
-Корректность каждой имплементации фиксируется reference-checksum'ом, который spec.json объявляет per (entry, size). Все имплементации одного entry обязаны выдать **bit-for-bit одинаковый** результат.
+Корректность каждой имплементации фиксируется reference-checksum'ом, который spec.json объявляет per (entry, size). Все имплементации одного entry обязаны выдавать **побитово одинаковый checksum**, включая `matmul`.
 
 Для `matmul` (`||C||₂`, округлённая):
 
@@ -296,6 +297,8 @@ Per-facility байты — **приближённые**: pre-opt символь
 
 Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.json` под `expectedChecksums[entry][size]`. Runner валидирует **warm-loop сэмплы** — `run(innerIterations)` против `expectedChecksum`; несовпадение останавливает кейс с `correctnessFailed: true`. (Первый вызов `run(1)` сам по себе не валидируется, потому что для iter-dependent workloads его checksum — функция innerIterations.)
 
+Числовые checksum сравниваются побитово как значения IEEE 754 binary64, включая знак нуля; допусков нет. Строковые checksum сравниваются точно. `NaN` и бесконечности не проходят проверку.
+
 ---
 
 ## Структура репозитория
@@ -352,7 +355,25 @@ Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.j
 
 ## Guidelines
 
-[`docs/guidelines.md`](./docs/guidelines.md) — actionable рекомендации для продуктовых команд, извлекаемые из накопленных измерений: build-флаги (e.g. `-Oz` для C++ size-sensitive cases), toolchain trade-off'ы, code-паттерны под wasm. Каждая рекомендация привязана к evidence-пути в `results/` или `dist/` и phase'у, в котором появилась. Файл наполняется по мере появления confirmed-выводов из phases (на текущий момент — claims из Phase 1.1.x).
+[`docs/guidelines.md`](./docs/guidelines.md) — actionable рекомендации для продуктовых команд, извлекаемые из накопленных измерений: build-флаги (e.g. `-Oz` для C++ size-sensitive cases), toolchain trade-off'ы, code-паттерны под wasm. Каждая рекомендация привязана к evidence-пути в `results/` или `dist/` и phase'у, в котором появилась. Файл наполняется по мере появления confirmed-выводов из phases.
+
+---
+
+## Работа с Codex и Claude Code
+
+Общие инструкции хранятся в [`AGENTS.md`](./AGENTS.md). `CLAUDE.md` — относительный симлинк на этот файл, поэтому оба клиента читают один текст. Править нужно `AGENTS.md`.
+
+Проектные навыки `iterate`, `backlog-review` и `finish-session` хранятся в [`.agents/skills/`](./.agents/skills/). Каталоги `.claude/skills/<name>` ссылаются на те же навыки. В Codex навык можно выбрать через `$iterate`, в Claude Code — через `/iterate`. Настройки `.claude/settings.json` действуют только в Claude Code.
+
+Запускайте клиент из репозитория. После клонирования должны разрешаться `CLAUDE.md` и ссылки в `.claude/skills/`; Git должен сохранять симлинки (`core.symlinks=true`). Общие навыки разработки, на которые ссылается workflow, должны быть установлены в выбранном клиенте.
+
+Сканирование capture-маркеров из журнала текущей сессии:
+
+```bash
+node scripts/scan-markers.mjs /absolute/path/to/current-session.jsonl
+```
+
+Замените путь на журнал текущей сессии. Сканер поддерживает Claude Code и Codex JSONL. Его тесты входят в `pnpm test`; отдельно — `node --test scripts/scan-markers.test.mjs`.
 
 ---
 
