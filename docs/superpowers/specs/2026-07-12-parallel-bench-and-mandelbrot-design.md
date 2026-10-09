@@ -160,7 +160,7 @@ Slice B **не зависит** от Slice A (mandelbrot собирается/м
 
 - **cpp** — emscripten, wasi-sdk × {speed, size}.
 - **rust** — raw (**`no_std`**, нет alloc), bindgen × {speed, size}.
-- **js** — idiomatic; **typed-array — открытый под-вопрос** (см. ниже) × speed (js только speed, как в остальных workload'ах).
+- **js** — idiomatic × {speed, size}; one scalar implementation, both existing build profiles.
 
 ### JS variant
 
