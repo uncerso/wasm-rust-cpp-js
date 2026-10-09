@@ -12,7 +12,9 @@ When you notice something worth keeping, emit one line inline and keep working:
 
 `<type>` ∈ `{tech-debt, roadmap, guideline-candidate, agent-lesson, pitfall}`. `<slug>` is a kebab-case handle; the note is one line.
 
-Emitting a marker is NOT a round-trip — it costs nothing, persists in the transcript, and never blocks the current task. NEVER stop to write the destination file mid-task. `scripts/scan-markers.mjs` collects every marker at `/finish-session`: one triage pass → batch write by type. This replaces ad-hoc "should I capture this now?" interruptions.
+Emitting a marker is NOT a round-trip — it costs nothing, persists in the transcript, and never blocks the current task. NEVER stop to write the destination file mid-task. `node scripts/scan-markers.mjs <current-transcript.jsonl>` collects assistant markers from Claude Code or Codex JSONL at `/finish-session`: one triage pass → batch write by type. This replaces ad-hoc "should I capture this now?" interruptions.
+
+Pass the current session explicitly. Without an argument, the scanner searches only the newest Claude Code transcript; this is not Codex session discovery. If the current transcript is unavailable, scan the conversation and state any missing-history limit. User quotes and duplicate Codex event records are not captures.
 
 ## Marker types
 

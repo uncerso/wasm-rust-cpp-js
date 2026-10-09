@@ -18,6 +18,7 @@
 - [Структура репозитория](#структура-репозитория)
 - [Документация дизайна](#документация-дизайна)
 - [Guidelines](#guidelines)
+- [Работа с Codex и Claude Code](#работа-с-codex-и-claude-code)
 - [Известные ограничения](#известные-ограничения)
 
 ---
@@ -355,6 +356,24 @@ Reference checksums per (entry, size) зашиты в `benches/<workload>/spec.j
 ## Guidelines
 
 [`docs/guidelines.md`](./docs/guidelines.md) — actionable рекомендации для продуктовых команд, извлекаемые из накопленных измерений: build-флаги (e.g. `-Oz` для C++ size-sensitive cases), toolchain trade-off'ы, code-паттерны под wasm. Каждая рекомендация привязана к evidence-пути в `results/` или `dist/` и phase'у, в котором появилась. Файл наполняется по мере появления confirmed-выводов из phases.
+
+---
+
+## Работа с Codex и Claude Code
+
+Общие инструкции хранятся в [`AGENTS.md`](./AGENTS.md). `CLAUDE.md` — относительный симлинк на этот файл, поэтому оба клиента читают один текст. Править нужно `AGENTS.md`.
+
+Проектные навыки `iterate`, `backlog-review` и `finish-session` хранятся в [`.agents/skills/`](./.agents/skills/). Каталоги `.claude/skills/<name>` ссылаются на те же навыки. В Codex навык можно выбрать через `$iterate`, в Claude Code — через `/iterate`. Настройки `.claude/settings.json` действуют только в Claude Code.
+
+Запускайте клиент из репозитория. После клонирования должны разрешаться `CLAUDE.md` и ссылки в `.claude/skills/`; Git должен сохранять симлинки (`core.symlinks=true`). Общие навыки разработки, на которые ссылается workflow, должны быть установлены в выбранном клиенте.
+
+Сканирование capture-маркеров из журнала текущей сессии:
+
+```bash
+node scripts/scan-markers.mjs /absolute/path/to/current-session.jsonl
+```
+
+Замените путь на журнал текущей сессии. Сканер поддерживает Claude Code и Codex JSONL. Его тесты входят в `pnpm test`; отдельно — `node --test scripts/scan-markers.test.mjs`.
 
 ---
 

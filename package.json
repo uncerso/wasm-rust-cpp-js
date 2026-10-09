@@ -10,7 +10,7 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r --parallel test",
+    "test": "pnpm -r --parallel test && node --test scripts/scan-markers.test.mjs",
     "build:js": "tsx scripts/build-js.ts",
     "build:rust": "tsx scripts/build-rust.ts",
     "build:cpp": "tsx scripts/build-cpp.ts",
