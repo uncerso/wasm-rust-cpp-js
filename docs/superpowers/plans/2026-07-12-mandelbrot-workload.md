@@ -12,6 +12,8 @@
 
 **Tech Stack:** TS (tsx/esbuild), Rust (cargo raw `no_std` + wasm-pack bindgen), C++ (emscripten + wasi-sdk freestanding), zod `SpecSchema`/`BenchResultSchema`.
 
+**Execution status (2026-11-01):** Tasks 1–9 complete. All 81 S/M/L × Node/Chromium/Firefox cases matched exact pins; build, typecheck, lint, 231 tests, 188-case smoke and representative eval cases for all 10 workloads passed. The first smoke failed at Chromium driver startup; isolated diagnostics and one unchanged retry passed. Task 8's importer-only manual lockfile edit was explicitly accepted by the user. Task 10's report visual check and workload documentation are complete; machine-quiet eval and the resulting guideline harvest remain open. The quick report verifies integration, not performance rankings. Local logs/screenshots remain under `.superpowers/sdd/2026-07-12-mandelbrot-workload/`; they are generated evidence, not fresh-checkout inputs.
+
 ## Global Constraints
 
 - **Workload id:** `mandelbrot`. **Entry (exact):** `mandelbrot` (single entry, like matmul). Reset is a **generic no-op** `reset()` (no per-entry `_reset` — matmul precedent; mandelbrot is pure compute with no mutable output state), resolved by `bindReset` via the generic-`reset` fallback.
@@ -1131,7 +1133,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): Rust bindgen crate"
 **Interfaces:**
 - Produces default-export `create(entry: string): BenchModule` (`{ loadInput, run, reset }`). Consumed by the `plain-js` loader via esbuild bundle → `dist/mandelbrot/js-idiomatic-speed/module.js`.
 
-- [ ] **Step 1: `package.json`** (exact content)
+- [x] **Step 1: `package.json`** (exact content)
 
 ```json
 {
@@ -1146,7 +1148,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): Rust bindgen crate"
 }
 ```
 
-- [ ] **Step 2: `tsconfig.json`** (exact content — inherit root strictness; DataView reads need no indexed-access override)
+- [x] **Step 2: `tsconfig.json`** (exact content — inherit root strictness; DataView reads need no indexed-access override)
 
 ```json
 {
@@ -1158,7 +1160,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): Rust bindgen crate"
 }
 ```
 
-- [ ] **Step 3: `src/index.ts`** (exact content — escape/grid inlined but expression-identical to `reference.ts`; scalar accumulator)
+- [x] **Step 3: `src/index.ts`** (exact content — escape/grid inlined but expression-identical to `reference.ts`; scalar accumulator)
 
 ```ts
 // Idiomatic JS mandelbrot: escape-time over a fixed complex region, scalar
@@ -1232,7 +1234,7 @@ export default function create(entry: string): BenchModule {
 }
 ```
 
-- [ ] **Step 4: `validate/parity.test.ts`** (GATE — idiomatic ≡ reference on a small grid; catches expression drift before the full matrix. Placed in `validate/` so the root `tsconfig.json` `benches/*/validate/**` include gives ESLint's projectService a typed project — the landed convention for cross-impl tests)
+- [x] **Step 4: `validate/parity.test.ts`** (GATE — idiomatic ≡ reference on a small grid; catches expression drift before the full matrix. Placed in `validate/` so the root `tsconfig.json` `benches/*/validate/**` include gives ESLint's projectService a typed project — the landed convention for cross-impl tests)
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -1266,12 +1268,12 @@ describe("mandelbrot JS parity", () => {
 });
 ```
 
-- [ ] **Step 5: Run parity test — expect PASS**
+- [x] **Step 5: Run parity test — expect PASS**
 
 Run (sandboxed OK): `pnpm exec vitest run --config vitest.root.config.ts benches/mandelbrot/validate/parity.test.ts`.
 Expected: 1 passing. A failure → the idiomatic escape/grid expressions drifted from `reference.ts`; diff char-by-char and fix (retry ≤2). Do NOT change the reference to match the impl.
 
-- [ ] **Step 6: Typecheck + build + validate**
+- [x] **Step 6: Typecheck + build + validate**
 
 Run: `pnpm typecheck` (sandboxed — typechecks the idiomatic package). Then (the active client permission mechanism when sandboxed IPC is blocked) `pnpm build:js mandelbrot`, then node-validate js/idiomatic × S:
 
@@ -1283,7 +1285,7 @@ pnpm exec tsx apps/runner-node/src/main.ts \
 ```
 Expected: `dist/mandelbrot/js-idiomatic-speed/module.js`; `checksum == <CKSUM_S>`; `correctnessFailed=false`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add benches/mandelbrot/js/ benches/mandelbrot/validate/parity.test.ts
@@ -1298,7 +1300,7 @@ git commit --no-gpg-sign -m "feat(mandelbrot): JS idiomatic + cross-impl parity 
 
 **Files:** none (verification).
 
-- [ ] **Step 1: Full node-correctness matrix**
+- [x] **Step 1: Full node-correctness matrix**
 
 Run (the active client permission mechanism when sandboxed IPC is blocked): the node correctness sweep for `mandelbrot` across all binaries × entry × S/M/L × Node/Chromium/Firefox (quick mode):
 
@@ -1307,12 +1309,12 @@ pnpm bench --benchmarks=mandelbrot --envs=node,chromium,firefox --sizes=S,M,L --
 ```
 Expected: every combo (js-idiomatic + rust-{raw,bindgen} + cpp-{emscripten,wasi-sdk}, both profiles) writes a result with `correctnessFailed=false` and its exact size-specific checksum; `results/raw/mandelbrot-matrix/failures.txt` absent/empty. Any divergence → parity break-check (STOP + surface).
 
-- [ ] **Step 2: All-gates pre-flight**
+- [x] **Step 2: All-gates pre-flight**
 
 Run: `pnpm build:all && pnpm typecheck && pnpm lint:all && pnpm test && pnpm smoke` (`build:all` + `smoke` with the active client permission mechanism when sandboxed IPC is blocked; run the sandbox-safe `typecheck`/`lint:all`/`test` separately if convenient). Read the producer exit status via `${pipestatus[1]}` (zsh) — do not trust a piped `$?`.
 Expected: all green. `pnpm test` includes reference and parity tests through `vitest.root.config.ts`; do not duplicate an unchanged passing run. Run gates serially when CPU contention could trip the existing sorted-map test timeout.
 
-- [ ] **Step 3: Commit (if any lint/format touch-ups)**
+- [x] **Step 3: Commit (if any lint/format touch-ups)**
 
 ```bash
 git add -A
@@ -1332,18 +1334,16 @@ git commit --no-gpg-sign -m "chore(mandelbrot): gate fixes" || echo "nothing to 
 
 - [ ] **Step 1: Heavy bench (USER ACTION)** — `bench:all` is a heavy, machine-quiet run. Hand off: **user** runs `pnpm bench:all` (or a mandelbrot-scoped `pnpm bench --benchmarks=mandelbrot --envs=node,chromium,firefox --sizes=S,M,L --mode=eval --out=results/raw/<run>` + `pnpm report`) per `README.md`. Agent waits for the fresh `results/`.
 
-- [ ] **Step 2: Reporter eyeball (visual deliverable check)** — `pnpm report` → open. Confirm `mandelbrot` appears on the Size bar (8 wasm combinations + 1 JS speed profile) and in the Perf tab as a single-entry compute workload (like matmul: `mandelbrot` × impl × env), bars scale sanely, no stale strings. (Reporter auto-discovers — no reporter code changes needed.)
+- [x] **Step 2: Reporter eyeball (visual deliverable check)** — `pnpm report` → open. Confirm `mandelbrot` appears on the Size bar (8 wasm combinations + 1 JS speed profile) and in the Perf tab as a single-entry compute workload (like matmul: `mandelbrot` × impl × env), bars scale sanely, no stale strings. (Reporter auto-discovers — no reporter code changes needed.)
 
 - [ ] **Step 3: Guidelines harvest** — from the numbers, add a claim to `docs/guidelines.md` **only if confirmed** (reproducible across ≥2 sizes; format per the file's `## Format` header — `**Status:** confirmed | tentative`, `**Evidence:**`, `**Phase:**`, `**Caveats:**`). Candidate claims:
   - (a) **toolchain ranking for this iterative f64 workload** → bucket `## Toolchain choice`. Evidence: `results/raw/<run>` mandelbrot warmMedian per (toolchain, size). This is the cleanest compute-only signal in the suite (no container/marshalling confound); note whether the ranking agrees with or diverges from matmul (which also has a light marshalling/output-write component).
   - (b) **size-floor of pure-compute `no_std` rust/raw** → bucket `## Artifact size`. Evidence: saved `BenchResult.artifacts` for `mandelbrot/rust-raw-size` vs the std-container floors (`sorted_map_int`/`hashmap_int` rust-raw-size). mandelbrot/raw has no allocator, no `std::collections` — the measured size of this workload; not a universal lower bound.
   Write nothing for a single-run anecdote; mark `tentative` if only one size is clean.
 
-- [ ] **Step 4: Roadmap update** — in `docs/roadmap.md`, edit the `academic-algos` item to reflect mandelbrot shipped:
-  - old: `- **academic-algos** — sort, parsing, mandelbrot, hash ([→ design spec § Открытые вопросы]...)`
-  - new: `- **academic-algos** — sort, parsing, hash (mandelbrot shipped Phase 1.2) ([→ design spec § Открытые вопросы]...)`
+- [x] **Step 4: Roadmap update** — remove `mandelbrot` from the deferred `academic-algos` list, following the roadmap's removal convention. Its implementation is complete; the measurement and guideline work remains tracked in this plan.
 
-- [ ] **Step 5: AGENTS.md workload list** — add `mandelbrot` to the Current-workloads line:
+- [x] **Step 5: AGENTS.md workload list** — add `mandelbrot` to the Current-workloads line:
   - old: `Current: \`matmul\`, \`interop_calls\`,`
   - new: `Current: \`matmul\`, \`mandelbrot\`, \`interop_calls\`,`
 
