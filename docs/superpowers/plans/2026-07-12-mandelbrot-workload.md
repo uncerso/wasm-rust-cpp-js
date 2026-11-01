@@ -12,7 +12,7 @@
 
 **Tech Stack:** TS (tsx/esbuild), Rust (cargo raw `no_std` + wasm-pack bindgen), C++ (emscripten + wasi-sdk freestanding), zod `SpecSchema`/`BenchResultSchema`.
 
-**Execution status (2026-11-01):** Tasks 1–9 complete. All 81 S/M/L × Node/Chromium/Firefox cases matched exact pins; build, typecheck, lint, 231 tests, 188-case smoke and representative eval cases for all 10 workloads passed. The first smoke failed at Chromium driver startup; isolated diagnostics and one unchanged retry passed. Task 8's importer-only manual lockfile edit was explicitly accepted by the user. Task 10's report visual check and workload documentation are complete; machine-quiet eval and the resulting guideline harvest remain open. The quick report verifies integration, not performance rankings. Local logs/screenshots remain under `.superpowers/sdd/2026-07-12-mandelbrot-workload/`; they are generated evidence, not fresh-checkout inputs.
+**Execution status (2026-11-01):** Tasks 1–10 executed. Build, typecheck, lint, 231 tests, 188-case smoke and representative eval cases for all 10 workloads passed. The user supplied `results/raw/mandelbrot-eval-20261101/`: all 81 cases matched exact S/M/L pins, each collected 30 samples, and every quality flag passed (`relSem` ≤ 1.99%). The eval report was generated and visually checked; two bounded findings were added to `docs/guidelines.md`. No stable Rust/C++ ranking or comparison with matmul M/L is claimed from this single run. Whole-change review found no Critical/Important defects; two minor C++ policy findings remain disclosed. The initial reference RED deviation and the first Chromium startup failure remain recorded; an unchanged smoke retry passed. The user accepted Task 8's importer-only manual lockfile edit. Push, PR and merge remain user actions. Local logs/screenshots under `.superpowers/sdd/2026-07-12-mandelbrot-workload/` are retained generated evidence, not fresh-checkout inputs.
 
 ## Global Constraints
 
@@ -1332,11 +1332,11 @@ git commit --no-gpg-sign -m "chore(mandelbrot): gate fixes" || echo "nothing to 
 - Modify: `docs/roadmap.md` (mark mandelbrot shipped under `academic-algos`)
 - Modify: `AGENTS.md` (workload list)
 
-- [ ] **Step 1: Heavy bench (USER ACTION)** — `bench:all` is a heavy, machine-quiet run. Hand off: **user** runs `pnpm bench:all` (or a mandelbrot-scoped `pnpm bench --benchmarks=mandelbrot --envs=node,chromium,firefox --sizes=S,M,L --mode=eval --out=results/raw/<run>` + `pnpm report`) per `README.md`. Agent waits for the fresh `results/`.
+- [x] **Step 1: Heavy bench (USER ACTION)** — `bench:all` is a heavy, machine-quiet run. Hand off: **user** runs `pnpm bench:all` (or a mandelbrot-scoped `pnpm bench --benchmarks=mandelbrot --envs=node,chromium,firefox --sizes=S,M,L --mode=eval --out=results/raw/<run>` + `pnpm report`) per `README.md`. Agent waits for the fresh `results/`.
 
 - [x] **Step 2: Reporter eyeball (visual deliverable check)** — `pnpm report` → open. Confirm `mandelbrot` appears on the Size bar (8 wasm combinations + 1 JS speed profile) and in the Perf tab as a single-entry compute workload (like matmul: `mandelbrot` × impl × env), bars scale sanely, no stale strings. (Reporter auto-discovers — no reporter code changes needed.)
 
-- [ ] **Step 3: Guidelines harvest** — from the numbers, add a claim to `docs/guidelines.md` **only if confirmed** (reproducible across ≥2 sizes; format per the file's `## Format` header — `**Status:** confirmed | tentative`, `**Evidence:**`, `**Phase:**`, `**Caveats:**`). Candidate claims:
+- [x] **Step 3: Guidelines harvest** — from the numbers, add a claim to `docs/guidelines.md` **only if confirmed** (reproducible across ≥2 sizes; format per the file's `## Format` header — `**Status:** confirmed | tentative`, `**Evidence:**`, `**Phase:**`, `**Caveats:**`). Candidate claims:
   - (a) **toolchain ranking for this iterative f64 workload** → bucket `## Toolchain choice`. Evidence: `results/raw/<run>` mandelbrot warmMedian per (toolchain, size). This is the cleanest compute-only signal in the suite (no container/marshalling confound); note whether the ranking agrees with or diverges from matmul (which also has a light marshalling/output-write component).
   - (b) **size-floor of pure-compute `no_std` rust/raw** → bucket `## Artifact size`. Evidence: saved `BenchResult.artifacts` for `mandelbrot/rust-raw-size` vs the std-container floors (`sorted_map_int`/`hashmap_int` rust-raw-size). mandelbrot/raw has no allocator, no `std::collections` — the measured size of this workload; not a universal lower bound.
   Write nothing for a single-run anecdote; mark `tentative` if only one size is clean.
@@ -1347,7 +1347,7 @@ git commit --no-gpg-sign -m "chore(mandelbrot): gate fixes" || echo "nothing to 
   - old: `Current: \`matmul\`, \`interop_calls\`,`
   - new: `Current: \`matmul\`, \`mandelbrot\`, \`interop_calls\`,`
 
-- [ ] **Step 6: Commit + PR prep**
+- [x] **Step 6: Commit + PR prep**
 
 ```bash
 git add docs/guidelines.md docs/roadmap.md AGENTS.md

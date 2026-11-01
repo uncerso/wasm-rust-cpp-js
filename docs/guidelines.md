@@ -84,6 +84,21 @@ Size (raw wasm, speed profile, включение `wasm-opt -O3`) — все 32 
 
 ## Artifact size
 
+### Оценивай размер скалярного ядра без аллокаций отдельно от контейнерных workloads
+**Status:** confirmed
+**Evidence:** `BenchResult.artifacts` из `results/raw/mandelbrot-eval-20261101/` и прогона `_smoke` от 2026-11-01 (`hashmap_int_lookup__rust-raw-size__S__node.json`, `sorted_map_int_lookup__rust-raw-size__S__node.json`). Rust raw, профиль size, после wasm-opt; размеры в байтах:
+
+| Workload | Код и зависимости | wasm raw | wasm gzip |
+|---|---|---:|---:|
+| mandelbrot | `no_std`, фиксированный буфер ввода, без аллокатора | 609 | 440 |
+| hashmap_int | `std::collections::HashMap`, аллокатор | 16 188 | 7 813 |
+| sorted_map_int | `std::collections::BTreeMap`, аллокатор | 16 624 | 7 587 |
+
+У `mandelbrot/rust-raw/size` нет JS-glue, поэтому передаваемый gzip-артефакт также занимает 440 байт. Его wasm одинаков для S/M/L: меняются только параметры фикстуры. Эти числа дают измеренный ориентир для небольшого вычислительного модуля с прямыми экспортами.
+
+**Phase:** introduced 1.2 (Mandelbrot, 2026-11-01)
+**Caveats:** Это размеры трёх конкретных workloads при закреплённых версиях инструментов, а не универсальный нижний предел wasm. Разница между строками включает алгоритм и зависимости; она не изолирует стоимость `std` или аллокатора. Общий host-loader и время выполнения в размере артефакта не учитываются. Для изолированной стоимости компонентов см. контролируемый дифференциал ниже.
+
 > **Заметка (build-hygiene, 2026-07-04):** с этой даты `wasm-opt` гоняется на обоих профилях у всех явно-эмитящих wasm тулчейнов (см. claim в § Build flags). Две size-байт-таблицы, где speed-числа сдвинулись (no-glue transfer выше, monomorphization ниже), **пересчитаны** на прогон 2026-07-04. Size-профиль в остальных claim'ах: rust без изменений (уже `-Oz`), cpp/wasi-sdk −0.7…−2.3% (один явный `-Oz` вместо driver+double), emscripten без изменений — в пределах order-of-magnitude-оговорок этих claim'ов. Perf-claim'ы (§ Toolchain choice) не затронуты: perf-сдвиг тонет в run-to-run шуме. **Направления и выводы всех claim'ов сохраняются.**
 >
 > **Заметка (bindgen-size opt-level, 2026-07-07):** rust/bindgen **size**-артефакты ре-бейзлайнены — codegen выровнен на `opt-level=z` (было `-O3`; см. claim в § Build flags). Затронутые bindgen size-числа обновлены здесь (no-glue transfer, floor-композиция) и в § Code patterns (monomorphization); rust/raw + cpp + все speed-числа не менялись. Perf-claim'ы не затронуты (size-axis-only change). **Направления и выводы всех claim'ов сохраняются.**
@@ -202,6 +217,24 @@ Held-constant дифференциал (та же фикстура, меняет
 C++: libc++ `unordered_map` тянет hashing + bucket-инфру, которой нет у RB-tree `std::map` → ordered ощутимо меньше. Rust: `BTreeMap` vs `HashMap` (SipHash/`RandomState`) ≈ нейтрально — tree-код компенсирует срезанную hash-machinery. JS: sorted-array+binary-search bundle чуть больше `Map`-bundle'а, но обе ~0.1 KB (движок в артефакт не едет).
 
 ## Toolchain choice
+
+### Проверяй выгоду wasm для скалярного f64 на целевом JS-движке
+**Status:** confirmed
+**Evidence:** `results/raw/mandelbrot-eval-20261101/`, последовательные Node/Chromium/Firefox, профиль speed, M/L. Warm median одного вызова `run(1)`, мс:
+
+| Окружение | Размер | JS idiomatic | Rust raw | Rust bindgen | C++ Emscripten | C++ WASI |
+|---|---|---:|---:|---:|---:|---:|
+| Node | M | 61.957 | 60.800 | 73.365 | 61.119 | 60.166 |
+| Node | L | 497.820 | 484.551 | 483.545 | 487.411 | 486.843 |
+| Chromium | M | 63.102 | 60.117 | 61.435 | 60.060 | 60.803 |
+| Chromium | L | 491.178 | 483.598 | 488.955 | 481.565 | 481.812 |
+| Firefox | M | 80.180 | 63.960 | 60.770 | 76.320 | 61.640 |
+| Firefox | L | 649.760 | 497.940 | 482.310 | 497.860 | 495.220 |
+
+На V8 время JS превышает время самой быстрой wasm-сборки примерно на 2–5% для M/L; на Firefox — на 32–35%. У всех 81 кейса этого eval-прогона checksum совпал, собрано по 30 сэмплов, `relSem` ≤ 1.99%, `meanImprecise=false`, `subResolution=false`.
+
+**Phase:** introduced 1.2 (Mandelbrot, 2026-11-01)
+**Caveats:** Вывод относится к этому скалярному escape-time циклу и версиям Node 22.22.3, Chromium 148, Firefox 150 на macOS arm64; модель CPU в результатах не записана. Это не измерение универсальных FLOPS и не устойчивый рейтинг Rust/C++: на M отдельно выделяются Rust bindgen в Node и Emscripten в Firefox. Межпрогонный разброс не измерен; низкий `relSem` внутри кейса его не заменяет. Несколько процентов на V8 недостаточны для выбора тулчейна по одному прогону. Сопоставимого eval-прогона matmul на M/L здесь нет, поэтому сравнение его рейтинга с Mandelbrot остаётся открытым.
 
 ### На V8 runtimes (Node + Chromium) для u64-keyed hashmap'ов выбирай `rust/bindgen` (std HashMap); для string-keyed выбирай `js Map` — кросс-toolchain профайл инвертируется на key type
 **Status:** confirmed
