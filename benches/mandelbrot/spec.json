@@ -1,0 +1,68 @@
+{
+    "id": "mandelbrot",
+    "version": 2,
+    "description": "Escape-time Mandelbrot over the fixed region [-2.5,1.0]x[-1.25,1.25]. One entry `mandelbrot`: for each of dims_x*dims_y grid points, iterate z=z^2+c until |z|^2>4 or max_iter; checksum = sum of escape-iteration-counts (exact integer). Pure f64 compute \u2014 no allocation, no hot-path marshalling \u2014 isolates raw FLOP throughput and the no_std size floor. Run params (region, dims, max_iter) live in the fixture, not random data.",
+    "entries": [
+        "mandelbrot"
+    ],
+    "inputSizes": {
+        "S": {
+            "fixtureBytes": 56,
+            "fixtureSha256": "ab7668fe603ab02397251cee46ef2c29fd0d0b7fb4f6edade0fb77d21c286e5c",
+            "dimsX": 280,
+            "dimsY": 200,
+            "maxIter": 200
+        },
+        "M": {
+            "fixtureBytes": 56,
+            "fixtureSha256": "b5ae854d0f10f3472dadc4e5b82b3dbf2d5c4cdaab352b6a2fa54fdd402e3830",
+            "dimsX": 700,
+            "dimsY": 500,
+            "maxIter": 500
+        },
+        "L": {
+            "fixtureBytes": 56,
+            "fixtureSha256": "968c76753d1e73fec1037198330d3ebd051091c33ebf5df5711c7bea58ec708e",
+            "dimsX": 1400,
+            "dimsY": 1000,
+            "maxIter": 1000
+        }
+    },
+    "expectedChecksums": {
+        "mandelbrot": {
+            "S": 2190038,
+            "M": 31887455,
+            "L": 248487617
+        }
+    },
+    "supported": {
+        "languages": [
+            "js",
+            "rust",
+            "cpp"
+        ],
+        "toolchains": {
+            "js": [
+                "idiomatic"
+            ],
+            "rust": [
+                "raw",
+                "bindgen"
+            ],
+            "cpp": [
+                "emscripten",
+                "wasi-sdk"
+            ]
+        },
+        "profiles": [
+            "speed",
+            "size"
+        ]
+    },
+    "ioContract": {
+        "fixtureLayout": "7 little-endian f64 (56 bytes): [minX, maxX, minY, maxY, dimsX, dimsY, maxIter]. dims/maxIter are integer-valued f64. Same byte layout across all sizes; only the values differ.",
+        "outputLayout": "Single scalar checksum = sum over all dims_x*dims_y grid points of the escape-iteration count (exact integer < 2^53).",
+        "iterSemantics": "iter-independent: run(iters) renders the full grid `iters` times and returns the invariant per-grid checksum. innerIterations omitted -> default 1 (one run() = one full grid render), matching matmul.",
+        "algorithm": "step_x=(maxX-minX)/dimsX; step_y=(maxY-minY)/dimsY. For py in [0,dimsY): cy=minY+py*step_y. For px in [0,dimsX): cx=minX+px*step_x; acc+=escape(cx,cy,maxIter). escape: zx=zy=0; iter=0; while iter<maxIter { zx2=zx*zx; zy2=zy*zy; if zx2+zy2>4.0 break; zy=2.0*zx*zy+cy; zx=zx2-zy2+cx; iter++ }; return iter. Operation order fixed by validate/reference.ts; every toolchain copies it verbatim (no -ffast-math; wasm has no scalar FMA -> no contraction)."
+    }
+}

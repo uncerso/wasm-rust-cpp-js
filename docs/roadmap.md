@@ -33,7 +33,7 @@ Source of truth для conventions — этот файл. `/backlog-review` ве
 ### Workload expansion
 - **hashmap-raw-shared-crate** — DRY raw+bindgen hashmap logic into a shared crate per binary; adopt only if measurement shows unification does NOT regress size/perf (currently duplicated to keep variants isolated). ([→ spec § Scope](superpowers/specs/2026-06-13-hashmap-stdlib-no-glue-design.md))
 - **stdlib-containers** — vector, string, set ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
-- **academic-algos** — sort, parsing, mandelbrot, hash ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
+- **academic-algos** — sort, parsing, hash ([→ design spec § Открытые вопросы](superpowers/specs/2026-05-01-wasm-benchmarks-design.md))
 
 ### Correctness & C++ tooling
 - **clang-tidy-cpp** — C++ linter не настроен (ESLint для TS + clippy для Rust есть, C++ нет). Добавить clang-tidy config для `benches/*/cpp/src/*.cpp` + integration в `lint:all` для паритета toolchain-дисциплины.

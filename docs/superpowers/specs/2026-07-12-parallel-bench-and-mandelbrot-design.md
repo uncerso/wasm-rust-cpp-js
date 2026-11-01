@@ -1,6 +1,6 @@
 # Phase 1.2 — parallel-bench-execution + mandelbrot workload — design
 
-**Status:** ready for implementation plans
+**Status:** Slice A merged; Slice B implementation authorized 2026-10-09
 **Date:** 2026-07-12
 **Branches:** `feature/phase-1.2-parallel-bench` (Slice A) → merge → `feature/phase-1.2-mandelbrot` (Slice B)
 **Refines roadmap:** `parallel-bench-execution` (TBD → Slice A), `academic-algos` (§ Workload expansion → Slice B, mandelbrot ветка) ([→ roadmap](../../roadmap.md))
@@ -146,7 +146,7 @@ Slice B **не зависит** от Slice A (mandelbrot собирается/м
 
 - **Вычисление:** для сетки dims_x × dims_y точек в фиксированном регионе комплексной плоскости — итерировать `z ← z² + c` пока `|z|² > 4` или до `max_iter`; аккумулировать счётчик итераций. Регион фиксирован и подобран так, чтобы escape-распределение было нетривиальным (не «всё убежало» / «всё осталось») — напр. классический `[-2.5, 1] × [-1.25, 1.25]` или zoom вокруг `(-0.75, 0)`.
 - **Checksum:** сумма iteration-counts (целых) по всем точкам — детерминированное число. Ложится в текущую checksum-модель (`number | string`).
-- **Cross-toolchain checksum-паритет (критично).** Iteration-count пограничного пикселя зависит от округления `zx²+zy²` при сравнении с `4.0`. Паритет держится, если: (1) **идентичный порядок операций** во всех 6 impl (reference-validator задаёт канонический порядок — все копируют его выражения буквально); (2) **FP-safe build-флаги** как у matmul (без `-ffast-math`/reassociation — matmul уже решил cross-toolchain float-sum-детерминизм, наследуем его флаги). Стандартный wasm **не имеет скалярного FMA** → контракции `a*b+c` не происходит на wasm-таргете независимо от `-ffp-contract`, так что реальный риск — только reassociation от fast-math (matmul-флаги его исключают). Parity-gate (validate/) ловит расхождение на S до полной матрицы.
+- **Cross-toolchain checksum-паритет (критично).** Iteration-count пограничного пикселя зависит от округления `zx²+zy²` при сравнении с `4.0`. Паритет держится, если: (1) **идентичный порядок операций** во всех 5 реализаций (reference-validator задаёт канонический порядок — все копируют его выражения буквально); (2) **FP-safe build-флаги** как у matmul (без `-ffast-math`/reassociation — matmul уже решил cross-toolchain float-sum-детерминизм, наследуем его флаги). Стандартный wasm **не имеет скалярного FMA** → контракции `a*b+c` не происходит на wasm-таргете независимо от `-ffp-contract`, так что реальный риск — только reassociation от fast-math (matmul-флаги его исключают). Parity-gate (validate/) ловит расхождение на S до полной матрицы.
 - **Fixture:** кодирует параметры прогона (регион bounds, dims_x, dims_y, max_iter). S/M/L масштабируют `dims × max_iter` так, чтобы L ≈ сотни мс/сэмпл (порядок matmul L). Генератор — `benches/mandelbrot/fixtures/generate.ts` (детерминированный; параметры, не случайные данные — `mulberry32` не нужен).
 
 ### Entry
@@ -160,17 +160,17 @@ Slice B **не зависит** от Slice A (mandelbrot собирается/м
 
 - **cpp** — emscripten, wasi-sdk × {speed, size}.
 - **rust** — raw (**`no_std`**, нет alloc), bindgen × {speed, size}.
-- **js** — idiomatic; **typed-array — открытый под-вопрос** (см. ниже) × speed (js только speed, как в остальных workload'ах).
+- **js** — idiomatic × speed; the JS builder and runner omit the duplicate size profile.
 
-### js typed-array вариант — открытый под-вопрос
+### JS variant
 
-mandelbrot не маршалит входной массив (вход — параметры), выход — единственный checksum. Значит typed-array отличается от idiomatic только если использует typed scratch (напр. `Uint32Array` строки под iteration-counts перед суммированием). Решение в плане: **склоняюсь оставить оба** для parity матрицы (typed-array пишет счётчики в `Uint32Array` scratch, idiomatic — скалярный аккумулятор), НО если варианты выйдут байт-в-байт идентичны по смыслу — оставить только idiomatic и объявить это в `spec.json.supported`. Проверяется при написании js-кода.
+The implementation plan selects idiomatic JS only: the input is seven scalar parameters and the output one scalar checksum. A typed scratch buffer would add unrelated memory work. The JS builder and runner retain only speed (9 binaries total including 8 wasm binaries).
 
 ### Validation
 
 - `benches/mandelbrot/validate/` — reference TS считает expected checksums per size.
 - Пиннинг в `spec.json` (v2: `entries: string[]` + `expectedChecksums`).
-- Parity-gate: idiomatic ≡ typed-array ≡ reference (в `validate/`, по eslint project-service конвенции — тест в `validate/`, не в корне bench'а; tech-debt `benches-tests-not-in-gate`).
+- Parity-gate: idiomatic ≡ reference in `validate/`, included in standard `pnpm test`. Verify exact S/M/L checksums through all five implementations and Node/Chromium/Firefox; no float tolerance.
 
 ### Guidelines (Slice B)
 
@@ -180,7 +180,7 @@ mandelbrot не маршалит входной массив (вход — па�
 ### Files (Slice B)
 
 Новый каталог `benches/mandelbrot/` по образцу `benches/matmul/`:
-`spec.json`, `fixtures/generate.ts`, `validate/`, `js/{idiomatic,typed-array}/`, `rust/{raw,bindgen}/`, `cpp/` (`*.cpp` + `build-emscripten.sh` + `build-wasi-sdk.sh`). Discovery авто­матический (`glob("benches/*/spec.json")`). CLAUDE.md § workload-list += `mandelbrot`.
+`spec.json`, `fixtures/generate.ts`, `validate/`, `js/idiomatic/`, `rust/{raw,bindgen}/`, `cpp/` (`*.cpp` + `build-emscripten.sh` + `build-wasi-sdk.sh`). Discovery авто­матический (`glob("benches/*/spec.json")`). AGENTS.md § workload-list += `mandelbrot`.
 
 ### Out of scope (Slice B)
 
